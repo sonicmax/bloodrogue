@@ -195,93 +195,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         calculateGridSize();
     }
 
-    /*
-    ---------------------------------------------
-     Precalculations, caching, etc
-    ---------------------------------------------
-    */
-
-    private void setupMatrixes() {
-        // Setup our screen width and height for normal sprite translation.
-        Matrix.orthoM(mProjMatrix, 0, 0f, mWidth, 0.0f, mHeight, 0, 50);
-
-        // Set the camera position (View matrix)
-        Matrix.setLookAtM(mVMatrix, 0,
-                0f, 0f, 1f,
-                0f, 0f, 0f,
-                0f, 1.0f, 0.0f);
-
-        // Calculate the projection and view transformation
-        Matrix.multiplyMM(mMVPMatrix, 0, mProjMatrix, 0, mVMatrix, 0);
-    }
-
-    private void scaleScreen() {
-        // Desired resolution is 320x480 (or 480x320 in landscape)
-
-        if (mWidth > mHeight) {
-            resX = mWidth / 480f;
-            resY = mHeight / 320f;
-        }
-        else {
-            resX = mWidth / 320f;
-            resY = mHeight / 480f;
-        }
-
-        if (resX > resY) {
-            ssu = resY;
-        }
-
-        else {
-            ssu = resX;
-        }
-    }
-
-    private void calculateScroll() {
-        oldOffsetX = mScrollOffset.x();
-        oldOffsetY = mScrollOffset.y();
-        mScrollOffset = calculateScrollOffset();
-
-        mScrollFrameCount = frameCount / 3;
-
-        // Divide difference by sprite size to find amount that should be scrolled each frame
-        mScrollIntervalX = (oldOffsetX - mScrollOffset.x()) / mScrollFrameCount;
-        mScrollIntervalY = (oldOffsetY - mScrollOffset.y()) / mScrollFrameCount;
-
-        // Log.v(LOG_TAG, "difference: " + (oldOffsetX - mScrollOffset.x()) + ", " + (oldOffsetY - mScrollOffset.y()));
-    }
-
-    public void calculateFps(long dt) {
-        currentFrameTime += dt;
-        frameCount++;
-
-        if (currentFrameTime >= 1000) {
-            mFps = frameCount;
-            currentFrameTime = 0;
-            frameCount = 0;
-        }
-    }
-
-    private void prepareText() {
-        // Create our text manager
-        mTextManager = new TextManager();
-        mTextManager.setShaderProgramHandle(mSpriteShaderProgram);
-        mTextManager.setTextureID(mSprites.get("fonts/font.png"));
-        // mTextManager.setTextureID(mSprites.get("fonts/font.png"));
-
-        // Pass the uniform scale
-        mTextManager.setUniformscale(ssu);
-    }
-
-    private void prepareSpriteSheets() {
-        mSpriteSheetManager = new SpriteSheetRenderer();
-        // mSpriteSheetManager.precalculatePositions();
-        mSpriteSheetManager.setShaderProgramHandle(mSpriteShaderProgram);
-        mSpriteSheetManager.setSpriteSheetHandle(mSprites.get("sprite_sheets/sheet.png"));
-        mSpriteSheetManager.setUniformscale(ssu);
-        mSpriteSheetManager.precalculatePositions(tilesX, tilesY);
-        mSpriteSheetManager.precalculateUv(mSpriteIndexes.size());
-    }
-
     private void prepareGLSurface() {
         GLES20.glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
         GLES20.glEnable(GLES20.GL_BLEND);
@@ -302,28 +215,11 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         // GLES20.glCullFace(GL10.GL_FRONT);
     }
 
-    private void calculateGridSize() {
-        int width = ScreenSizeGetter.getWidth();
-        int height = ScreenSizeGetter.getHeight();
-
-        float spriteSize = SPRITE_SIZE * mZoom * ssu;
-
-        double xInterval = width / spriteSize;
-        double yInterval = height / spriteSize;
-
-        tilesX = (int) xInterval;
-        tilesY = (int) yInterval;
-
-        Log.v(LOG_TAG, "grid: " + tilesX + ", " + tilesY);
-
-        if (tilesX > 10) {
-            xInterval = width / (spriteSize * 2);
-            yInterval = height / (spriteSize * 2);
-
-            tilesX = (int) xInterval;
-            tilesY = (int) yInterval;
-        }
-    }
+    /*
+    ---------------------------------------------
+      Resource loading and preparation
+    ---------------------------------------------
+    */
 
     private void loadImages() {
         mSpriteIndexes = new HashMap<>();
@@ -380,6 +276,104 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
     }
 
+    private void prepareSpriteSheets() {
+        mSpriteSheetManager = new SpriteSheetRenderer();
+        // mSpriteSheetManager.precalculatePositions();
+        mSpriteSheetManager.setShaderProgramHandle(mSpriteShaderProgram);
+        mSpriteSheetManager.setSpriteSheetHandle(mSprites.get("sprite_sheets/sheet.png"));
+        mSpriteSheetManager.setUniformscale(ssu);
+        mSpriteSheetManager.precalculatePositions(tilesX, tilesY);
+        mSpriteSheetManager.precalculateUv(mSpriteIndexes.size());
+    }
+
+    private void prepareText() {
+        // Create our text manager
+        mTextManager = new TextManager();
+        mTextManager.setShaderProgramHandle(mSpriteShaderProgram);
+        mTextManager.setTextureID(mSprites.get("fonts/font.png"));
+        // mTextManager.setTextureID(mSprites.get("fonts/font.png"));
+
+        // Pass the uniform scale
+        mTextManager.setUniformscale(ssu);
+    }
+
+
+    /*
+    ---------------------------------------------
+      Scaling and scrolling
+    ---------------------------------------------
+    */
+
+    private void setupMatrixes() {
+        // Setup our screen width and height for normal sprite translation.
+        Matrix.orthoM(mProjMatrix, 0, 0f, mWidth, 0.0f, mHeight, 0, 50);
+
+        // Set the camera position (View matrix)
+        Matrix.setLookAtM(mVMatrix, 0,
+                0f, 0f, 1f,
+                0f, 0f, 0f,
+                0f, 1.0f, 0.0f);
+
+        // Calculate the projection and view transformation
+        Matrix.multiplyMM(mMVPMatrix, 0, mProjMatrix, 0, mVMatrix, 0);
+    }
+
+    private void scaleScreen() {
+        // Desired resolution is 320x480 (or 480x320 in landscape)
+
+        if (mWidth > mHeight) {
+            resX = mWidth / 480f;
+            resY = mHeight / 320f;
+        }
+        else {
+            resX = mWidth / 320f;
+            resY = mHeight / 480f;
+        }
+
+        if (resX > resY) {
+            ssu = resY;
+        }
+
+        else {
+            ssu = resX;
+        }
+    }
+
+    private void calculateScroll() {
+        oldOffsetX = mScrollOffset.x();
+        oldOffsetY = mScrollOffset.y();
+        mScrollOffset = calculateScrollOffset();
+
+        mScrollFrameCount = frameCount / 3;
+
+        // Divide difference by sprite size to find amount that should be scrolled each frame
+        mScrollIntervalX = (oldOffsetX - mScrollOffset.x()) / mScrollFrameCount;
+        mScrollIntervalY = (oldOffsetY - mScrollOffset.y()) / mScrollFrameCount;
+
+        // Log.v(LOG_TAG, "difference: " + (oldOffsetX - mScrollOffset.x()) + ", " + (oldOffsetY - mScrollOffset.y()));
+    }
+
+    private void calculateGridSize() {
+        int width = ScreenSizeGetter.getWidth();
+        int height = ScreenSizeGetter.getHeight();
+
+        float spriteSize = SPRITE_SIZE * mZoom * ssu;
+
+        double xInterval = width / spriteSize;
+        double yInterval = height / spriteSize;
+
+        tilesX = (int) xInterval;
+        tilesY = (int) yInterval;
+
+        if (tilesX > 10) {
+            xInterval = width / (spriteSize * 2);
+            yInterval = height / (spriteSize * 2);
+
+            tilesX = (int) xInterval;
+            tilesY = (int) yInterval;
+        }
+    }
+
     private void checkScrollStatus() {
         if ((mScrollIntervalX != 0 || mScrollIntervalY != 0) && mScrollProgress < mScrollFrameCount) {
             mNeedsScroll = true;
@@ -398,6 +392,20 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             mScrollProgress = 0;
         }
     }
+
+    private Vector calculateScrollOffset() {
+        GameObject player = mFrame.getPlayer();
+        int width = Math.min(tilesX, 32);
+        int height = Math.min(tilesY, 32);
+
+        return new Vector(player.x() - (width / 2), player.y() - (height / 2));
+    }
+
+    /*
+    ---------------------------------------------
+      Rendering
+    ---------------------------------------------
+    */
 
     private void renderScreen() {
         if (!isRendering) {
@@ -449,7 +457,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         mSpriteSheetManager.clear();
 
-        float yUnit = 64 * ssu;
+        float yUnit = SPRITE_SIZE * ssu;
 
         for (int y = 0; y <= tilesY; y++) {
             SpriteRow spriteRow = new SpriteRow();
@@ -502,18 +510,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
     }
 
-    private void handleFinishedAnimations(ArrayList<GameObject> animations) {
-        Iterator<GameObject> it = animations.iterator();
-        while (it.hasNext()) {
-            Animation animation = (Animation) it.next();
-            if (animation.isFinished()) {
-                it.remove();
-            }
-        }
-    }
-
     private void getUiSpriteRows() {
-        float yUnit = 64 * 1.5f;
+        float yUnit = SPRITE_SIZE * 1.5f;
 
         if (mCurrentPath != null) {
             for (Vector segment : mCurrentPath) {
@@ -564,6 +562,16 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         return mSpriteIndexes.get(animation.getNextFrame());
     }
 
+    private void handleFinishedAnimations(ArrayList<GameObject> animations) {
+        Iterator<GameObject> it = animations.iterator();
+        while (it.hasNext()) {
+            Animation animation = (Animation) it.next();
+            if (animation.isFinished()) {
+                it.remove();
+            }
+        }
+    }
+
     private double getLightingForGrid(int x, int y) {
         double lightSource, fov;
 
@@ -584,13 +592,11 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         return (lightSource + fov) / 2;
     }
 
-    private Vector calculateScrollOffset() {
-        GameObject player = mFrame.getPlayer();
-        int width = Math.min(tilesX, 32);
-        int height = Math.min(tilesY, 32);
-
-        return new Vector(player.x() - (width / 2), player.y() - (height / 2));
-    }
+    /*
+    ---------------------------------------------
+      Helper methods
+    ---------------------------------------------
+    */
 
     private boolean inVisibleBounds(int x, int y) {
         return (x >= 0 && x <= tilesX) && (y >= 0 && y <= tilesY);
@@ -598,6 +604,17 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     private boolean inBounds(int x, int y) {
         return (x >= 0 && x < 32 && y >= 0 && y < 32);
+    }
+
+    public void calculateFps(long dt) {
+        currentFrameTime += dt;
+        frameCount++;
+
+        if (currentFrameTime >= 1000) {
+            mFps = frameCount;
+            currentFrameTime = 0;
+            frameCount = 0;
+        }
     }
 
     /*
