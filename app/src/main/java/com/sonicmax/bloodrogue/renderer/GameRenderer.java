@@ -58,6 +58,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private final float[] mMVPMatrix;
     private final float[] mProjMatrix;
     private final float[] mVMatrix;
+    private float[] mTMatrix;
 
     // Misc vars
     private int mSpriteShaderProgram;
@@ -69,8 +70,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     // Screen size and scaling
     private int mWidth;
     private int mHeight;
-    private int tilesX;
-    private int tilesY;
+    private int mVisibleGridWidth;
+    private int mVisibleGridHeight;
+    private float mTranslationX;
+    private float mTranslationY;
     private float mZoom;
     private float mRatio;
     private float resX;
@@ -111,9 +114,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mProjMatrix = new float[16];
         mVMatrix = new float[16];
         mMVPMatrix = new float[16];
+        mTMatrix = new float[16];
 
         mSprites = new HashMap<>();
         mZoom = 1f;
+        mTranslationX = 0f;
+        mTranslationY = 0f;
 
         mScrollProgress = 0;
         mScrollIntervalX = 0;
@@ -362,16 +368,31 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         double xInterval = width / spriteSize;
         double yInterval = height / spriteSize;
 
-        tilesX = (int) xInterval;
-        tilesY = (int) yInterval;
+        mVisibleGridWidth = (int) xInterval;
+        mVisibleGridHeight = (int) yInterval;
 
-        if (tilesX > 10) {
+        if (mVisibleGridWidth > 14) {
             xInterval = width / (spriteSize * 2);
             yInterval = height / (spriteSize * 2);
 
-            tilesX = (int) xInterval;
-            tilesY = (int) yInterval;
+            mVisibleGridWidth = (int) xInterval;
+            mVisibleGridHeight = (int) yInterval;
         }
+
+        mVisibleGridWidth++;
+        mVisibleGridHeight++;
+
+        // For odd grid sizes, player position will already be centred.
+        // Otherwise, we have to manually translate the matrix
+
+        if (mVisibleGridWidth % 2 == 0) {
+            mTranslationX = -spriteSize / 2;
+        }
+        if (mVisibleGridHeight % 2 == 0) {
+            mTranslationY = -spriteSize / 2;
+        }
+
+        Matrix.translateM(mTMatrix, 0, mMVPMatrix, 0, mTranslationX, mTranslationY, 0f);
     }
 
     private void checkScrollStatus() {
@@ -395,8 +416,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     private Vector calculateScrollOffset() {
         GameObject player = mFrame.getPlayer();
-        int width = Math.min(tilesX, 32);
-        int height = Math.min(tilesY, 32);
+        int width = Math.min(mVisibleGridWidth, 32);
+        int height = Math.min(mVisibleGridHeight, 32);
 
         return new Vector(player.x() - (width / 2), player.y() - (height / 2));
     }
@@ -437,8 +458,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             getUiSpriteRows();
 
             // Render everything in single call
-            mSpriteSheetManager.prepareSprites();
-            mSpriteSheetManager.renderSprites(mMVPMatrix);
+            mSpriteSheetRenderer.prepareSprites();
+            mSpriteSheetRenderer.renderSprites(mTMatrix);
 
             // Add our text overlay
             mTextManager.clear();
