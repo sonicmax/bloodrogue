@@ -82,8 +82,8 @@ public class SpriteSheetRenderer {
 
         // Iterate over row of indexes and setup vertices/etc for each sprite
         for (int tileY = 0; tileY <= height; tileY++) {
-            x = 10f;
-            y = 10f + (tileY * yUnit);
+            x = 0f;
+            y = 0f + (tileY * yUnit);
 
             for (int tileX = 0; tileX <= width; tileX++) {
 
