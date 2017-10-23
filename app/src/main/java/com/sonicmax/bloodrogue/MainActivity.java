@@ -62,7 +62,9 @@ public class MainActivity extends AppCompatActivity {
         if (mLock) return true;
 
         if (mScaleDetector != null) {
-            mScaleDetector.onTouchEvent(e);
+            if (e.getPointerCount() > 1) {
+                return mScaleDetector.onTouchEvent(e);
+            }
         }
 
         long eventDuration = e.getEventTime() - e.getDownTime();
@@ -155,8 +157,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initInputSurfaces() {
-        mScaleDetector = null;
-        // mScaleDetector = new ScaleGestureDetector(this, new ScaleListener());
+        mScaleDetector = new ScaleGestureDetector(this, new ScaleListener());
     }
 
     /*
