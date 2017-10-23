@@ -49,7 +49,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     // Resources
     private SpriteLoader mSpriteManager;
-    private SpriteSheetRenderer mSpriteSheetManager;
+    private SpriteSheetRenderer mSpriteSheetRenderer;
     private HashMap<String, Integer> mSpriteIndexes;
     private HashMap<String, Integer> mSprites;
     private TextManager mTextManager;
@@ -97,7 +97,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private long mEndTime;
     private int frameCount;
     private long currentFrameTime;
-
 
     public GameRenderer(Context context, GLSurfaceView surfaceView) {
         super();
@@ -283,13 +282,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     private void prepareSpriteSheets() {
-        mSpriteSheetManager = new SpriteSheetRenderer();
-        // mSpriteSheetManager.precalculatePositions();
-        mSpriteSheetManager.setShaderProgramHandle(mSpriteShaderProgram);
-        mSpriteSheetManager.setSpriteSheetHandle(mSprites.get("sprite_sheets/sheet.png"));
-        mSpriteSheetManager.setUniformscale(ssu);
-        mSpriteSheetManager.precalculatePositions(tilesX, tilesY);
-        mSpriteSheetManager.precalculateUv(mSpriteIndexes.size());
+        mSpriteSheetRenderer = new SpriteSheetRenderer();
+        mSpriteSheetRenderer.setShaderProgramHandle(mSpriteShaderProgram);
+        mSpriteSheetRenderer.setSpriteSheetHandle(mSprites.get("sprite_sheets/sheet.png"));
+        mSpriteSheetRenderer.setUniformscale(ssu);
+        mSpriteSheetRenderer.precalculatePositions(mVisibleGridWidth, mVisibleGridHeight);
+        mSpriteSheetRenderer.precalculateUv(mSpriteIndexes.size());
     }
 
     private void prepareText() {
@@ -302,7 +300,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         // Pass the uniform scale
         mTextManager.setUniformscale(ssu);
     }
-
 
     /*
     ---------------------------------------------
@@ -324,16 +321,19 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         Matrix.multiplyMM(mMVPMatrix, 0, mProjMatrix, 0, mVMatrix, 0);
     }
 
+    private float mResTargetWidth = 320f;
+    private float mResTargetHeight = 480f;
+
     private void scaleScreen() {
         // Desired resolution is 320x480 (or 480x320 in landscape)
 
         if (mWidth > mHeight) {
-            resX = mWidth / 480f;
-            resY = mHeight / 320f;
+            resX = mWidth / mResTargetHeight;
+            resY = mHeight / mResTargetWidth;
         }
         else {
-            resX = mWidth / 320f;
-            resY = mHeight / 480f;
+            resX = mWidth / mResTargetHeight;
+            resY = mHeight / mResTargetWidth;
         }
 
         if (resX > resY) {
@@ -476,20 +476,22 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         ArrayList<GameObject>[][] objectGrid = mFrame.getObjects();
         ArrayList<GameObject>[][] animations = mFrame.getAnimations();
 
-        mSpriteSheetManager.clear();
+        ArrayList<GameObject> projectedObjects = new ArrayList<>();
+
+        mSpriteSheetRenderer.clear();
 
         float yUnit = SPRITE_SIZE * ssu;
 
-        for (int y = 0; y <= tilesY; y++) {
+        for (int y = 0; y < mVisibleGridHeight; y++) {
             SpriteRow spriteRow = new SpriteRow();
 
             spriteRow.y += (y * yUnit);
             spriteRow.tileY = y;
 
             ArrayList<Integer> indexes = new ArrayList<>();
-            ArrayList<Integer>[] objectIndexArrays = new ArrayList[tilesX + 1];
+            ArrayList<Integer>[] objectIndexArrays = new ArrayList[mVisibleGridWidth];
 
-            for (int x = 0; x <= tilesX; x++) {
+            for (int x = 0; x < mVisibleGridWidth; x++) {
                 // Use scroll offset to find corresponding grid tile for visible area
                 int offsetX = x + mScrollOffset.x();
                 int offsetY = y + mScrollOffset.y();
@@ -505,8 +507,13 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
                 for (GameObject object : objectsInCell) {
                     if (object.isProjected()) {
-                        // Iterate over these separately
+                        // Iterate over these separately. Add a transparent tile for this row otherwise
+                        // index count in SpriteSheetRenderer will fail
                         objectIndexArrays[x].add(mSpriteIndexes.get("sprites/transparent.png"));
+
+                        if (mFov[x][y] > 0) {
+                            projectedObjects.add(object);
+                        }
 
                     } else {
                         objectIndexArrays[x].add(mSpriteIndexes.get(object.tile()));
@@ -527,12 +534,43 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             spriteRow.indexes = indexes;
             spriteRow.setObjectArrays(objectIndexArrays);
 
-            mSpriteSheetManager.addRow(spriteRow);
+            mSpriteSheetRenderer.addRow(spriteRow);
+        }
+
+        getProjectedObjectRows(projectedObjects);
+    }
+
+    private void getProjectedObjectRows(ArrayList<GameObject> projectedObjects) {
+        float yUnit = SPRITE_SIZE * ssu;
+
+        for (GameObject object : projectedObjects) {
+            int destX = object.getDestX();
+            int destY = object.getDestY();
+            int x = destX - mScrollOffset.x();
+            int y = destY - mScrollOffset.y();
+
+            if (!inVisibleBounds(x, y)) continue;
+
+            // Todo: we could probably find which projected share same row & make this more efficient
+            SpriteRow spriteRow = new SpriteRow();
+
+            spriteRow.y += (y * yUnit);
+            spriteRow.tileY = y;
+
+            ArrayList<Integer> indexes = spriteRow.getEmptySpriteRow(mVisibleGridWidth);
+
+            indexes.set(x, mSpriteIndexes.get(object.tile()));
+
+            spriteRow.indexes = indexes;
+            spriteRow.lighting = spriteRow.getDefaultLighting(mVisibleGridWidth);
+            spriteRow.lighting.set(x, getLightingForGrid(destX, destY));
+
+            mSpriteSheetRenderer.addRow(spriteRow);
         }
     }
 
     private void getUiSpriteRows() {
-        float yUnit = SPRITE_SIZE * 1.5f;
+        float yUnit = SPRITE_SIZE * ssu;
 
         if (mCurrentPath != null) {
             for (Vector segment : mCurrentPath) {
@@ -547,14 +585,14 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 spriteRow.y += (y * yUnit);
                 spriteRow.tileY = y;
 
-                ArrayList<Integer> indexes = spriteRow.getEmptySpriteRow(tilesX);
+                ArrayList<Integer> indexes = spriteRow.getEmptySpriteRow(mVisibleGridWidth);
 
                 indexes.set(x, mSpriteIndexes.get("sprites/cursor_default.png"));
 
                 spriteRow.indexes = indexes;
-                spriteRow.lighting = spriteRow.getDefaultLighting(tilesX);
+                spriteRow.lighting = spriteRow.getDefaultLighting(mVisibleGridWidth);
 
-                mSpriteSheetManager.addRow(spriteRow);
+                mSpriteSheetRenderer.addRow(spriteRow);
             }
         }
     }
@@ -620,7 +658,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     */
 
     private boolean inVisibleBounds(int x, int y) {
-        return (x >= 0 && x <= tilesX) && (y >= 0 && y <= tilesY);
+        return (x >= 0 && x <= mVisibleGridWidth) && (y >= 0 && y <= mVisibleGridHeight);
     }
 
     private boolean inBounds(int x, int y) {
