@@ -19,7 +19,7 @@ public class Chest extends GameObject {
         this.setBlocking(false);
         this.setTraversable(false);
         this.setHasAction(true);
-        this.setAnimation(AnimationFactory.getNewItemAnimation(x, y));
+        this.setAnimation(AnimationFactory.getChestItemRevealAnimation(x, y));
 
         this.open = false;
         this.empty = false;

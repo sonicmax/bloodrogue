@@ -42,17 +42,32 @@ public class AnimationFactory {
         return death;
     }
 
-    public static GameObject getNewItemAnimation(int x, int y) {
+    public static GameObject getChestItemRevealAnimation(int x, int y) {
         Animation anim = new Animation(x, y);
 
         ArrayList<String> frames = new ArrayList<>();
-        frames.add("sprites/chest_anim_1.png");
-        frames.add("sprites/chest_anim_2.png");
-        frames.add("sprites/chest_anim_3.png");
-        frames.add("sprites/chest_anim_4.png");
-        frames.add("sprites/chest_anim_5.png");
-        frames.add("sprites/chest_anim_6.png");
-        frames.add("sprites/chest_anim_7.png");
+        frames.add("sprites/chest_open_1.png");
+        frames.add("sprites/chest_open_2.png");
+        frames.add("sprites/chest_open_3.png");
+        frames.add("sprites/chest_open_4.png");
+        frames.add("sprites/chest_open_5.png");
+        frames.add("sprites/chest_open_6.png");
+        frames.add("sprites/chest_open_7.png");
+        anim.setFrames(frames);
+
+        return anim;
+    }
+
+    public static GameObject getPingAnimation(int x, int y) {
+        Animation anim = new Animation(x, y);
+
+        ArrayList<String> frames = new ArrayList<>();
+        frames.add("sprites/ping_1.png");
+        frames.add("sprites/ping_2.png");
+        frames.add("sprites/ping_3.png");
+        frames.add("sprites/ping_4.png");
+        frames.add("sprites/ping_5.png");
+        frames.add("sprites/ping_6.png");
         anim.setFrames(frames);
 
         return anim;
