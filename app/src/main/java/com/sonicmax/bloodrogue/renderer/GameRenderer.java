@@ -689,11 +689,13 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     public Vector getOnScreenTouchCoords(float x, float y) {
         // NOTE: Origin for touch events is top-left, origin for game area is bottom-left.
         int height = ScreenSizeGetter.getHeight();
-
-        float spriteSize = SPRITE_SIZE * mZoom * ssu;
-
         float correctedY = height - y;
 
+        // Account for translation matrix
+        x -= mTranslationX;
+        correctedY += mTranslationY;
+
+        float spriteSize = SPRITE_SIZE * mZoom * ssu;
         float gridX = x / spriteSize;
         float gridY = correctedY / spriteSize;
 
