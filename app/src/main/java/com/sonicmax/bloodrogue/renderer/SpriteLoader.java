@@ -80,19 +80,4 @@ public class SpriteLoader {
 
         return textureHandle[0];
     }
-
-    public int loadSpriteSheet(Bitmap bitmap) {
-        // Generate Textures, if more needed, alter these numbers.
-        int[] texturenames = new int[1];
-        GLES20.glGenTextures(1, texturenames, 0);
-
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE0 + 1);
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texturenames[0]);
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
-        GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0);
-        bitmap.recycle();
-
-        return texturenames[0];
-    }
 }
