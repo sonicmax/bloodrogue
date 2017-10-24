@@ -279,8 +279,6 @@ public class SpriteSheetRenderer {
         drawListBuffer.put(indices);
         drawListBuffer.position(0);
 
-        // GLES20.glUseProgram(mShaderHandle);
-
         // get handle to vertex shader's vPosition member
         int mPositionHandle = GLES20.glGetAttribLocation(mShaderHandle, "vPosition");
 

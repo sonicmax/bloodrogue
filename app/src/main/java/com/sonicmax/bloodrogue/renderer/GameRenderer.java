@@ -51,7 +51,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private SpriteSheetRenderer mSpriteSheetRenderer;
     private HashMap<String, Integer> mSpriteIndexes;
     private HashMap<String, Integer> mSprites;
-    private TextManager mTextManager;
+    private TextRenderer mTextManager;
     private boolean mNeedsCache;
 
     // Matrixes for GL surface
@@ -146,6 +146,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     public void onSurfaceCreated(GL10 unused, EGLConfig config) {
         GLShaderLoader loader = new GLShaderLoader();
         mSpriteShaderProgram = loader.compileSpriteShader();
+        // For now, we're using the same shader program for all rendering
+        GLES20.glUseProgram(mSpriteShaderProgram);
 
         mSpriteManager = new SpriteLoader();
         prepareGLSurface();
@@ -304,7 +306,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     private void prepareText() {
         // Create our text manager
-        mTextManager = new TextManager();
+        mTextManager = new TextRenderer();
         mTextManager.setShaderProgramHandle(mSpriteShaderProgram);
         mTextManager.setTextureHandle(mSprites.get("fonts/ccra_font.png"));
         mTextManager.setUniformscale(ssu);

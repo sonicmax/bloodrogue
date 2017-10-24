@@ -9,7 +9,7 @@ import java.nio.ShortBuffer;
 import java.util.ArrayList;
 import java.util.Iterator;
 
-public class TextManager {
+public class TextRenderer {
     private final String LOG_TAG = this.getClass().getSimpleName();
 
     private final float UV_BOX_WIDTH = 0.0625f;
@@ -27,7 +27,7 @@ public class TextManager {
             13, 13, 13, 21, 15, 16, 17, 16, 13, 13, 16, 16, 5, 14, 15, 13, 21, 16, 17, 16, 15, 16,
             17, 15, 16, 15, 21, 15, 16, 15, 10, 18, 11, 16, 21, 8, 17, 16, 17, 16, 17, 13, 16, 16,
             5, 10, 13, 5, 21, 16, 17, 16, 16, 16, 17, 10, 16, 15, 21, 16, 15, 17, 12, 5, 12, 21};
-    
+
     private float[][][] cachedVecs;
     private float[][] cachedUvs;
     private float[] cachedOffsets;
@@ -49,7 +49,7 @@ public class TextManager {
 
     public ArrayList<TextObject> mText;
 
-    public TextManager() {
+    public TextRenderer() {
         // Create our container
         mText = new ArrayList<>();
 
@@ -279,8 +279,6 @@ public class TextManager {
         FloatBuffer textureBuffer;
         FloatBuffer colorBuffer;
         ShortBuffer drawListBuffer;
-
-        GLES20.glUseProgram(mShaderHandle);
 
         // Enable alpha blending
         GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
