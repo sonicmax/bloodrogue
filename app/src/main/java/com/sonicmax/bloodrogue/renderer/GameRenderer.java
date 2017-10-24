@@ -145,8 +145,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     @Override
     public void onSurfaceCreated(GL10 unused, EGLConfig config) {
         GLShaderLoader loader = new GLShaderLoader();
-        mSpriteShaderProgram = loader.compileSpriteShader().getSpriteShader();
-        mSpriteShaderProgram = loader.compileTextShader().getTextShader();
+        mSpriteShaderProgram = loader.compileSpriteShader();
 
         mSpriteManager = new SpriteLoader();
         prepareGLSurface();
