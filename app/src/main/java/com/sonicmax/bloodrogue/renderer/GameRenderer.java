@@ -293,10 +293,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         // Create our text manager
         mTextManager = new TextManager();
         mTextManager.setShaderProgramHandle(mSpriteShaderProgram);
-        mTextManager.setTextureID(mSprites.get("fonts/font.png"));
-
-        // Pass the uniform scale
+        mTextManager.setTextureHandle(mSprites.get("fonts/ccra_font.png"));
         mTextManager.setUniformscale(ssu);
+        mTextManager.precalculateUv();
+        mTextManager.precalculateOffsets();
     }
 
     /*

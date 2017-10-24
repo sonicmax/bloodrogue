@@ -1,21 +1,36 @@
 package com.sonicmax.bloodrogue.renderer;
 
 import android.opengl.GLES20;
-import android.util.Log;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
+import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.Vector;
 
 public class TextManager {
     private final String LOG_TAG = this.getClass().getSimpleName();
 
-    private static final float RI_TEXT_UV_BOX_WIDTH = 0.125f;
-    private static final float RI_TEXT_WIDTH = 32.0f;
-    private static final float RI_TEXT_SPACESIZE = 20f;
+    private final float UV_BOX_WIDTH = 0.0625f;
+    private final float TEXT_WIDTH = 32f;
+    private final float TEXT_SPACESIZE = 20f;
+    private final int SPRITES_PER_ROW = 16;
+    private final int NUMBER_OF_CHARS = 94;
+
+    private final short[] mIndices = {0, 1, 2, 0, 2, 3};
+
+    // Sizes of each letter. These were scraped from the output provided by Codehead's Bitmap Font Generator
+    // (chars 33 to 126)
+    private final int[] charWidths = {17, 10, 5, 10, 21, 15, 21,
+            13, 8, 12, 12, 19, 15, 8, 10, 8, 18, 17, 10, 15, 15, 15, 17, 17, 17, 17, 17, 8, 8, 13,
+            13, 13, 13, 21, 15, 16, 17, 16, 13, 13, 16, 16, 5, 14, 15, 13, 21, 16, 17, 16, 15, 16,
+            17, 15, 16, 15, 21, 15, 16, 15, 10, 18, 11, 16, 21, 8, 17, 16, 17, 16, 17, 13, 16, 16,
+            5, 10, 13, 5, 21, 16, 17, 16, 16, 16, 17, 10, 16, 15, 21, 16, 15, 17, 12, 5, 12, 21};
+    
+    private float[][][] cachedVecs;
+    private float[][] cachedUvs;
+    private float[] cachedOffsets;
 
     private float[] vecs;
     private float[] uvs;
@@ -27,42 +42,112 @@ public class TextManager {
     private int index_uvs;
     private int index_colors;
 
-    private int textureHandle;
+    private int mTextureHandle;
+    private int mShaderHandle;
 
-    private float uniformscale;
+    private float mUniformScale;
 
-    public static int[] l_size = {36, 29, 30, 34, 25, 25, 34, 33,
-            11, 20, 31, 24, 48, 35, 39, 29,
-            42, 31, 27, 31, 34, 35, 46, 35,
-            31, 27, 30, 26, 28, 26, 31, 28,
-            28, 28, 29, 29, 14, 24, 30, 18,
-            26, 14, 14, 14, 25, 28, 31, 0,
-            0, 38, 39, 12, 36, 34, 0, 0,
-            0, 38, 0, 0, 0, 0, 0, 0};
-
-    public Vector<TextObject> txtcollection;
+    public ArrayList<TextObject> mText;
 
     public TextManager() {
         // Create our container
-        txtcollection = new Vector<>();
+        mText = new ArrayList<>();
 
         // Create the arrays
         vecs = new float[3 * 10];
         colors = new float[4 * 10];
         uvs = new float[2 * 10];
         indices = new short[10];
+    }
 
-        // init as 0 as default
-        textureHandle = 0;
+    public void setTextureHandle(int val) {
+        mTextureHandle = val;
+    }
+
+    public void setShaderProgramHandle(int handle) {
+        mShaderHandle = handle;
+    }
+
+    public void setUniformscale(float uniformscale) {
+        this.mUniformScale = uniformscale;
     }
 
     public void addText(TextObject obj) {
         // Add text object to our collection
-        txtcollection.add(obj);
+        mText.add(obj);
     }
 
-    public void setTextureID(int val) {
-        textureHandle = val;
+    public void clear() {
+        mText = new ArrayList<>();
+    }
+
+    public void precalculatePositions() {
+        /*cachedVecs = new float[width + 2][height + 2][12];
+
+        float x;
+        float y;
+        float yUnit = TEXT_WIDTH * mUniformScale;
+
+        // Iterate over row of terrainIndexes and setup vertices/etc for each sprite
+        for (int tileY = 0; tileY <= height; tileY++) {
+            x = 0f;
+            y = 0f + (tileY * yUnit);
+
+            for (int tileX = 0; tileX <= width; tileX++) {
+
+                cachedVecs[tileX][tileY][0] = x;
+                cachedVecs[tileX][tileY][1] = y + (TEXT_WIDTH * mUniformScale);
+                cachedVecs[tileX][tileY][2] = 1f;
+                cachedVecs[tileX][tileY][3] = x;
+                cachedVecs[tileX][tileY][4] = y;
+                cachedVecs[tileX][tileY][5] = 1f;
+                cachedVecs[tileX][tileY][6] = x + (TEXT_WIDTH * mUniformScale);
+                cachedVecs[tileX][tileY][7] = y;
+                cachedVecs[tileX][tileY][8] = 1f;
+                cachedVecs[tileX][tileY][9] = x + (TEXT_WIDTH * mUniformScale);
+                cachedVecs[tileX][tileY][10] = y + (TEXT_WIDTH * mUniformScale);
+                cachedVecs[tileX][tileY][11] = 1f;
+
+                x += TEXT_WIDTH * mUniformScale;
+            }
+        }*/
+    }
+
+    public void precalculateOffsets() {
+        cachedOffsets = new float[NUMBER_OF_CHARS];
+
+        for (int i = 0; i < NUMBER_OF_CHARS; i++) {
+            cachedOffsets[i] = (charWidths[i]) * mUniformScale;
+        }
+    }
+
+    public void precalculateUv() {
+        cachedUvs = new float[NUMBER_OF_CHARS][8];
+
+        for (int i = 0; i < NUMBER_OF_CHARS; i++) {
+            int row = i / SPRITES_PER_ROW;
+            int col = i % SPRITES_PER_ROW;
+
+            float v = row * UV_BOX_WIDTH;
+            float v2 = v + UV_BOX_WIDTH;
+            float u = col * UV_BOX_WIDTH;
+            float u2 = u + UV_BOX_WIDTH;
+
+            // Creating the triangle information
+            float[] uv = new float[8];
+
+            // 0.001f = texture bleeding hack/fix
+            uv[0] = u;
+            uv[1] = v;
+            uv[2] = u;
+            uv[3] = v2;
+            uv[4] = u2;
+            uv[5] = v2;
+            uv[6] = u2;
+            uv[7] = v;
+
+            cachedUvs[i] = uv;
+        }
     }
 
     public void addCharRenderInformation(float[] vec, float[] cs, float[] uv, short[] indi) {
@@ -106,14 +191,11 @@ public class TextManager {
         index_colors = 0;
 
         // Get the total amount of characters
-        int charcount = 0;
+        int charCount = 0;
+        int size = mText.size();
 
-        for (TextObject txt : txtcollection) {
-            if (txt != null) {
-                if (txt.text != null) {
-                    charcount += txt.text.length();
-                }
-            }
+        for (int i = 0; i < size; i++) {
+            charCount += mText.get(i).text.length();
         }
 
         // Create the arrays we need with the correct size.
@@ -122,36 +204,74 @@ public class TextManager {
         uvs = null;
         indices = null;
 
-        vecs = new float[charcount * 12];
-        colors = new float[charcount * 16];
-        uvs = new float[charcount * 8];
-        indices = new short[charcount * 6];
+        vecs = new float[charCount * 12];
+        colors = new float[charCount * 16];
+        uvs = new float[charCount * 8];
+        indices = new short[charCount * 6];
     }
 
     public void prepareText() {
         // Setup all the arrays
         prepareDrawInfo();
 
-        // Using the iterator protects for problems with concurrency
-        Iterator<TextObject> it = txtcollection.iterator();
-        while (it.hasNext()) {
-            TextObject txt = it.next();
-            if (txt != null) {
-                if (txt.text != null) {
-                    convertTextToTriangleInfo(txt);
-                }
-            }
+        int size = mText.size();
+
+        for (int i = 0; i < size; i++) {
+            convertTextToTriangleInfo(mText.get(i));
         }
     }
 
-    public void clear() {
-        txtcollection = new Vector<>();
+    private int convertCharValueToUvIndex(int value) {
+        // ccra_font starts at char 33, so we can just subtract 33 to get the respective uv texture index.
+        return value - 33;
     }
 
-    private int mShaderHandle;
+    private void convertTextToTriangleInfo(TextObject val) {
+        float x = val.x;
+        float y = val.y;
+        String text = val.text;
 
-    public void setShaderProgramHandle(int handle) {
-        mShaderHandle = handle;
+        for (int j = 0; j < text.length(); j++) {
+            char c = text.charAt(j);
+            int charIndex = convertCharValueToUvIndex((int) c);
+
+            if (charIndex == -1) {
+                // unknown character, we will add a space for it to be save.
+                x += ((TEXT_SPACESIZE) * mUniformScale);
+                continue;
+            }
+
+            // Todo: is there a way we can precalculate this?
+
+            // Creating the triangle information
+            float[] vec = new float[12];
+
+            vec[0] = x;
+            vec[1] = y + (TEXT_WIDTH * mUniformScale);
+            vec[2] = 0.99f;
+            vec[3] = x;
+            vec[4] = y;
+            vec[5] = 0.99f;
+            vec[6] = x + (TEXT_WIDTH * mUniformScale);
+            vec[7] = y;
+            vec[8] = 0.99f;
+            vec[9] = x + (TEXT_WIDTH * mUniformScale);
+            vec[10] = y + (TEXT_WIDTH * mUniformScale);
+            vec[11] = 0.99f;
+
+            float[] colors = new float[] {
+                    val.color[0], val.color[1], val.color[2], val.color[3],
+                    val.color[0], val.color[1], val.color[2], val.color[3],
+                    val.color[0], val.color[1], val.color[2], val.color[3],
+                    val.color[0], val.color[1], val.color[2], val.color[3]
+            };
+
+            // Add our triangle information to our collection for 1 render call.
+            addCharRenderInformation(vec, colors, cachedUvs[charIndex], mIndices);
+
+            // Calculate the new position
+            x += cachedOffsets[charIndex];
+        }
     }
 
     public void renderText(float[] matrix) {
@@ -237,7 +357,7 @@ public class TextManager {
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
 
         //Bind the texture to this unit.
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureHandle);
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mTextureHandle);
 
         //Tell the texture uniform sampler to use this texture in the shader by binding to texture unit 0.
         GLES20.glUniform1i(textureLocation, 0);
@@ -249,120 +369,5 @@ public class TextManager {
         GLES20.glDisableVertexAttribArray(mPositionHandle);
         GLES20.glDisableVertexAttribArray(mTexCoordLoc);
         GLES20.glDisableVertexAttribArray(mColorHandle);
-    }
-
-    private int convertCharToIndex(int c_val) {
-        int indx = -1;
-
-        // Retrieve the index
-        if(c_val>64&&c_val<91) // A-Z
-            indx = c_val - 65;
-        else if(c_val>96&&c_val<123) // a-z
-            indx = c_val - 97;
-        else if(c_val>47&&c_val<58) // 0-9
-            indx = c_val - 48 + 26;
-        else if(c_val==43) // +
-            indx = 38;
-        else if(c_val==45) // -
-            indx = 39;
-        else if(c_val==33) // !
-            indx = 36;
-        else if(c_val==63) // ?
-            indx = 37;
-        else if(c_val==61) // =
-            indx = 40;
-        else if(c_val==58) // :
-            indx = 41;
-        else if(c_val==46) // .
-            indx = 42;
-        else if(c_val==44) // ,
-            indx = 43;
-        else if(c_val==42) // *
-            indx = 44;
-        else if(c_val==36) // $
-            indx = 45;
-
-        return indx;
-    }
-
-    private void convertTextToTriangleInfo(TextObject val) {
-        // Get attributes from text object
-        float x = val.x;
-        float y = val.y;
-        String text = val.text;
-
-        // Create
-        for (int j = 0; j < text.length(); j++) {
-            // get ascii value
-            char c = text.charAt(j);
-            int c_val = (int) c;
-
-            int charIndex = convertCharToIndex(c_val);
-
-            if (charIndex == -1) {
-                // unknown character, we will add a space for it to be save.
-                x += ((RI_TEXT_SPACESIZE) * uniformscale);
-                continue;
-            }
-
-            // Calculate the uv parts
-            int row = charIndex / 8;
-            int col = charIndex % 8;
-
-            float v = row * RI_TEXT_UV_BOX_WIDTH;
-            float v2 = v + RI_TEXT_UV_BOX_WIDTH;
-            float u = col * RI_TEXT_UV_BOX_WIDTH;
-            float u2 = u + RI_TEXT_UV_BOX_WIDTH;
-
-            // Creating the triangle information
-            float[] vec = new float[12];
-            float[] uv = new float[8];
-
-            vec[0] = x;
-            vec[1] = y + (RI_TEXT_WIDTH * uniformscale);
-            vec[2] = 0.99f;
-            vec[3] = x;
-            vec[4] = y;
-            vec[5] = 0.99f;
-            vec[6] = x + (RI_TEXT_WIDTH * uniformscale);
-            vec[7] = y;
-            vec[8] = 0.99f;
-            vec[9] = x + (RI_TEXT_WIDTH * uniformscale);
-            vec[10] = y + (RI_TEXT_WIDTH * uniformscale);
-            vec[11] = 0.99f;
-
-            float[] colors = new float[] {
-                    val.color[0], val.color[1], val.color[2], val.color[3],
-                    val.color[0], val.color[1], val.color[2], val.color[3],
-                    val.color[0], val.color[1], val.color[2], val.color[3],
-                    val.color[0], val.color[1], val.color[2], val.color[3]
-            };
-
-            // 0.001f = texture bleeding hack/fix
-            uv[0] = u + 0.001f;
-            uv[1] = v + 0.001f;
-            uv[2] = u + 0.001f;
-            uv[3] = v2 - 0.001f;
-            uv[4] = u2 - 0.001f;
-            uv[5] = v2 - 0.001f;
-            uv[6] = u2 - 0.001f;
-            uv[7] = v + 0.001f;
-
-            short[] inds = {0, 1, 2, 0, 2, 3};
-
-            // Add our triangle information to our collection for 1 render call.
-            addCharRenderInformation(vec, colors, uv, inds);
-
-            // Calculate the new position
-            x += ((l_size[charIndex] / 2) * uniformscale);
-        }
-    }
-
-    public float getUniformscale() {
-        return uniformscale;
-    }
-
-    public void setUniformscale(float uniformscale) {
-        this.uniformscale = uniformscale;
     }
 }
