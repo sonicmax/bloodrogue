@@ -217,21 +217,11 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     private void prepareGLSurface() {
         GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        GLES20.glEnable(GL10.GL_TEXTURE_2D);
         GLES20.glEnable(GLES20.GL_BLEND);
         GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA);
-        GLES20.glEnable(GL10.GL_TEXTURE_2D);
-        // GLES20.glHint(GL10.GL_PERSPECTIVE_CORRECTION_HINT, GL10.GL_NICEST);
-
-        // Don't think we need depth testing?
-
-        /*GLES20.glClearDepthf(1.0f);
-        GLES20.glEnable(GL10.GL_DEPTH_TEST);
-        GLES20.glDepthFunc(GL10.GL_LEQUAL);*/
-
-
-        // We could cull the back face (but doesn't seem to improve performance)
-        // GLES20.glEnable(GL10.GL_CULL_FACE);
-        // GLES20.glCullFace(GL10.GL_BACK);
+        GLES20.glEnable(GL10.GL_CULL_FACE);
+        GLES20.glCullFace(GL10.GL_BACK);
     }
 
     /*
