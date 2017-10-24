@@ -27,7 +27,7 @@ import javax.microedition.khronos.opengles.GL10;
 
 public class GameRenderer implements GLSurfaceView.Renderer {
     private final String LOG_TAG = this.getClass().getSimpleName();
-    private final int SPRITE_SIZE = 64; // width/height in pixels
+    private final int SPRITE_SIZE = 64;
     private final int NONE = 0;
     private final int SPLASH = 1;
     private final int GAME = 2;
@@ -41,7 +41,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private Frame mFrame;
     private Frame mNewFrame;
     private boolean mHasNewFrame = false;
-    private Vector mCurrentSelection;
     private ArrayList<Vector> mCurrentPath;
     private Vector mScrollOffset;
     private double[][] mLightMap = null;
@@ -53,6 +52,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private HashMap<String, Integer> mSpriteIndexes;
     private HashMap<String, Integer> mSprites;
     private TextManager mTextManager;
+    private boolean mNeedsCache;
 
     // Matrixes for GL surface
     private final float[] mMVPMatrix;
@@ -107,7 +107,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mNewFrame = null;
         mRenderState = NONE;
         hasResources = false;
-        mCurrentSelection = null;
         isRendering = false;
 
         mProjMatrix = new float[16];
@@ -126,6 +125,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mCurrentScrollX = 0;
         mCurrentScrollY = 0;
         mNeedsScroll = false;
+        mNeedsCache = true; // Always cache on first run
     }
 
     @Override
@@ -201,12 +201,11 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     private void prepareGLSurface() {
-        GLES20.glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
+        GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         GLES20.glEnable(GLES20.GL_BLEND);
         GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA);
-
         GLES20.glEnable(GL10.GL_TEXTURE_2D);
-        GLES20.glHint(GL10.GL_PERSPECTIVE_CORRECTION_HINT, GL10.GL_NICEST);
+        // GLES20.glHint(GL10.GL_PERSPECTIVE_CORRECTION_HINT, GL10.GL_NICEST);
 
         // Don't think we need depth testing?
 
@@ -215,9 +214,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         GLES20.glDepthFunc(GL10.GL_LEQUAL);*/
 
 
-        // We could cull the front face (but doesn't seem to improve performance)
+        // We could cull the back face (but doesn't seem to improve performance)
         // GLES20.glEnable(GL10.GL_CULL_FACE);
-        // GLES20.glCullFace(GL10.GL_FRONT);
+        // GLES20.glCullFace(GL10.GL_BACK);
     }
 
     /*
@@ -256,7 +255,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             for (String sheet : sheets) {
                 InputStream is = assetManager.open(SHEET_PATH + sheet);
                 BitmapFactory.Options opts = new BitmapFactory.Options();
-                opts.inPreferredConfig = Bitmap.Config.ARGB_8888;
+                opts.inPreferredConfig = Bitmap.Config.ARGB_4444;
                 Bitmap bitmap = BitmapFactory.decodeStream(is, null, opts);
                 int textureHandle = mSpriteManager.loadTexture(bitmap);
                 mSprites.put(SHEET_PATH + sheet, textureHandle);
@@ -267,9 +266,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             for (String path : fontPaths) {
                 InputStream is = assetManager.open(FONT_PATH + path);
                 BitmapFactory.Options opts = new BitmapFactory.Options();
-                opts.inPreferredConfig = Bitmap.Config.ARGB_8888;
+                opts.inPreferredConfig = Bitmap.Config.ARGB_4444;
                 Bitmap bitmap = BitmapFactory.decodeStream(is, null, opts);
-                int textureHandle = mSpriteManager.loadSpriteSheet(bitmap);
+                int textureHandle = mSpriteManager.loadTexture(bitmap);
                 mSprites.put(FONT_PATH + path, textureHandle);
             }
 
@@ -285,8 +284,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mSpriteSheetRenderer = new SpriteSheetRenderer();
         mSpriteSheetRenderer.setShaderProgramHandle(mSpriteShaderProgram);
         mSpriteSheetRenderer.setSpriteSheetHandle(mSprites.get("sprite_sheets/sheet.png"));
-        mSpriteSheetRenderer.setUniformscale(ssu);
-        mSpriteSheetRenderer.precalculatePositions(mVisibleGridWidth, mVisibleGridHeight);
+        mSpriteSheetRenderer.setUniformScale(ssu);
+        mSpriteSheetRenderer.precalculatePositions(mMapWidth, mMapHeight);
         mSpriteSheetRenderer.precalculateUv(mSpriteIndexes.size());
     }
 
@@ -295,7 +294,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mTextManager = new TextManager();
         mTextManager.setShaderProgramHandle(mSpriteShaderProgram);
         mTextManager.setTextureID(mSprites.get("fonts/font.png"));
-        // mTextManager.setTextureID(mSprites.get("fonts/font.png"));
 
         // Pass the uniform scale
         mTextManager.setUniformscale(ssu);
@@ -345,18 +343,13 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
     }
 
+    int diffX;
+    int diffY;
+
     private void calculateScroll() {
         oldOffsetX = mScrollOffset.x();
         oldOffsetY = mScrollOffset.y();
         mScrollOffset = calculateScrollOffset();
-
-        mScrollFrameCount = frameCount / 3;
-
-        // Divide difference by sprite size to find amount that should be scrolled each frame
-        mScrollIntervalX = (oldOffsetX - mScrollOffset.x()) / mScrollFrameCount;
-        mScrollIntervalY = (oldOffsetY - mScrollOffset.y()) / mScrollFrameCount;
-
-        // Log.v(LOG_TAG, "difference: " + (oldOffsetX - mScrollOffset.x()) + ", " + (oldOffsetY - mScrollOffset.y()));
     }
 
     private void calculateGridSize() {
@@ -411,15 +404,23 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             mScrollIntervalX = 0;
             mScrollIntervalY = 0;
             mScrollProgress = 0;
+            diffX = 0;
+            diffY = 0;
         }
     }
 
     private Vector calculateScrollOffset() {
         GameObject player = mFrame.getPlayer();
-        int width = Math.min(mVisibleGridWidth, 32);
-        int height = Math.min(mVisibleGridHeight, 32);
 
-        return new Vector(player.x() - (width / 2), player.y() - (height / 2));
+        return new Vector(player.x() - (mVisibleGridWidth / 2), player.y() - (mVisibleGridHeight / 2));
+    }
+
+    private float scrollDx = 0f;
+    private float scrollDy = 0f;
+
+    public void setTouchScrollCoords(float x, float y) {
+        this.scrollDx = x;
+        this.scrollDy = y;
     }
 
     /*
@@ -453,13 +454,24 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
             checkScrollStatus();
 
-            // Iterate over the data in Frame object and convert to sprite rows for renderer
-            getGameObjectSpriteRows();
-            getUiSpriteRows();
+            if (mNeedsCache) {
+                cacheImmutableSprites();
+                mNeedsCache = false;
+            }
 
-            // Render everything in single call
-            mSpriteSheetRenderer.prepareSprites();
-            mSpriteSheetRenderer.renderSprites(mTMatrix);
+            // Iterate over the data in Frame object and send to renderer
+            addSpritesToRenderer();
+            addUiLayer();
+
+            // Check whether we need to translate matrix to account for touch scrolling
+            float[] renderMatrix = mTMatrix.clone();
+
+            if (scrollDx != 0 || scrollDy != 0) {
+                Matrix.translateM(renderMatrix, 0, mTMatrix, 0, scrollDx, scrollDy, 0f);
+            }
+
+            mSpriteSheetRenderer.prepareDrawInfo();
+            mSpriteSheetRenderer.renderSprites(renderMatrix);
 
             // Add our text overlay
             mTextManager.clear();
@@ -471,128 +483,88 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
     }
 
-    private void getGameObjectSpriteRows() {
+    /**
+     *  Caches terrain and stationary, non-interactive objects
+     */
+
+    private void cacheImmutableSprites() {
         GameObject[][] mapGrid = mFrame.getTerrain();
         ArrayList<GameObject>[][] objectGrid = mFrame.getObjects();
-        ArrayList<GameObject>[][] animations = mFrame.getAnimations();
 
-        ArrayList<GameObject> projectedObjects = new ArrayList<>();
+        for (int y = 0; y < mMapHeight; y++) {
+            for (int x = 0; x < mMapWidth; x++) {
+                if (!inBounds(x, y)) continue;
 
-        mSpriteSheetRenderer.clear();
+                GameObject terrain = mapGrid[x][y];
+                int index = mSpriteIndexes.get(terrain.tile());
 
-        float yUnit = SPRITE_SIZE * ssu;
+                mSpriteSheetRenderer.cacheSprite(new Sprite(x, y, index));
 
-        for (int y = 0; y < mVisibleGridHeight; y++) {
-            SpriteRow spriteRow = new SpriteRow();
-
-            spriteRow.y += (y * yUnit);
-            spriteRow.tileY = y;
-
-            ArrayList<Integer> indexes = new ArrayList<>();
-            ArrayList<Integer>[] objectIndexArrays = new ArrayList[mVisibleGridWidth];
-
-            for (int x = 0; x < mVisibleGridWidth; x++) {
-                // Use scroll offset to find corresponding grid tile for visible area
-                int offsetX = x + mScrollOffset.x();
-                int offsetY = y + mScrollOffset.y();
-
-                if (!inBounds(offsetX, offsetY)) continue;
-
-                GameObject terrain = mapGrid[offsetX][offsetY];
-                spriteRow.lighting.add(getLightingForGrid(offsetX, offsetY));
-                indexes.add(mSpriteIndexes.get(terrain.tile()));
-
-                objectIndexArrays[x] = new ArrayList<>();
-                ArrayList<GameObject> objectsInCell = objectGrid[offsetX][offsetY];
+                ArrayList<GameObject> objectsInCell = objectGrid[x][y];
 
                 for (GameObject object : objectsInCell) {
                     if (object.isProjected()) {
-                        // Iterate over these separately. Add a transparent tile for this row otherwise
-                        // index count in SpriteSheetRenderer will fail
-                        objectIndexArrays[x].add(mSpriteIndexes.get("sprites/transparent.png"));
-
                         if (mFov[x][y] > 0) {
-                            projectedObjects.add(object);
+                            int destX = object.getDestX();
+                            int destY = object.getDestY();
+                            mSpriteSheetRenderer.cacheSprite(new Sprite(destX, destY, mSpriteIndexes.get(object.tile())));
                         }
 
-                    } else {
-                        objectIndexArrays[x].add(mSpriteIndexes.get(object.tile()));
+                    }
+
+                    else if (object.isImmutable() && (object.isStationary())) {
+                        mSpriteSheetRenderer.cacheSprite(new Sprite(x, y, mSpriteIndexes.get(object.tile())));
+                    }
+                }
+            }
+        }
+    }
+
+    private void addSpritesToRenderer() {
+        ArrayList<GameObject>[][] objectGrid = mFrame.getObjects();
+        ArrayList<GameObject>[][] animations = mFrame.getAnimations();
+
+        mSpriteSheetRenderer.clear();
+
+        for (int y = 0; y < mMapHeight; y++) {
+            for (int x = 0; x < mMapWidth; x++) {
+                mSpriteSheetRenderer.setLighting(x, y, getLightingForGrid(x, y));
+
+                // Todo: maybe we could draw objects outside FOV using low lighting + alpha
+
+                if (mFov[x][y] > 0) {
+
+                    for (GameObject object : objectGrid[x][y]) {
+                        if (!object.isProjected() && (!object.isStationary() || !object.isImmutable())) {
+                            mSpriteSheetRenderer.addSprite(new Sprite(x, y, mSpriteIndexes.get(object.tile())));
+                        }
+                    }
+
+                    for (int i = 0; i < animations[x][y].size(); i++) {
+                        Animation animation = (Animation) animations[x][y].get(i);
+                        int frameIndex = processAnimation(animation);
+                        mSpriteSheetRenderer.addSprite(new Sprite(x, y, frameIndex));
                     }
                 }
 
-                ArrayList<GameObject> animationsInCell = animations[offsetX][offsetY];
-
-                for (int i = 0; i < animationsInCell.size(); i++) {
-                    Animation animation = (Animation) animationsInCell.get(i);
-                    int index = processAnimation(animation);
-                    objectIndexArrays[x].add(index);
-                }
-
-                handleFinishedAnimations(animationsInCell);
+                handleFinishedAnimations(animations[x][y]);
             }
-
-            spriteRow.indexes = indexes;
-            spriteRow.setObjectArrays(objectIndexArrays);
-
-            mSpriteSheetRenderer.addRow(spriteRow);
-        }
-
-        getProjectedObjectRows(projectedObjects);
-    }
-
-    private void getProjectedObjectRows(ArrayList<GameObject> projectedObjects) {
-        float yUnit = SPRITE_SIZE * ssu;
-
-        for (GameObject object : projectedObjects) {
-            int destX = object.getDestX();
-            int destY = object.getDestY();
-            int x = destX - mScrollOffset.x();
-            int y = destY - mScrollOffset.y();
-
-            if (!inVisibleBounds(x, y)) continue;
-
-            // Todo: we could probably find which projected share same row & make this more efficient
-            SpriteRow spriteRow = new SpriteRow();
-
-            spriteRow.y += (y * yUnit);
-            spriteRow.tileY = y;
-
-            ArrayList<Integer> indexes = spriteRow.getEmptySpriteRow(mVisibleGridWidth);
-
-            indexes.set(x, mSpriteIndexes.get(object.tile()));
-
-            spriteRow.indexes = indexes;
-            spriteRow.lighting = spriteRow.getDefaultLighting(mVisibleGridWidth);
-            spriteRow.lighting.set(x, getLightingForGrid(destX, destY));
-
-            mSpriteSheetRenderer.addRow(spriteRow);
         }
     }
 
-    private void getUiSpriteRows() {
-        float yUnit = SPRITE_SIZE * ssu;
-
+    private void addUiLayer() {
         if (mCurrentPath != null) {
+            int index = mSpriteIndexes.get("sprites/cursor_default.png");
             for (Vector segment : mCurrentPath) {
                 Vector adjustedSegment = segment.subtract(mScrollOffset);
 
                 int x = adjustedSegment.x();
                 int y = adjustedSegment.y();
 
-                // Todo: we could probably find which path segments share same row & make this more efficient
-                SpriteRow spriteRow = new SpriteRow();
+                Sprite sprite = new Sprite(x, y, index);
+                sprite.lighting = 1f;
 
-                spriteRow.y += (y * yUnit);
-                spriteRow.tileY = y;
-
-                ArrayList<Integer> indexes = spriteRow.getEmptySpriteRow(mVisibleGridWidth);
-
-                indexes.set(x, mSpriteIndexes.get("sprites/cursor_default.png"));
-
-                spriteRow.indexes = indexes;
-                spriteRow.lighting = spriteRow.getDefaultLighting(mVisibleGridWidth);
-
-                mSpriteSheetRenderer.addRow(spriteRow);
+                mSpriteSheetRenderer.addSprite(sprite);
             }
         }
     }
@@ -691,9 +663,13 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         int height = ScreenSizeGetter.getHeight();
         float correctedY = height - y;
 
-        // Account for translation matrix
+        // Account for initial translation
         x -= mTranslationX;
         correctedY += mTranslationY;
+
+        // Account for touch scrolling
+        x -= scrollDx;
+        correctedY -= scrollDy;
 
         float spriteSize = SPRITE_SIZE * mZoom * ssu;
         float gridX = x / spriteSize;
@@ -724,5 +700,13 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     public void setCurrentPathSelection(ArrayList<Vector> path) {
         this.mCurrentPath = path;
+    }
+
+    int mMapWidth;
+    int mMapHeight;
+
+    public void setMapSize(int[] size) {
+        mMapWidth = size[0];
+        mMapHeight = size[1];
     }
 }

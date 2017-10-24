@@ -4,7 +4,6 @@ import android.content.Context;
 import android.opengl.GLSurfaceView;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -31,6 +30,7 @@ public class MainActivity extends AppCompatActivity {
 
         mGameEngine = new GameEngine(this);
         mGLView = new GameSurfaceView(this);
+        mRenderer.setMapSize(mGameEngine.getMapSize());
 
         setContentView(mGLView);
 
@@ -51,13 +51,18 @@ public class MainActivity extends AppCompatActivity {
         mGLView.onPause();
     }
 
+    private float mLastTouchX = 0f;
+    private float mLastTouchY = 0f;
+    private float mScrollPosX = 0f;
+    private float mScrollPosY = 0f;
+
     @Override
     public boolean onTouchEvent(MotionEvent e) {
         final long PATH_THRESHOLD = 500L;
         float x = e.getX();
         float y = e.getY();
 
-        Vector mapTouch = mRenderer.getMapGridTouchCoords(x, y);
+        Vector mapTouch = mRenderer.getOnScreenTouchCoords(x, y);
 
         if (mLock) return true;
 
@@ -73,15 +78,28 @@ public class MainActivity extends AppCompatActivity {
             case MotionEvent.ACTION_DOWN:
                 // Start path selection
                 lastMapTouch = mapTouch;
+                mLastTouchX = x;
+                mLastTouchY = y;
                 break;
 
             case MotionEvent.ACTION_MOVE:
-                if (!mapTouch.equals(lastMapTouch)) {
+                float dx = mLastTouchX - x;
+                float dy = mLastTouchY - y;
+
+                mScrollPosX += dx;
+                mScrollPosY += dy;
+
+                /*if (!mapTouch.equals(lastMapTouch)) {
                     mGameEngine.setPathDestination(mapTouch);
                     ArrayList<Vector> path = mGameEngine.onTouchPathComplete();
                     path.add(mapTouch);
                     mRenderer.setCurrentPathSelection(path);
-                }
+                }*/
+
+                mRenderer.setTouchScrollCoords(-mScrollPosX, mScrollPosY);
+
+                mLastTouchX = x;
+                mLastTouchY = y;
                 break;
 
             case MotionEvent.ACTION_UP:

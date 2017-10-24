@@ -12,6 +12,8 @@ public class Door extends GameObject {
         this.openTile = open;
         this.closedTile = closed;
         this.setHasAction(true);
+        this.setStationary(true);
+        this.setMutability(true);
 
         if (isOpen) {
             this.setTile(this.openTile);

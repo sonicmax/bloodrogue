@@ -6,6 +6,8 @@ public class Decoration extends GameObject {
         this.setTile(tile);
         this.setBlocking(false);
         this.setTraversable(false);
+        this.setMutability(false);
+        this.setStationary(true);
     }
 
     /**
@@ -21,5 +23,7 @@ public class Decoration extends GameObject {
         this.setProjected(true);
         this.setBlocking(false);
         this.setTraversable(true);
+        this.setMutability(true);
+        this.setStationary(true);
     }
 }

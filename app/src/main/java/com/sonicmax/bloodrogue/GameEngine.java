@@ -98,6 +98,10 @@ public class GameEngine {
         return new Frame(mMapGrid, mObjectGrid, mAnimations, mFOV, mLightMap, mPlayer);
     }
 
+    public int[] getMapSize() {
+        return new int[] {mMapWidth, mMapHeight};
+    }
+
     public ArrayList<GameObject>[][] getObjects() {
         return mObjectGrid;
     }

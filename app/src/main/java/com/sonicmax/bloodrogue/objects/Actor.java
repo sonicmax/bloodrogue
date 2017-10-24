@@ -38,6 +38,8 @@ public class Actor extends GameObject {
         this.setBlocking(false);
         this.setHasAction(true);
         this.setPlayerInterest(10);
+        this.setStationary(false);
+        this.setMutability(true);
     }
 
     /**

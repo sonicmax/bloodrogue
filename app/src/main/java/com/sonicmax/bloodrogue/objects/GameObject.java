@@ -27,6 +27,8 @@ public class GameObject {
     private boolean hasAnimation = false;
     private GameObject animation;
     private ArrayList<Vector> path;
+    private boolean isStationary = true;
+    private boolean isImmutable = true;
 
     public GameObject(int x, int y) {
         this.x = x;
@@ -211,5 +213,22 @@ public class GameObject {
 
     public Vector removeFromPath(int i) {
         return this.path.remove(i);
+    }
+
+    public boolean isStationary() {
+        return this.isStationary;
+    }
+
+    public boolean isImmutable() {
+        return this.isImmutable;
+    }
+
+    public void setStationary(boolean value) {
+        this.isStationary = value;
+    }
+
+    public void setMutability(boolean value) {
+        // Todo: this is stupid. But if object is mutable then we set isImmutable to inverse of value
+        this.isImmutable = !value;
     }
 }
