@@ -20,7 +20,7 @@ public class MainActivity extends AppCompatActivity {
     private GLSurfaceView mGLView;
     private GameEngine mGameEngine;
     private ScaleGestureDetector mScaleDetector;
-    private Vector lastMapTouch = null;
+    private Vector lastMapTouch;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -31,9 +31,9 @@ public class MainActivity extends AppCompatActivity {
         mGameEngine = new GameEngine(this);
         mGLView = new GameSurfaceView(this);
         mRenderer.setMapSize(mGameEngine.getMapSize());
+        lastMapTouch = null;
 
         setContentView(mGLView);
-
         mGameEngine.initState();
         passDataToRenderer();
         initInputSurfaces();
@@ -62,7 +62,7 @@ public class MainActivity extends AppCompatActivity {
         float x = e.getX();
         float y = e.getY();
 
-        Vector mapTouch = mRenderer.getOnScreenTouchCoords(x, y);
+        Vector mapTouch = mRenderer.getGridCellForTouchCoords(x, y);
 
         if (mLock) return true;
 
@@ -83,12 +83,6 @@ public class MainActivity extends AppCompatActivity {
                 break;
 
             case MotionEvent.ACTION_MOVE:
-                float dx = mLastTouchX - x;
-                float dy = mLastTouchY - y;
-
-                mScrollPosX += dx;
-                mScrollPosY += dy;
-
                 /*if (!mapTouch.equals(lastMapTouch)) {
                     mGameEngine.setPathDestination(mapTouch);
                     ArrayList<Vector> path = mGameEngine.onTouchPathComplete();
@@ -96,7 +90,10 @@ public class MainActivity extends AppCompatActivity {
                     mRenderer.setCurrentPathSelection(path);
                 }*/
 
-                mRenderer.setTouchScrollCoords(-mScrollPosX, mScrollPosY);
+                float dx = mLastTouchX - x;
+                float dy = mLastTouchY - y;
+
+                mRenderer.setTouchScrollCoords(dx, dy);
 
                 mLastTouchX = x;
                 mLastTouchY = y;
@@ -195,4 +192,8 @@ public class MainActivity extends AppCompatActivity {
         mLock = value;
     }
 
+    public void updateScrollPos(float x, float y) {
+        mScrollPosX = x;
+        mScrollPosY = y;
+    }
 }

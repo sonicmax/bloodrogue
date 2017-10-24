@@ -60,18 +60,19 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private final float[] mVMatrix;
     private float[] mTMatrix;
 
-    // Misc vars
-    private int mSpriteShaderProgram;
-    private int mRenderState;
-    private boolean hasResources;
-    private boolean isRendering;
-    private int mFps;
+    /**
+     *  Screen size and scaling
+     */
 
-    // Screen size and scaling
-    private int mWidth;
+    private int mWidth; // Screen size
     private int mHeight;
-    private int mVisibleGridWidth;
+    private int mMapWidth; // Grid cells in map
+    private int mMapHeight;
+    private int mVisibleGridWidth; // Screen size in grid cells
     private int mVisibleGridHeight;
+    private float mResTargetWidth = 320f;
+    private float mResTargetHeight = 480f;
+
     private float mTranslationX;
     private float mTranslationY;
     private float mZoom;
@@ -91,12 +92,24 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private double mCurrentScrollX = 0;
     private double mCurrentScrollY = 0;
     private boolean mNeedsScroll;
+    private float scrollDx = 0f;
+    private float scrollDy = 0f;
+    private int diffX;
+    private int diffY;
 
     // Timing
     private long mStartTime;
     private long mEndTime;
     private int frameCount;
     private long currentFrameTime;
+
+    // Misc vars
+    private int mSpriteShaderProgram;
+    private int mRenderState;
+    private boolean hasResources;
+    private boolean isRendering;
+    private boolean mFirstRender;
+    private int mFps;
 
     public GameRenderer(Context context, GLSurfaceView surfaceView) {
         super();
@@ -126,6 +139,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mCurrentScrollY = 0;
         mNeedsScroll = false;
         mNeedsCache = true; // Always cache on first run
+        mFirstRender = true;
     }
 
     @Override
@@ -319,8 +333,18 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         Matrix.multiplyMM(mMVPMatrix, 0, mProjMatrix, 0, mVMatrix, 0);
     }
 
-    private float mResTargetWidth = 320f;
-    private float mResTargetHeight = 480f;
+    private void centreAtPlayerPos() {
+        Vector pos = mFrame.getPlayer().getVector();
+        float gridSize = SPRITE_SIZE * mZoom * ssu;
+
+        // TODO: align better to centre by checking if odd/even number of grid squares in visible width
+
+        scrollDx = 0f - (gridSize * pos.x()) + (mWidth / 2);
+        scrollDy = 0f - (gridSize * pos.y()) + (mHeight / 2);
+
+        // We have to make sure MainActivity has same coords as renderer
+        ((MainActivity) mContext).updateScrollPos(scrollDx, scrollDy);
+    }
 
     private void scaleScreen() {
         // Desired resolution is 320x480 (or 480x320 in landscape)
@@ -342,9 +366,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             ssu = resX;
         }
     }
-
-    int diffX;
-    int diffY;
 
     private void calculateScroll() {
         oldOffsetX = mScrollOffset.x();
@@ -415,12 +436,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         return new Vector(player.x() - (mVisibleGridWidth / 2), player.y() - (mVisibleGridHeight / 2));
     }
 
-    private float scrollDx = 0f;
-    private float scrollDy = 0f;
-
-    public void setTouchScrollCoords(float x, float y) {
-        this.scrollDx = x;
-        this.scrollDy = y;
+    public void setTouchScrollCoords(float dx, float dy) {
+        this.scrollDx -= dx;
+        this.scrollDy += dy;
     }
 
     /*
@@ -434,15 +452,21 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
             isRendering = true;
 
+            if (mFirstRender) {
+                centreAtPlayerPos();
+            }
+
             if (mNewFrame == null) {
-                // First render
                 mScrollOffset = calculateScrollOffset();
                 oldOffsetX = mScrollOffset.x();
                 oldOffsetY = mScrollOffset.y();
                 mLightMap = mFrame.getLightMap();
                 mFov = mFrame.getFov();
 
-            } else if (mHasNewFrame) {
+                mFirstRender = false;
+            }
+
+            else {
                 // Replace existing frame with new frame
                 mFrame = mNewFrame;
                 mLightMap = mFrame.getLightMap();
@@ -502,7 +526,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
                 ArrayList<GameObject> objectsInCell = objectGrid[x][y];
 
-                for (GameObject object : objectsInCell) {
+                int objectsSize = objectsInCell.size();
+
+                for (int i = 0; i < objectsSize; i++) {
+                    GameObject object = objectsInCell.get(i);
                     if (object.isProjected()) {
                         if (mFov[x][y] > 0) {
                             int destX = object.getDestX();
@@ -533,14 +560,15 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 // Todo: maybe we could draw objects outside FOV using low lighting + alpha
 
                 if (mFov[x][y] > 0) {
-
-                    for (GameObject object : objectGrid[x][y]) {
+                    int objectsSize = objectGrid[x][y].size();
+                    for (int i = 0; i < objectsSize; i++) {
+                        GameObject object = objectGrid[x][y].get(i);
                         if (!object.isProjected() && (!object.isStationary() || !object.isImmutable())) {
                             mSpriteSheetRenderer.addSprite(new Sprite(x, y, mSpriteIndexes.get(object.tile())));
                         }
                     }
-
-                    for (int i = 0; i < animations[x][y].size(); i++) {
+                    int animationsSize = animations[x][y].size();
+                    for (int i = 0; i < animationsSize; i++) {
                         Animation animation = (Animation) animations[x][y].get(i);
                         int frameIndex = processAnimation(animation);
                         mSpriteSheetRenderer.addSprite(new Sprite(x, y, frameIndex));
@@ -555,8 +583,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private void addUiLayer() {
         if (mCurrentPath != null) {
             int index = mSpriteIndexes.get("sprites/cursor_default.png");
-            for (Vector segment : mCurrentPath) {
-                Vector adjustedSegment = segment.subtract(mScrollOffset);
+            int pathSize = mCurrentPath.size();
+            for (int i = 0; i < pathSize; i++) {
+                Vector adjustedSegment = mCurrentPath.get(i).subtract(mScrollOffset);
 
                 int x = adjustedSegment.x();
                 int y = adjustedSegment.y();
@@ -654,11 +683,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     ---------------------------------------------
     */
 
-    public Vector getMapGridTouchCoords(float x, float y) {
-        return getOnScreenTouchCoords(x, y).add(calculateScrollOffset());
-    }
-
-    public Vector getOnScreenTouchCoords(float x, float y) {
+    public Vector getGridCellForTouchCoords(float x, float y) {
         // NOTE: Origin for touch events is top-left, origin for game area is bottom-left.
         int height = ScreenSizeGetter.getHeight();
         float correctedY = height - y;
@@ -679,7 +704,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     public void setFrame(Frame frame) {
-        if (mFrame == null) {
+        if (mFirstRender) {
             mFrame = frame;
             mLightMap = mFrame.getLightMap();
             mFov = mFrame.getFov();
@@ -701,9 +726,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     public void setCurrentPathSelection(ArrayList<Vector> path) {
         this.mCurrentPath = path;
     }
-
-    int mMapWidth;
-    int mMapHeight;
 
     public void setMapSize(int[] size) {
         mMapWidth = size[0];
