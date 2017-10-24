@@ -15,6 +15,7 @@ public class Animation extends GameObject {
     private int currentFrame;
     private int length;
     private boolean finished;
+    private int renderCount;
 
     public Animation(int x, int y) {
         super(x, y);
@@ -32,9 +33,16 @@ public class Animation extends GameObject {
         return this.finished;
     }
 
+    // Todo: this will do for now. but we should be timing animations probably
     public String getNextFrame() {
-        if (this.frames.size() > 0) {
-            return this.frames.remove(0);
+        if (this.renderCount < 4) {
+            this.renderCount++;
+            return this.frames.get(0);
+        }
+        else if (this.renderCount >= 3 && this.frames.size() > 1) {
+            this.renderCount = 0;
+            this.frames.remove(0);
+            return this.frames.get(0);
         }
         else {
             this.finished = true;
