@@ -82,20 +82,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private float ssu;
 
     // Scrolling
-
-    private int oldOffsetX = 0;
-    private int oldOffsetY = 0;
-    private double mScrollFrameCount;
-    private int mScrollProgress = 0;
-    private double mScrollIntervalX = 0;
-    private double mScrollIntervalY = 0;
-    private double mCurrentScrollX = 0;
-    private double mCurrentScrollY = 0;
-    private boolean mNeedsScroll;
     private float scrollDx = 0f;
     private float scrollDy = 0f;
-    private int diffX;
-    private int diffY;
 
     // Timing
     private long mStartTime;
@@ -132,12 +120,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mTranslationX = 0f;
         mTranslationY = 0f;
 
-        mScrollProgress = 0;
-        mScrollIntervalX = 0;
-        mScrollIntervalY = 0;
-        mCurrentScrollX = 0;
-        mCurrentScrollY = 0;
-        mNeedsScroll = false;
         mNeedsCache = true; // Always cache on first run
         mFirstRender = true;
     }
@@ -359,8 +341,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     private void calculateScroll() {
-        oldOffsetX = mScrollOffset.x();
-        oldOffsetY = mScrollOffset.y();
         mScrollOffset = calculateScrollOffset();
     }
 
@@ -386,39 +366,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         mVisibleGridWidth++;
         mVisibleGridHeight++;
-
-        // For odd grid sizes, player position will already be centred.
-        // Otherwise, we have to manually translate the matrix
-
-        if (mVisibleGridWidth % 2 == 0) {
-            mTranslationX = -spriteSize / 2;
-        }
-        if (mVisibleGridHeight % 2 == 0) {
-            mTranslationY = -spriteSize / 2;
-        }
-
-        Matrix.translateM(mTMatrix, 0, mMVPMatrix, 0, mTranslationX, mTranslationY, 0f);
-    }
-
-    private void checkScrollStatus() {
-        if ((mScrollIntervalX != 0 || mScrollIntervalY != 0) && mScrollProgress < mScrollFrameCount) {
-            mNeedsScroll = true;
-            ((MainActivity) mContext).setMoveLock(true);
-            mCurrentScrollX += mScrollIntervalX;
-            mCurrentScrollY += mScrollIntervalY;
-            mScrollProgress++;
-        }
-        else {
-            mNeedsScroll = false;
-            ((MainActivity) mContext).setMoveLock(false);
-            mCurrentScrollX = 0;
-            mCurrentScrollY = 0;
-            mScrollIntervalX = 0;
-            mScrollIntervalY = 0;
-            mScrollProgress = 0;
-            diffX = 0;
-            diffY = 0;
-        }
     }
 
     private Vector calculateScrollOffset() {
@@ -449,8 +396,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
             if (mNewFrame == null) {
                 mScrollOffset = calculateScrollOffset();
-                oldOffsetX = mScrollOffset.x();
-                oldOffsetY = mScrollOffset.y();
                 mLightMap = mFrame.getLightMap();
                 mFov = mFrame.getFov();
 
@@ -467,8 +412,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 mHasNewFrame = false;
             }
 
-            checkScrollStatus();
-
             if (mNeedsCache) {
                 cacheImmutableSprites();
                 mNeedsCache = false;
@@ -482,7 +425,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             float[] renderMatrix = mTMatrix.clone();
 
             if (scrollDx != 0 || scrollDy != 0) {
-                Matrix.translateM(renderMatrix, 0, mTMatrix, 0, scrollDx, scrollDy, 0f);
+                Matrix.translateM(renderMatrix, 0, mMVPMatrix, 0, scrollDx, scrollDy, 0f);
             }
 
             mSpriteSheetRenderer.prepareDrawInfo();
@@ -552,6 +495,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
                 if (mFov[x][y] > 0.1) {
                     int objectsSize = objectGrid[x][y].size();
+                    // It's possible that object stack will change during rendering. Todo: this is bad
                     for (int i = 0; i < objectsSize; i++) {
                         GameObject object = objectGrid[x][y].get(i);
                         if (!object.isProjected() && (!object.isStationary() || !object.isImmutable())) {
@@ -696,10 +640,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         // NOTE: Origin for touch events is top-left, origin for game area is bottom-left.
         int height = ScreenSizeGetter.getHeight();
         float correctedY = height - y;
-
-        // Account for initial translation
-        x -= mTranslationX;
-        correctedY += mTranslationY;
 
         // Account for touch scrolling
         x -= scrollDx;
