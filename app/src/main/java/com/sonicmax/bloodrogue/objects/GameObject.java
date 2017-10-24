@@ -29,6 +29,7 @@ public class GameObject {
     private ArrayList<Vector> path;
     private boolean isStationary = true;
     private boolean isImmutable = true;
+    private Vector lastMove = null;
 
     public GameObject(int x, int y) {
         this.x = x;
@@ -230,5 +231,26 @@ public class GameObject {
     public void setMutability(boolean value) {
         // Todo: this is stupid. But if object is mutable then we set isImmutable to inverse of value
         this.isImmutable = !value;
+    }
+
+    public void setLastMove(Vector last) {
+        this.lastMove = last;
+    }
+
+    public Vector getlastMove() {
+        return this.lastMove;
+    }
+
+    private int movementCount;
+
+    public float advanceMovement() {
+        if (movementCount >= 10) {
+            this.movementCount = 0;
+            return 1;
+        }
+
+        movementCount++;
+
+        return 1f / 11 * movementCount;
     }
 }

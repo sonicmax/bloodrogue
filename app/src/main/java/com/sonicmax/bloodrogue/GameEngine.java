@@ -218,6 +218,8 @@ public class GameEngine {
             Log.e(LOG_TAG, "Object " + object.tile() + " not present in stack");
             newStack.add(object);
         }
+
+        object.setLastMove(new Vector(oldPos.x(), oldPos.y()));
     }
 
     private void populateObjectGrid() {

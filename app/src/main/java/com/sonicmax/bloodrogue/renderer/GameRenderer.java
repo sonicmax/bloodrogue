@@ -550,13 +550,18 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
                 // Todo: maybe we could draw objects outside FOV using low lighting + alpha
 
-                if (mFov[x][y] > 0) {
+                if (mFov[x][y] > 0.1) {
                     int objectsSize = objectGrid[x][y].size();
                     for (int i = 0; i < objectsSize; i++) {
                         GameObject object = objectGrid[x][y].get(i);
                         if (!object.isProjected() && (!object.isStationary() || !object.isImmutable())) {
+                            if (object.getlastMove() != null) {
+                                handleMovingObject(x, y, object);
+                            }
+                            else {
                             mSpriteSheetRenderer.addSprite(new Sprite(x, y, mSpriteIndexes.get(object.tile())));
                         }
+                    }
                     }
                     int animationsSize = animations[x][y].size();
                     for (int i = 0; i < animationsSize; i++) {
@@ -568,6 +573,19 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
                 handleFinishedAnimations(animations[x][y]);
             }
+        }
+    }
+
+    private void handleMovingObject(int x, int y, GameObject object) {
+        float fraction = object.advanceMovement();
+        float offsetX = (object.x() - object.getlastMove().x()) * fraction;
+        float offsetY = (object.y() - object.getlastMove().y()) * fraction;
+        if (fraction == 1) {
+            object.setLastMove(null);
+            mSpriteSheetRenderer.addSprite(new Sprite(x, y, mSpriteIndexes.get(object.tile())));
+        }
+        else {
+            mSpriteSheetRenderer.addSprite(new Sprite(object.getlastMove().x(), object.getlastMove().y(), mSpriteIndexes.get(object.tile()), offsetX, offsetY));
         }
     }
 

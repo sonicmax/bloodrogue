@@ -90,18 +90,18 @@ public class SpriteSheetRenderer {
      */
 
     public void precalculatePositions(int width, int height) {
-        cachedVecs = new float[width + 2][height + 2][12];
+        cachedVecs = new float[width][height][12];
 
         float x;
         float y;
         float yUnit = TARGET_WIDTH * mUniformScale;
 
         // Iterate over row of terrainIndexes and setup vertices/etc for each sprite
-        for (int tileY = 0; tileY <= height; tileY++) {
+        for (int tileY = 0; tileY < height; tileY++) {
             x = 0f;
             y = 0f + (tileY * yUnit);
 
-            for (int tileX = 0; tileX <= width; tileX++) {
+            for (int tileX = 0; tileX < width; tileX++) {
 
                 cachedVecs[tileX][tileY][0] = x;
                 cachedVecs[tileX][tileY][1] = y + (TARGET_WIDTH * mUniformScale);
@@ -119,6 +119,29 @@ public class SpriteSheetRenderer {
                 x += TARGET_WIDTH * mUniformScale;
             }
         }
+    }
+
+    private float[] calculateOffset(float[] vec, float offsetX, float offsetY) {
+        float[] offsetVec = new float[vec.length];
+        System.arraycopy(vec, 0, offsetVec, 0, vec.length);
+        offsetX *= TARGET_WIDTH;
+        offsetY *= TARGET_WIDTH;
+
+        // Add offset to vectors, ignoring z axis
+        offsetVec[0] += offsetX;
+        offsetVec[1] += offsetY;
+        // vec[2] = 1f;
+        offsetVec[3] += offsetX;
+        offsetVec[4] += offsetY;
+        // vec[5] = 1f;
+        offsetVec[6] += offsetX;
+        offsetVec[7] += offsetY;
+        // vec[8] = 1f;
+        offsetVec[9] += offsetX;
+        offsetVec[10] += offsetY;;
+        // vec[11] = 1f;
+
+        return offsetVec;
     }
 
     /**
@@ -193,12 +216,16 @@ public class SpriteSheetRenderer {
         uvs = new float[spriteCount * 8];
         indices = new short[spriteCount * 6];
 
-        for (Sprite sprite : mCachedSprites) {
-            convertSpriteToTriangleInfo(sprite);
+        int cachedSpritesSize = mCachedSprites.size();
+
+        for (int i = 0; i < cachedSpritesSize; i++) {
+            convertSpriteToTriangleInfo(mCachedSprites.get(i));
         }
 
-        for (Sprite sprite : mSprites) {
-            convertSpriteToTriangleInfo(sprite);
+        int spritesSize = mSprites.size();
+
+        for (int i = 0; i < spritesSize; i++) {
+            convertSpriteToTriangleInfo(mSprites.get(i));
         }
     }
 
@@ -246,7 +273,12 @@ public class SpriteSheetRenderer {
                 lighting, lighting, lighting, 1f
         };
 
+        if (sprite.offsetX == 0 && sprite.offsetY == 0) {
         addRenderInformation(cachedVecs[sprite.x][sprite.y], colors, cachedUvs[sprite.index], mIndices);
+    }
+        else {
+            addRenderInformation(calculateOffset(cachedVecs[sprite.x][sprite.y], sprite.offsetX, sprite.offsetY), colors, cachedUvs[sprite.index], mIndices);
+        }
     }
 
     public void renderSprites(float[] matrix) {
