@@ -23,6 +23,7 @@ public class DecalFactory {
         GameObject splat = new GameObject(x, y);
         splat.setTraversable(true);
         splat.setBlocking(false);
+        splat.setMutability(true);
 
         if (!(mapGrid[x][y] instanceof Wall)) {
             splat.setTile(All.BLOOD_DROPS[bloodIndex]);
@@ -47,7 +48,9 @@ public class DecalFactory {
         int size = NumberGenerator.getRandomInt(0, 5);
         for (int i = 0; i < size; i++) {
             GameObject splat = createBloodSplat(target, mapGrid);
+
             if (splat != null) {
+                splat.setMutability(true);
                 objectGrid[splat.x()][splat.y()].add(splat);
             }
         }

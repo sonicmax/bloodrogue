@@ -5,6 +5,7 @@ public class CorpseFactory {
         GameObject corpse = new GameObject(x, y);
         corpse.setBlocking(false);
         corpse.setTraversable(true);
+        corpse.setMutability(true);
 
         switch(type) {
             case "sprites/zombie_1.png":
