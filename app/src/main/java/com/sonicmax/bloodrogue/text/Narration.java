@@ -1,7 +1,5 @@
 package com.sonicmax.bloodrogue.text;
 
-import com.sonicmax.bloodrogue.renderer.TextObject;
-
 /**
  * Wrapper for TextObject that adds support for start/finish durations
  */

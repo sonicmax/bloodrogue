@@ -13,6 +13,11 @@ import com.sonicmax.bloodrogue.engine.Frame;
 import com.sonicmax.bloodrogue.maths.Vector;
 import com.sonicmax.bloodrogue.objects.Animation;
 import com.sonicmax.bloodrogue.objects.GameObject;
+import com.sonicmax.bloodrogue.sprites.Sprite;
+import com.sonicmax.bloodrogue.sprites.SpriteLoader;
+import com.sonicmax.bloodrogue.sprites.SpriteSheetRenderer;
+import com.sonicmax.bloodrogue.text.TextObject;
+import com.sonicmax.bloodrogue.text.TextRenderer;
 
 import java.io.IOException;
 import java.io.InputStream;

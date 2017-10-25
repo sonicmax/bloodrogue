@@ -1,4 +1,4 @@
-package com.sonicmax.bloodrogue.renderer;
+package com.sonicmax.bloodrogue.text;
 
 import android.opengl.GLES20;
 

@@ -1,4 +1,4 @@
-package com.sonicmax.bloodrogue.renderer;
+package com.sonicmax.bloodrogue.text;
 
 public class TextObject {
     public String text;

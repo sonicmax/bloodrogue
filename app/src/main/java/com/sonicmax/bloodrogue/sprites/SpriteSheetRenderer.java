@@ -1,6 +1,7 @@
-package com.sonicmax.bloodrogue.renderer;
+package com.sonicmax.bloodrogue.sprites;
 
 import android.opengl.GLES20;
+import android.util.Log;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -273,9 +274,14 @@ public class SpriteSheetRenderer {
                 lighting, lighting, lighting, 1f
         };
 
+        if (sprite.index == -1) {
+            Log.e(LOG_TAG, "Invalid sprite at " + x + ", " + y);
+            return;
+        }
+
         if (sprite.offsetX == 0 && sprite.offsetY == 0) {
-        addRenderInformation(cachedVecs[sprite.x][sprite.y], colors, cachedUvs[sprite.index], mIndices);
-    }
+            addRenderInformation(cachedVecs[sprite.x][sprite.y], colors, cachedUvs[sprite.index], mIndices);
+        }
         else {
             addRenderInformation(calculateOffset(cachedVecs[sprite.x][sprite.y], sprite.offsetX, sprite.offsetY), colors, cachedUvs[sprite.index], mIndices);
         }

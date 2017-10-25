@@ -1,4 +1,4 @@
-package com.sonicmax.bloodrogue.renderer;
+package com.sonicmax.bloodrogue.sprites;
 
 public class Sprite {
     public int x;

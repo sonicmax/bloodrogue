@@ -1,7 +1,5 @@
 package com.sonicmax.bloodrogue.text;
 
-import com.sonicmax.bloodrogue.renderer.TextObject;
-
 import java.util.ArrayList;
 import java.util.Iterator;
 
