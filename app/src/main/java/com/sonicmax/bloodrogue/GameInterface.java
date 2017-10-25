@@ -102,11 +102,18 @@ public class GameInterface {
                 mPathSelection = false;
 
                 if (eventDuration > PATH_THRESHOLD) {
-                    ArrayList<Vector> path = mGameEngine.onTouchPathComplete();
+                    final ArrayList<Vector> path = mGameEngine.onTouchPathComplete();
                     // Todo: if square is adjacent then we should just move to it
                     if (path.size() > 0) {
                         path.add(mapTouch);
+
+                        // Execute in background thread to prevent queueAndFollowPath() from blocking touch events
+                        AsyncTask.execute(new Runnable() {
+                            @Override
+                            public void run() {
                         mGameEngine.queueAndFollowPath(path);
+                    }
+                        });
                     }
                 }
 
