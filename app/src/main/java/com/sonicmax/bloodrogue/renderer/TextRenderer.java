@@ -7,7 +7,6 @@ import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
 import java.util.ArrayList;
-import java.util.Iterator;
 
 public class TextRenderer {
     private final String LOG_TAG = this.getClass().getSimpleName();
@@ -28,7 +27,7 @@ public class TextRenderer {
             17, 15, 16, 15, 21, 15, 16, 15, 10, 18, 11, 16, 21, 8, 17, 16, 17, 16, 17, 13, 16, 16,
             5, 10, 13, 5, 21, 16, 17, 16, 16, 16, 17, 10, 16, 15, 21, 16, 15, 17, 12, 5, 12, 21};
 
-    private float[][][] cachedVecs;
+    private float[][] cachedRows;
     private float[][] cachedUvs;
     private float[] cachedOffsets;
 
@@ -81,36 +80,42 @@ public class TextRenderer {
         mText = new ArrayList<>();
     }
 
-    public void precalculatePositions() {
-        /*cachedVecs = new float[width + 2][height + 2][12];
+    /**
+     * Works out how many text rows we can fit on screen and precalculates position vectors.
+     * Returns number of rows generated
+     *
+     * @param height Screen height
+     */
+
+    public int precalculateRows(int height) {
+        int rows = (int) (height / (TEXT_WIDTH * mUniformScale));
+
+        cachedRows = new float[rows][12];
 
         float x;
         float y;
         float yUnit = TEXT_WIDTH * mUniformScale;
 
         // Iterate over row of terrainIndexes and setup vertices/etc for each sprite
-        for (int tileY = 0; tileY <= height; tileY++) {
+        for (int row = 0; row < rows; row++) {
             x = 0f;
-            y = 0f + (tileY * yUnit);
+            y = 0f + (row * yUnit);
 
-            for (int tileX = 0; tileX <= width; tileX++) {
+            cachedRows[row][0] = x;
+            cachedRows[row][1] = y + (TEXT_WIDTH * mUniformScale);
+            cachedRows[row][2] = 1f;
+            cachedRows[row][3] = x;
+            cachedRows[row][4] = y;
+            cachedRows[row][5] = 1f;
+            cachedRows[row][6] = x + (TEXT_WIDTH * mUniformScale);
+            cachedRows[row][7] = y;
+            cachedRows[row][8] = 1f;
+            cachedRows[row][9] = x + (TEXT_WIDTH * mUniformScale);
+            cachedRows[row][10] = y + (TEXT_WIDTH * mUniformScale);
+            cachedRows[row][11] = 1f;
+        }
 
-                cachedVecs[tileX][tileY][0] = x;
-                cachedVecs[tileX][tileY][1] = y + (TEXT_WIDTH * mUniformScale);
-                cachedVecs[tileX][tileY][2] = 1f;
-                cachedVecs[tileX][tileY][3] = x;
-                cachedVecs[tileX][tileY][4] = y;
-                cachedVecs[tileX][tileY][5] = 1f;
-                cachedVecs[tileX][tileY][6] = x + (TEXT_WIDTH * mUniformScale);
-                cachedVecs[tileX][tileY][7] = y;
-                cachedVecs[tileX][tileY][8] = 1f;
-                cachedVecs[tileX][tileY][9] = x + (TEXT_WIDTH * mUniformScale);
-                cachedVecs[tileX][tileY][10] = y + (TEXT_WIDTH * mUniformScale);
-                cachedVecs[tileX][tileY][11] = 1f;
-
-                x += TEXT_WIDTH * mUniformScale;
-            }
-        }*/
+        return rows;
     }
 
     public void precalculateOffsets() {
@@ -211,7 +216,6 @@ public class TextRenderer {
     }
 
     public void prepareText() {
-        // Setup all the arrays
         prepareDrawInfo();
 
         int size = mText.size();
@@ -236,28 +240,19 @@ public class TextRenderer {
             int charIndex = convertCharValueToUvIndex((int) c);
 
             if (charIndex == -1) {
-                // unknown character, we will add a space for it to be save.
+                // Space or unknown character
                 x += ((TEXT_SPACESIZE) * mUniformScale);
                 continue;
             }
 
-            // Todo: is there a way we can precalculate this?
-
             // Creating the triangle information
-            float[] vec = new float[12];
+            float[] vec;
 
-            vec[0] = x;
-            vec[1] = y + (TEXT_WIDTH * mUniformScale);
-            vec[2] = 0.99f;
-            vec[3] = x;
-            vec[4] = y;
-            vec[5] = 0.99f;
-            vec[6] = x + (TEXT_WIDTH * mUniformScale);
-            vec[7] = y;
-            vec[8] = 0.99f;
-            vec[9] = x + (TEXT_WIDTH * mUniformScale);
-            vec[10] = y + (TEXT_WIDTH * mUniformScale);
-            vec[11] = 0.99f;
+            if (val.row == -1) {
+                vec = getFreeVector(x, y);
+            } else {
+                vec = getRowVector(val.row, x);
+            }
 
             float[] colors = new float[] {
                     val.color[0], val.color[1], val.color[2], val.color[3],
@@ -272,6 +267,38 @@ public class TextRenderer {
             // Calculate the new position
             x += cachedOffsets[charIndex];
         }
+    }
+
+    private float[] getRowVector(int row, float x) {
+        float[] vec = cachedRows[row].clone();
+
+        // Update x values in cached row with letter positions
+
+        vec[0] = x;
+        vec[3] = x;
+        vec[6] = x + (TEXT_WIDTH * mUniformScale);
+        vec[9] = x + (TEXT_WIDTH * mUniformScale);
+
+        return vec;
+    }
+
+    private float[] getFreeVector(float x, float y) {
+        float[] vec = new float[12];
+
+        vec[0] = x;
+        vec[1] = y + (TEXT_WIDTH * mUniformScale);
+        vec[2] = 0.99f;
+        vec[3] = x;
+        vec[4] = y;
+        vec[5] = 0.99f;
+        vec[6] = x + (TEXT_WIDTH * mUniformScale);
+        vec[7] = y;
+        vec[8] = 0.99f;
+        vec[9] = x + (TEXT_WIDTH * mUniformScale);
+        vec[10] = y + (TEXT_WIDTH * mUniformScale);
+        vec[11] = 0.99f;
+
+        return vec;
     }
 
     public void renderText(float[] matrix) {

@@ -40,7 +40,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     // Game/renderer state
     private Frame mFrame;
     private Frame mNewFrame;
-    private boolean mHasNewFrame = false;
     private ArrayList<Vector> mCurrentPath;
     private Vector mScrollOffset;
     private double[][] mLightMap = null;
@@ -73,10 +72,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private float mResTargetWidth = 320f;
     private float mResTargetHeight = 480f;
 
-    private float mTranslationX;
-    private float mTranslationY;
     private float mZoom;
-    private float mRatio;
     private float resX;
     private float resY;
     private float ssu;
@@ -92,6 +88,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private long currentFrameTime;
 
     // Misc vars
+    private int mTextRowHeight;
     private int mSpriteShaderProgram;
     private int mRenderState;
     private boolean hasResources;
@@ -117,8 +114,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         mSprites = new HashMap<>();
         mZoom = 1f;
-        mTranslationX = 0f;
-        mTranslationY = 0f;
 
         mNeedsCache = true; // Always cache on first run
         mFirstRender = true;
@@ -145,8 +140,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 loadImages();
                 setupMatrixes();
                 scaleScreen();
-                prepareText();
-                prepareSpriteSheets();
+                prepareTextRenderer();
+                prepareSpriteRenderer();
                 mRenderState = GAME;
             }
         });
@@ -267,7 +262,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
     }
 
-    private void prepareSpriteSheets() {
+    private void prepareSpriteRenderer() {
         mSpriteSheetRenderer = new SpriteSheetRenderer();
         mSpriteSheetRenderer.setShaderProgramHandle(mSpriteShaderProgram);
         mSpriteSheetRenderer.setSpriteSheetHandle(mSprites.get("sprite_sheets/sheet.png"));
@@ -276,7 +271,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mSpriteSheetRenderer.precalculateUv(mSpriteIndexes.size());
     }
 
-    private void prepareText() {
+    private void prepareTextRenderer() {
         // Create our text manager
         mTextManager = new TextRenderer();
         mTextManager.setShaderProgramHandle(mSpriteShaderProgram);
@@ -284,6 +279,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mTextManager.setUniformscale(ssu);
         mTextManager.precalculateUv();
         mTextManager.precalculateOffsets();
+        mTextRowHeight = mTextManager.precalculateRows(mHeight);
     }
 
     /*
@@ -408,8 +404,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 mLightMap = mFrame.getLightMap();
                 mFov = mFrame.getFov();
                 calculateScroll();
-
-                mHasNewFrame = false;
             }
 
             if (mNeedsCache) {
@@ -433,7 +427,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
             // Add our text overlay
             mTextManager.clear();
-            mTextManager.addText(new TextObject(mFps + " fps", 10f, 10f));
+            mTextManager.addText(new TextObject(mFps + " fps", mTextRowHeight - 1));
             mTextManager.prepareText();
             mTextManager.renderText(mMVPMatrix);
 
@@ -660,7 +654,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
         else {
             mNewFrame = frame;
-            mHasNewFrame = true;
         }
     }
 
