@@ -30,6 +30,7 @@ public class GameObject {
     private boolean isStationary = true;
     private boolean isImmutable = true;
     private Vector lastMove = null;
+    private int movementStep;
 
     public GameObject(int x, int y) {
         this.x = x;
@@ -241,16 +242,17 @@ public class GameObject {
         return this.lastMove;
     }
 
-    private int movementCount;
-
     public float advanceMovement() {
-        if (movementCount >= 10) {
-            this.movementCount = 0;
+        if (movementStep >= 10) {
+            this.movementStep = 0;
             return 1;
         }
 
-        movementCount++;
+        movementStep++;
 
-        return 1f / 11 * movementCount;
+        // Find fraction that we should move by
+        float fraction = 1f / 11 * movementStep;
+        // Return squared value to provide simple easing effect on movement
+        return (fraction * fraction);
     }
 }
