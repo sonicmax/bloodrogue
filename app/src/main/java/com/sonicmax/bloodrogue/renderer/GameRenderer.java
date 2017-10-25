@@ -440,6 +440,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             // Add our text overlay
             mTextManager.clear();
             mTextManager.addText(new TextObject(mFps + " fps", mTextRowHeight - 1));
+            for (TextObject object : mNarrations) {
+                mTextManager.addText(object);
+            }
             mTextManager.prepareText();
             mTextManager.renderText(mMVPMatrix);
 
@@ -685,5 +688,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     public void setMapSize(int[] size) {
         mMapWidth = size[0];
         mMapHeight = size[1];
+    }
+
+    public void setNarrations(ArrayList<TextObject> narrations) {
+        this.mNarrations = narrations;
     }
 }

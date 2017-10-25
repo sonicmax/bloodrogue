@@ -387,7 +387,7 @@ public class GameEngine {
                 // Ignore until player is closer
                 return;
             } else {
-                // Narration text: "Enemy is looking for blood!", red
+                mGameInterface.addNarration("Enemy is looking for blood!"); // Todo: should be red
                 enemy.setState(EnemyState.SEEKING);
             }
         }
@@ -705,8 +705,7 @@ public class GameEngine {
         }
 
         // Update combat log and display hit animations
-        // renderer.addNarration(LogColours.DEFAULT, attacker.name, 'hit', target.type, 'for', Math.ceil(damage), 'damage.');
-        // renderer.addAnimation(target.getBloodSplat());
+        mGameInterface.addNarration(attacker.getClass().getSimpleName() + " hit " + defender.getClass().getSimpleName() + " for " + damage + " damage.");
         // renderer.addAnimation(target.getDamageAnimation());
 
         int x = defender.x();
@@ -746,7 +745,7 @@ public class GameEngine {
         if (player.getXp() >= player.getXpToNextLevel()) {
             player.levelUp();
             // renderer.addAnimation(new PlayerLevelUp(player.x, player.y));
-            // renderer.addNarration(LogColours.REWARD, 'You have now reached level', player.level + '!');
+            mGameInterface.addNarration("You have now reached level " + player.getLevel() + "!");
         }
     }
 
