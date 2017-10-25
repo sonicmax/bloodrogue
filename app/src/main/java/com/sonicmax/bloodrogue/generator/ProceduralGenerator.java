@@ -75,7 +75,7 @@ public class ProceduralGenerator {
     private String mThemeKey;
     private int mCurrentRoomTheme;
 
-    private Decorator mDecorator;
+    private MansionDecorator mDecorator;
 
     public ProceduralGenerator(int width, int height) {
         mMapWidth = width;
@@ -167,7 +167,7 @@ public class ProceduralGenerator {
         checkForBrokenDoors();
         mGeneratingCorridors = false;
 
-        mDecorator = new Decorator(mMapWidth, mMapHeight, mTheme, mThemeKey);
+        mDecorator = new MansionDecorator(mMapWidth, mMapHeight, mTheme, mThemeKey);
         mDecorator.setGeneratorData(mMapGrid, mObjects, mObjectGrid, mEnemies);
         mDecorator.decorateRooms(mRooms);
         mObjects = mDecorator.getObjects();

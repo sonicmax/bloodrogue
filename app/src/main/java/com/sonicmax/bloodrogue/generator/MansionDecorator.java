@@ -21,7 +21,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 
-public class Decorator {
+public class MansionDecorator {
     private int mChestChance = 0; // Higher number = less chance that chest will be generated
 
     // Configuration for enemy placement
@@ -45,7 +45,7 @@ public class Decorator {
     private ArrayList<GameObject> mEnemies;
     private ArrayList<GameObject>[][] mObjectGrid;
 
-    public Decorator(int mapWidth, int mapHeight, int theme, String key) {
+    public MansionDecorator(int mapWidth, int mapHeight, int theme, String key) {
         this.mMapWidth = mapWidth;
         this.mMapHeight = mapHeight;
         this.mTheme = theme;
