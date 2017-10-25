@@ -55,16 +55,18 @@ public class GameEngine {
 
     private boolean mPlayerMoveLock;
     private boolean mInventoryOpen;
+    private FieldOfVisionCalculator mFovCalculator;
 
-    private MainActivity mActivity;
+    private GameInterface mGameInterface;
 
-    public GameEngine(MainActivity activity) {
-        mPlayerMoveLock = false;
-        mInventoryOpen = false;
-        mSightRadius = 10;
-        mMapWidth = 32;
-        mMapHeight = 32;
-        mActivity = activity;
+    public GameEngine(GameInterface gameInterface) {
+        this.mPlayerMoveLock = false;
+        this.mInventoryOpen = false;
+        this.mSightRadius = 10;
+        this.mMapWidth = 32;
+        this.mMapHeight = 32;
+        this.mGameInterface = gameInterface;
+        this.mFovCalculator = new FieldOfVisionCalculator();
     }
 
     public void initState() {
@@ -580,7 +582,7 @@ public class GameEngine {
             queue.put(turn);
         }
 
-        mActivity.setMoveLock(true);
+        mGameInterface.setMoveLock(true);
 
         while (!queue.isEmpty()) {
 
@@ -589,7 +591,7 @@ public class GameEngine {
                 mTurnQueue.add(turn);
                 takeTurns();
                 advanceFrame();
-                mActivity.passDataToRenderer();
+                mGameInterface.passDataToRenderer();
 
             } catch (InterruptedException e) {
 
@@ -598,7 +600,7 @@ public class GameEngine {
             }
         }
 
-        mActivity.setMoveLock(false);
+        mGameInterface.setMoveLock(false);
     }
 
     /*

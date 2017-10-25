@@ -9,6 +9,7 @@ import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
 import android.util.Log;
 
+import com.sonicmax.bloodrogue.GameInterface;
 import com.sonicmax.bloodrogue.MainActivity;
 import com.sonicmax.bloodrogue.engine.Frame;
 import com.sonicmax.bloodrogue.maths.Vector;
@@ -34,8 +35,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     private final long FRAME_TIME = 17L;
 
-    private Context mContext;
-    private GLSurfaceView mGLSurfaceView;
+    private GameInterface mGameInterface;
 
     // Game/renderer state
     private Frame mFrame;
@@ -86,20 +86,24 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private long mEndTime;
     private int frameCount;
     private long currentFrameTime;
+    private int mFps;
 
-    // Misc vars
+    // Text
+    private ArrayList<TextObject> mNarrations;
     private int mTextRowHeight;
+
+    // GL handles
     private int mSpriteShaderProgram;
     private int mRenderState;
+
+    // State handlers
     private boolean hasResources;
     private boolean isRendering;
     private boolean mFirstRender;
-    private int mFps;
 
-    public GameRenderer(Context context, GLSurfaceView surfaceView) {
+    public GameRenderer(GameInterface gameInterface) {
         super();
-        mContext = context;
-        mGLSurfaceView = surfaceView;
+        mGameInterface = gameInterface;
 
         mFrame = null;
         mNewFrame = null;
@@ -111,6 +115,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mVMatrix = new float[16];
         mMVPMatrix = new float[16];
         mTMatrix = new float[16];
+
+        mNarrations = new ArrayList<>();
 
         mSprites = new HashMap<>();
         mZoom = 1f;
@@ -130,12 +136,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         prepareGLSurface();
         calculateGridSize();
 
-        // Post new runnable to GLSurfaceView which allows us to load textures/etc in background
-        mGLSurfaceView.queueEvent(new Runnable() {
-
-            @Override
-            public void run() {
-                // (Inside GL thread)
                 mRenderState = SPLASH;
                 loadImages();
                 setupMatrixes();
@@ -143,8 +143,15 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 prepareTextRenderer();
                 prepareSpriteRenderer();
                 mRenderState = GAME;
+
+        // Post new runnable to GLSurfaceView which allows us to load textures/etc in background
+        /*mGLSurfaceView.queueEvent(new Runnable() {
+
+            @Override
+            public void run() {
+
             }
-        });
+        });*/
     }
 
     @Override
@@ -215,7 +222,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         final String IMG_PATH = "sprites/";
         final String SHEET_PATH = "sprite_sheets/";
         final String FONT_PATH = "fonts/";
-        AssetManager assetManager = mContext.getAssets();
+        AssetManager assetManager = mGameInterface.getAssets();
 
         try {
             String[] images = assetManager.list("sprites");
@@ -290,7 +297,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     private void setupMatrixes() {
         // Setup our screen width and height for normal sprite translation.
-        Matrix.orthoM(mProjMatrix, 0, 0f, mWidth, 0.0f, mHeight, 0, 50);
+        if (mWidth == 0 || mHeight == 0) {
+            mWidth = ScreenSizeGetter.getWidth();
+            mHeight = ScreenSizeGetter.getHeight();
+        }
+
+        Matrix.orthoM(mProjMatrix, 0, 0f, mWidth * mZoom, 0.0f, mHeight * mZoom, 0, 50);
 
         // Set the camera position (View matrix)
         Matrix.setLookAtM(mVMatrix, 0,
@@ -312,7 +324,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         scrollDy = 0f - (gridSize * pos.y()) + (mHeight / 2);
 
         // We have to make sure MainActivity has same coords as renderer
-        ((MainActivity) mContext).updateScrollPos(scrollDx, scrollDy);
+        // mGameInterface.updateScrollPos(scrollDx, scrollDy);
     }
 
     private void scaleScreen() {
@@ -621,6 +633,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             mFps = frameCount;
             currentFrameTime = 0;
             frameCount = 0;
+            mGameInterface.checkNarrations();
         }
     }
 
