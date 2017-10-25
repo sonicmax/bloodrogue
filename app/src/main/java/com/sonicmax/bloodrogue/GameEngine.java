@@ -388,7 +388,7 @@ public class GameEngine {
                 // Ignore until player is closer
                 return;
             } else {
-                mGameInterface.addNarration("Enemy is looking for blood!", TextColours.RED);
+                mGameInterface.addNarration(enemy.getName() + " is looking for blood!", TextColours.RED);
                 enemy.setState(EnemyState.SEEKING);
             }
         }
@@ -706,7 +706,9 @@ public class GameEngine {
         }
 
         // Update combat log and display hit animations
-        mGameInterface.addNarration(attacker.getClass().getSimpleName() + " hit " + defender.getClass().getSimpleName() + " for " + damage + " damage.");
+        mGameInterface.addNarration(attacker.getName() + " hit " + defender.getName()
+                + " for " + damage + " damage.");
+
         // renderer.addAnimation(target.getDamageAnimation());
 
         int x = defender.x();
@@ -715,6 +717,8 @@ public class GameEngine {
         if (defender.getHp() <= 0) {
             mAnimations[x][y].add(AnimationFactory.getDeathAnimation(x, y));
             DecalFactory.createBloodSpray(defender.getVector(), mMapGrid, mObjectGrid);
+
+            mGameInterface.addNarration(attacker.getName() + " killed " + defender.getName() + "!", TextColours.RED);
 
             int reward = defender.getXpReward(attacker.getLevel());
             int currentXp = attacker.getXp();

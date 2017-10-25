@@ -8,6 +8,7 @@ import java.util.UUID;
 public class GameObject {
     private final String LOG_TAG = this.getClass().getSimpleName();
     private final String id;
+    private String name;
 
     private int x;
     private int y;
@@ -37,11 +38,8 @@ public class GameObject {
         this.y = y;
         this.id = UUID.randomUUID().toString();
         this.path = null;
+        this.name = this.getClass().getSimpleName();
     }
-
-
-    /**
-     Tile for renderer and unique immutable ID */
 
     public String tile() {
         return this.tile;
@@ -49,6 +47,19 @@ public class GameObject {
 
     public void setTile(String tile) {
         this.tile = tile;
+    }
+
+    /**
+     *  Returns name to be used for in-game text references (eg. status text)
+     *  Uses class name as default
+     */
+
+    public String getName() {
+        return this.name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 
     public boolean hasAnimation() {
@@ -62,10 +73,6 @@ public class GameObject {
 
     public GameObject getAnimation() {
         return this.animation;
-    }
-
-    public String getId() {
-        return this.id;
     }
 
 

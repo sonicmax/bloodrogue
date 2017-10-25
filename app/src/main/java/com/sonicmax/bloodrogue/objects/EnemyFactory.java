@@ -30,6 +30,7 @@ public class EnemyFactory {
     public static GameObject createZombie(int x, int y, int level) {
         Actor zombie = new Actor(x, y, level);
         zombie.setTile("sprites/zombie_" + getRandomInt(1, 3) + ".png");
+        zombie.setName("Zombie");
 
         // Level 3 zombie would have 3 points in each stat + 3 randomly distributed points.
         // They would end up with 19 to 28 HP
@@ -47,6 +48,7 @@ public class EnemyFactory {
     public static GameObject createGiantRat(int x, int y, int level) {
         Actor rat = new Actor(x, y, level);
         rat.setTile("sprites/giant_rat.png");
+        rat.setName("Giant Rat");
 
         // Level 3 giant rat would have 3 points in each stat + 3 randomly distributed points.
         // Redistribute stats from strength/endurance to agility if rat is level 3 or above
@@ -82,6 +84,7 @@ public class EnemyFactory {
     public static GameObject createOgre(int x, int y, int level) {
         Actor ogre = new Actor(x, y, level);
         ogre.setTile("sprites/ogre.png");
+        ogre.setName("Ogre");
 
         // Ogres are stronger and more durable than average enemies, but slower
         ogre.setStrength((int) Math.ceil(level * 1.25));
@@ -103,6 +106,7 @@ public class EnemyFactory {
     public static GameObject createGreatOgre(int x, int y, int level) {
         Actor ogre = new Actor(x, y, level);
         ogre.setTile("sprites/ogre_2.png");
+        ogre.setName("Great Ogre");
 
         // Great ogres are stronger than ogres, but much slower than average enemy
         ogre.setStrength((int) Math.ceil(level * 1.5));
@@ -124,6 +128,7 @@ public class EnemyFactory {
     public static GameObject createGiantKomodo(int x, int y, int level) {
         Actor komodo = new Actor(x, y, level);
         komodo.setTile("sprites/giant_komodo.png");
+        komodo.setName("Giant Komodo");
 
         // Giant komodos are marginally superior to normal enemies in each stat
         komodo.setStrength((int) Math.ceil(level * 1.25));
