@@ -517,7 +517,7 @@ public class GameEngine {
             }
 
             Vector closestNode = null;
-            double bestHeuristic = Double.MAX_VALUE;
+            double bestDistance = Double.MAX_VALUE;
 
             // Find adjacent node which is closest to goal
             for (Vector direction : Directions.All.values()) {
@@ -528,14 +528,9 @@ public class GameEngine {
                 if (detectCollisions(adjacentNode)) continue;
 
                 double distanceToGoal = Calculator.getDistance(adjacentNode, goalNode);
-                int desire = mPlayerDesireMap[adjacentNode.x()][adjacentNode.y()];
 
-                // Probably too simple, but it will work for now.
-                // If desire is the same, we prefer whichever is closest
-                double heuristic = desire + distanceToGoal;
-
-                if (heuristic < bestHeuristic) {
-                    bestHeuristic = heuristic;
+                if (distanceToGoal < bestDistance) {
+                    bestDistance = distanceToGoal;
                     closestNode = adjacentNode;
                 }
             }
