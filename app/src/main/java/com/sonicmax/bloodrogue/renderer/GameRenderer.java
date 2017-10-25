@@ -538,10 +538,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             int index = mSpriteIndexes.get("sprites/cursor_default.png");
             int pathSize = mCurrentPath.size();
             for (int i = 0; i < pathSize; i++) {
-                Vector adjustedSegment = mCurrentPath.get(i).subtract(mScrollOffset);
+                Vector segment = mCurrentPath.get(i);
 
-                int x = adjustedSegment.x();
-                int y = adjustedSegment.y();
+                int x = segment.x();
+                int y = segment.y();
 
                 Sprite sprite = new Sprite(x, y, index);
                 sprite.lighting = 1f;

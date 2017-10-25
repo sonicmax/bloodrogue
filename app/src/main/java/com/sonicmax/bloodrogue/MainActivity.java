@@ -55,6 +55,7 @@ public class MainActivity extends AppCompatActivity {
     private float mLastTouchY = 0f;
     private float mScrollPosX = 0f;
     private float mScrollPosY = 0f;
+    private boolean mPathSelection = false;
 
     @Override
     public boolean onTouchEvent(MotionEvent e) {
@@ -80,16 +81,23 @@ public class MainActivity extends AppCompatActivity {
                 lastMapTouch = mapTouch;
                 mLastTouchX = x;
                 mLastTouchY = y;
+
+                if (mapTouch.equals(mGameEngine.getPlayer().getVector())) {
+                    mPathSelection = true;
+                }
+
                 break;
 
             case MotionEvent.ACTION_MOVE:
-                /*if (!mapTouch.equals(lastMapTouch)) {
+                if (mPathSelection && !mapTouch.equals(lastMapTouch)) {
                     mGameEngine.setPathDestination(mapTouch);
                     ArrayList<Vector> path = mGameEngine.onTouchPathComplete();
                     path.add(mapTouch);
                     mRenderer.setCurrentPathSelection(path);
-                }*/
+                    break;
+                }
 
+                else if (!mPathSelection) {
                 float dx = mLastTouchX - x;
                 float dy = mLastTouchY - y;
 
@@ -97,10 +105,13 @@ public class MainActivity extends AppCompatActivity {
 
                 mLastTouchX = x;
                 mLastTouchY = y;
+                }
+
                 break;
 
             case MotionEvent.ACTION_UP:
                 mRenderer.setCurrentPathSelection(null);
+                mPathSelection = false;
 
                 if (eventDuration > PATH_THRESHOLD) {
                     ArrayList<Vector> path = mGameEngine.onTouchPathComplete();

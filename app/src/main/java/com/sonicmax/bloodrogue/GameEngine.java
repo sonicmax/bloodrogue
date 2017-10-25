@@ -106,6 +106,10 @@ public class GameEngine {
         return mObjectGrid;
     }
 
+    public GameObject getPlayer() {
+        return mPlayer;
+    }
+
     private Vector pathDestination;
 
     public void setPathDestination(Vector dest) {
