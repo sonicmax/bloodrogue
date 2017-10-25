@@ -391,9 +391,11 @@ public class GameEngine {
         }
 
 
-        // Check whether enemy is directly adjacent to player & attack
+        // Check whether enemy is directly adjacent to player & queue attack for next turn
         if (bestDesire == 0) {
-            attack((Actor) enemy, (Actor) mPlayer);
+            ActorTurn turn = new ActorTurn(enemy);
+            turn.setMove(mPlayer.getVector());
+            mTurnQueue.add(turn);
             return;
         }
 
