@@ -1,6 +1,5 @@
 package com.sonicmax.bloodrogue.renderer;
 
-import android.content.Context;
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -10,7 +9,6 @@ import android.opengl.Matrix;
 import android.util.Log;
 
 import com.sonicmax.bloodrogue.GameInterface;
-import com.sonicmax.bloodrogue.MainActivity;
 import com.sonicmax.bloodrogue.engine.Frame;
 import com.sonicmax.bloodrogue.maths.Vector;
 import com.sonicmax.bloodrogue.objects.Animation;

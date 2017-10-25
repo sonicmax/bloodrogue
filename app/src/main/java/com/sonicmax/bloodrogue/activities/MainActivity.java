@@ -1,4 +1,4 @@
-package com.sonicmax.bloodrogue;
+package com.sonicmax.bloodrogue.activities;
 
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -7,6 +7,7 @@ import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.WindowManager;
 
+import com.sonicmax.bloodrogue.GameInterface;
 import com.sonicmax.bloodrogue.renderer.GameSurfaceView;
 
 public class MainActivity extends AppCompatActivity {

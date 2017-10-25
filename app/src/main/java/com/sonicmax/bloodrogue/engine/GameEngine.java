@@ -1,7 +1,8 @@
-package com.sonicmax.bloodrogue;
+package com.sonicmax.bloodrogue.engine;
 
 import android.util.Log;
 
+import com.sonicmax.bloodrogue.GameInterface;
 import com.sonicmax.bloodrogue.ai.EnemyState;
 import com.sonicmax.bloodrogue.ai.PlayerState;
 import com.sonicmax.bloodrogue.engine.ActorTurn;
@@ -131,9 +132,8 @@ public class GameEngine {
     }
 
     private void updatePreCombatData() {
-        FieldOfVisionCalculator fov = new FieldOfVisionCalculator();
-        fov.setValues(mMapGrid, mObjectGrid, mPlayer.x(), mPlayer.y(), mSightRadius);
-        mFOV = fov.calculate();
+        mFovCalculator.setValues(mMapGrid, mObjectGrid, mPlayer.x(), mPlayer.y(), mSightRadius);
+        mFOV = mFovCalculator.calculate();
         generateDesireMaps();
         mLightMap = getVisibleLight();
         generateDesireMaps();
@@ -145,7 +145,10 @@ public class GameEngine {
             return;
         }
 
-        for (GameObject enemy : mEnemies) {
+        int enemySize = mEnemies.size();
+
+        for (int i = 0; i < enemySize; i++) {
+            GameObject enemy = mEnemies.get(i);
             switch (enemy.getState()) {
 
                 case EnemyState.IDLE:
@@ -174,10 +177,6 @@ public class GameEngine {
      Input checkers
     ---------------------------------------------
     */
-
-    /**
-     * Checks user input and adds ActorTurn to move queue.
-     */
 
     public void checkUserInput(Vector destination) {
         boolean adjacent = isAdjacent(destination, mPlayer.getVector());
@@ -300,8 +299,12 @@ public class GameEngine {
         fov.setDarknessFactor(2);
         double[][] combinedLightMap = null;
 
-        for (GameObject source : mLightSources) {
-            if (mFOV[source.x()][source.y()] >= 0) {
+        int lightSize = mLightSources.size();
+        for (int i = 0; i < lightSize; i++) {
+            GameObject source = mLightSources.get(i);
+
+            // Ignore anything outside of player's FOV
+            if (mFOV[source.x()][source.y()] > 0) {
 
                 fov.setValues(mMapGrid, mObjectGrid, mPlayer.x(), mPlayer.y(), LIGHT_RADIUS);
                 double[][] lightMap = fov.calculate();
@@ -327,7 +330,9 @@ public class GameEngine {
     }
 
     private int[][] populateDijkstraGrid(Collection<Vector> directions, int[][] desireGrid, ArrayList<Vector> desireLocations, String[] tilesToCheck, boolean ignoreCollisions) {
-        for (Vector desire : desireLocations) {
+        int desireSize = desireLocations.size();
+        for (int i = 0; i < desireSize; i++) {
+            Vector desire = desireLocations.get(i);
             ArrayList<Vector> queue = new ArrayList<>();
 
             queue.add(desire);
@@ -428,7 +433,9 @@ public class GameEngine {
         boolean blocked = false;
 
         // Todo: We should check blocked tiles to see whether any of them were closed doors.
-        for (Vector tile : blockedTiles) {
+        int blockedSize = blockedTiles.size();
+        for (int i = 0; i < blockedSize; i++) {
+            Vector tile = blockedTiles.get(i);
             int newDesire = mPlayerDesireMap[tile.x()][tile.y()];
             int distance = (int) Calculator.getDistance(tile, playerPos);
             int heuristic = newDesire + distance;
@@ -769,10 +776,13 @@ public class GameEngine {
             return true;
         }
 
-        ArrayList<GameObject> objectStack = mObjectGrid[position.x()][position.y()];
+        int x = position.x();
+        int y = position.y();
 
-        for (GameObject object : objectStack) {
-            if (!object.isTraversable()) {
+        int objectSize = mObjectGrid[x][y].size();
+
+        for (int i = 0; i < objectSize; i++) {
+            if (!mObjectGrid[x][y].get(i).isTraversable()) {
                 return true;
             }
         }
@@ -781,8 +791,8 @@ public class GameEngine {
     }
 
     private boolean objectInstanceInArray(GameObject tile, String[] tilesToCheck) {
-        for (String className : tilesToCheck) {
-            if (tile.getClass().getSimpleName().equals(className)) {
+        for (int i = 0; i < tilesToCheck.length; i++) {
+            if (tile.getClass().getSimpleName().equals(tilesToCheck[i])) {
                 return true;
             }
         }

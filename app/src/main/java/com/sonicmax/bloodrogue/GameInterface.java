@@ -2,17 +2,12 @@ package com.sonicmax.bloodrogue;
 
 import android.content.Context;
 import android.content.res.AssetManager;
-import android.opengl.GLSurfaceView;
-import android.os.Bundle;
-import android.util.Log;
-import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
-import android.view.WindowManager;
 
+import com.sonicmax.bloodrogue.engine.GameEngine;
 import com.sonicmax.bloodrogue.maths.Vector;
 import com.sonicmax.bloodrogue.renderer.GameRenderer;
-import com.sonicmax.bloodrogue.renderer.GameSurfaceView;
 import com.sonicmax.bloodrogue.text.NarrationManager;
 
 import java.util.ArrayList;
