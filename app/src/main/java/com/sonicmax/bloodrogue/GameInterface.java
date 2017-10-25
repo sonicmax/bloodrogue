@@ -148,6 +148,10 @@ public class GameInterface {
         mNarrationManager.addToQueue(narration);
     }
 
+    public void addNarration(String narration, float[] colour) {
+        mNarrationManager.addToQueue(narration, colour);
+    }
+
     public void checkNarrations() {
         mNarrationManager.checkQueueAndRemove();
         mRenderer.setNarrations(mNarrationManager.getTextObjects());

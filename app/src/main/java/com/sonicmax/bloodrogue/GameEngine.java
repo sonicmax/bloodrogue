@@ -21,6 +21,7 @@ import com.sonicmax.bloodrogue.objects.GameObject;
 import com.sonicmax.bloodrogue.objects.PlayerFactory;
 import com.sonicmax.bloodrogue.objects.Room;
 import com.sonicmax.bloodrogue.objects.Wall;
+import com.sonicmax.bloodrogue.text.TextColours;
 import com.sonicmax.bloodrogue.utils.Array2DHelper;
 
 import java.util.ArrayList;
@@ -387,7 +388,7 @@ public class GameEngine {
                 // Ignore until player is closer
                 return;
             } else {
-                mGameInterface.addNarration("Enemy is looking for blood!"); // Todo: should be red
+                mGameInterface.addNarration("Enemy is looking for blood!", TextColours.RED);
                 enemy.setState(EnemyState.SEEKING);
             }
         }

@@ -22,4 +22,20 @@ public class TextObject {
         this.row = row;
         this.color = new float[] {1f, 1f, 1f, 1.0f};
     }
+
+    public TextObject(String txt, int row, float[] color) {
+        this.text = txt;
+        this.x = 0f;
+        this.y = 0f;
+        this.row = row;
+        this.color = color;
+    }
+
+    public TextObject(TextObject clone) {
+        this.text = clone.text;
+        this.x = clone.x;
+        this.y = clone.y;
+        this.row = clone.row;
+        this.color = clone.color;
+    }
 }

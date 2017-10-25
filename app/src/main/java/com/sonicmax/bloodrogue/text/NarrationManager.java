@@ -30,6 +30,18 @@ public class NarrationManager {
         queue.add(new Narration(message, queue.size()));
     }
 
+    public void addToQueue(String message, float[] colour) {
+        int size = queue.size();
+
+        if (size >= QUEUE_MAX) {
+            // Remove oldest + add new message
+            queue.remove(0);
+            updateRows();
+        }
+
+        queue.add(new Narration(message, queue.size(), colour));
+    }
+
     /**
      *  Instantiate new TextObjects for each item in queue
      */
@@ -39,7 +51,7 @@ public class NarrationManager {
         int size = queue.size();
         for (int i = 0; i < size; i++) {
             Narration narration = queue.get(i);
-            narrations.add(new TextObject(narration.text, narration.row));
+            narrations.add(new TextObject(narration.text, narration.row, narration.color));
         }
         return narrations;
     }
