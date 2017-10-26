@@ -1,6 +1,6 @@
 package com.sonicmax.bloodrogue.generator;
 
-import com.sonicmax.bloodrogue.maths.Vector;
+import com.sonicmax.bloodrogue.utils.maths.Vector;
 
 public class Cell extends Vector {
     private String direction;

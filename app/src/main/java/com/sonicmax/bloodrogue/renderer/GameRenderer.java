@@ -10,14 +10,15 @@ import android.util.Log;
 
 import com.sonicmax.bloodrogue.GameInterface;
 import com.sonicmax.bloodrogue.engine.Frame;
-import com.sonicmax.bloodrogue.maths.Vector;
-import com.sonicmax.bloodrogue.objects.Animation;
-import com.sonicmax.bloodrogue.objects.GameObject;
-import com.sonicmax.bloodrogue.sprites.Sprite;
-import com.sonicmax.bloodrogue.sprites.SpriteLoader;
-import com.sonicmax.bloodrogue.sprites.SpriteSheetRenderer;
-import com.sonicmax.bloodrogue.text.TextObject;
-import com.sonicmax.bloodrogue.text.TextRenderer;
+import com.sonicmax.bloodrogue.utils.maths.Vector;
+import com.sonicmax.bloodrogue.engine.objects.Animation;
+import com.sonicmax.bloodrogue.engine.objects.GameObject;
+import com.sonicmax.bloodrogue.renderer.sprites.Sprite;
+import com.sonicmax.bloodrogue.renderer.sprites.SpriteLoader;
+import com.sonicmax.bloodrogue.renderer.sprites.SpriteSheetRenderer;
+import com.sonicmax.bloodrogue.renderer.text.Status;
+import com.sonicmax.bloodrogue.renderer.text.TextObject;
+import com.sonicmax.bloodrogue.renderer.text.TextRenderer;
 
 import java.io.IOException;
 import java.io.InputStream;

@@ -1,8 +1,8 @@
 package com.sonicmax.bloodrogue.engine;
 
-import com.sonicmax.bloodrogue.maths.Vector;
-import com.sonicmax.bloodrogue.objects.GameObject;
-import com.sonicmax.bloodrogue.objects.Wall;
+import com.sonicmax.bloodrogue.utils.maths.Vector;
+import com.sonicmax.bloodrogue.engine.objects.GameObject;
+import com.sonicmax.bloodrogue.engine.objects.Wall;
 
 import java.util.ArrayList;
 

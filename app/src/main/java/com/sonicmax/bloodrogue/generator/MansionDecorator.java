@@ -1,20 +1,20 @@
 package com.sonicmax.bloodrogue.generator;
 
-import com.sonicmax.bloodrogue.collisions.AxisAlignedBoxTester;
+import com.sonicmax.bloodrogue.engine.collisions.AxisAlignedBoxTester;
 import com.sonicmax.bloodrogue.engine.Directions;
-import com.sonicmax.bloodrogue.objects.EnemyFactory;
-import com.sonicmax.bloodrogue.objects.LightSource;
-import com.sonicmax.bloodrogue.maths.Vector;
-import com.sonicmax.bloodrogue.objects.Chest;
-import com.sonicmax.bloodrogue.objects.Decoration;
-import com.sonicmax.bloodrogue.objects.Floor;
-import com.sonicmax.bloodrogue.objects.GameObject;
-import com.sonicmax.bloodrogue.objects.Room;
-import com.sonicmax.bloodrogue.objects.Wall;
-import com.sonicmax.bloodrogue.tilesets.All;
-import com.sonicmax.bloodrogue.tilesets.Mansion;
+import com.sonicmax.bloodrogue.engine.objects.EnemyFactory;
+import com.sonicmax.bloodrogue.engine.objects.LightSource;
+import com.sonicmax.bloodrogue.utils.maths.Vector;
+import com.sonicmax.bloodrogue.engine.objects.Chest;
+import com.sonicmax.bloodrogue.engine.objects.Decoration;
+import com.sonicmax.bloodrogue.engine.objects.Floor;
+import com.sonicmax.bloodrogue.engine.objects.GameObject;
+import com.sonicmax.bloodrogue.engine.objects.Room;
+import com.sonicmax.bloodrogue.engine.objects.Wall;
+import com.sonicmax.bloodrogue.renderer.tilesets.All;
+import com.sonicmax.bloodrogue.renderer.tilesets.Mansion;
 import com.sonicmax.bloodrogue.utils.Array2DHelper;
-import com.sonicmax.bloodrogue.utils.NumberGenerator;
+import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 
 import java.util.ArrayList;
 import java.util.Arrays;

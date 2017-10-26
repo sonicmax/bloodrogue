@@ -1,6 +1,6 @@
 package com.sonicmax.bloodrogue.engine;
 
-import com.sonicmax.bloodrogue.maths.Vector;
+import com.sonicmax.bloodrogue.utils.maths.Vector;
 
 import java.util.HashMap;
 

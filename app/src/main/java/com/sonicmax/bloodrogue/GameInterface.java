@@ -6,9 +6,11 @@ import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 
 import com.sonicmax.bloodrogue.engine.GameEngine;
-import com.sonicmax.bloodrogue.maths.Vector;
+import com.sonicmax.bloodrogue.utils.maths.Vector;
+import com.sonicmax.bloodrogue.engine.objects.GameObject;
 import com.sonicmax.bloodrogue.renderer.GameRenderer;
-import com.sonicmax.bloodrogue.text.NarrationManager;
+import com.sonicmax.bloodrogue.renderer.text.NarrationManager;
+import com.sonicmax.bloodrogue.renderer.text.Status;
 
 import java.util.ArrayList;
 

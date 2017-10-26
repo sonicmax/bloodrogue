@@ -1,6 +1,6 @@
 package com.sonicmax.bloodrogue.utils;
 
-import com.sonicmax.bloodrogue.objects.GameObject;
+import com.sonicmax.bloodrogue.engine.objects.GameObject;
 
 import java.util.ArrayList;
 

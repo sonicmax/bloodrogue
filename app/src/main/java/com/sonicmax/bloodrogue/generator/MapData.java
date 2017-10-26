@@ -1,7 +1,7 @@
 package com.sonicmax.bloodrogue.generator;
 
-import com.sonicmax.bloodrogue.maths.Vector;
-import com.sonicmax.bloodrogue.objects.GameObject;
+import com.sonicmax.bloodrogue.utils.maths.Vector;
+import com.sonicmax.bloodrogue.engine.objects.GameObject;
 
 import java.util.ArrayList;
 import java.util.HashMap;
