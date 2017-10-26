@@ -76,6 +76,7 @@ public class ProceduralGenerator {
     private int mCurrentRoomTheme;
 
     private MansionDecorator mDecorator;
+    private RandomNumberGenerator mRng;
 
     public ProceduralGenerator(int width, int height) {
         mMapWidth = width;
@@ -84,6 +85,7 @@ public class ProceduralGenerator {
         mObjects = new ArrayList<>();
         mEnemies = new ArrayList<>();
         mDoors = new HashMap<>();
+        mRng = new RandomNumberGenerator();
     }
 
 	/*
@@ -217,10 +219,10 @@ public class ProceduralGenerator {
     }
 
     private Room generateRoom() {
-        int width = NumberGenerator.getRandomInt(mMinRoomWidth, mMaxRoomWidth);
-        int height = NumberGenerator.getRandomInt(mMinRoomHeight, mMaxRoomHeight);
-        int x = NumberGenerator.getRandomInt(1, mMapWidth - width - 2);
-        int y = NumberGenerator.getRandomInt(1, mMapHeight - height - 2);
+        int width = mRng.getRandomInt(mMinRoomWidth, mMaxRoomWidth);
+        int height = mRng.getRandomInt(mMinRoomHeight, mMaxRoomHeight);
+        int x = mRng.getRandomInt(1, mMapWidth - width - 2);
+        int y = mRng.getRandomInt(1, mMapHeight - height - 2);
 
         Room newRoom = new Room(x, y, width, height);
 
@@ -238,9 +240,9 @@ public class ProceduralGenerator {
     private void carveRooms() {
         for (GameObject room : mRooms) {
             startRegion();
-            mCurrentRoomTheme = NumberGenerator.getRandomInt(0, 3);
+            mCurrentRoomTheme = mRng.getRandomInt(0, 3);
             retextureWalls((Room) room);
-            mCurrentRoomTheme = NumberGenerator.getRandomInt(0, 3);
+            mCurrentRoomTheme = mRng.getRandomInt(0, 3);
             carveRoomFloor((Room) room);
         }
     }
@@ -330,11 +332,11 @@ public class ProceduralGenerator {
     }
 
     private void calculateGoals() {
-        Room startRoom = (Room) mRooms.get(NumberGenerator.getRandomInt(0, mRooms.size() - 1));
+        Room startRoom = (Room) mRooms.get(mRng.getRandomInt(0, mRooms.size() - 1));
 
         // Make sure that starting room is accessible
         while (!startRoom.isAccessible) {
-            startRoom = (Room) mRooms.get(NumberGenerator.getRandomInt(0, mRooms.size() - 1));
+            startRoom = (Room) mRooms.get(mRng.getRandomInt(0, mRooms.size() - 1));
         }
 
         startRoom.setEntrance();
@@ -490,10 +492,10 @@ public class ProceduralGenerator {
             if (unmadeCells.size() > 0) {
                 Vector firstCarve;
 
-                if (lastCell != null && unmadeCells.containsKey(lastCell.toString()) && NumberGenerator.getRandomInt(0, 100) > mWindingPercent) {
+                if (lastCell != null && unmadeCells.containsKey(lastCell.toString()) && mRng.getRandomInt(0, 100) > mWindingPercent) {
                     firstCarve = lastCell;
                 } else {
-                    firstCarve = (Vector) unmadeCells.values().toArray()[NumberGenerator.getRandomInt(0, unmadeCells.size() - 1)];
+                    firstCarve = (Vector) unmadeCells.values().toArray()[mRng.getRandomInt(0, unmadeCells.size() - 1)];
                 }
 
                 Vector secondCarve = firstCarve.add(getVectorForDirection(firstCarve.getDirection()));
@@ -561,7 +563,7 @@ public class ProceduralGenerator {
 
         // Keep connecting regions until we're down to one.
         while (openRegions.size() > 1 && connectors.size() > 0) {
-            Vector connector = connectors.get(NumberGenerator.getRandomInt(0, connectors.size() - 1));
+            Vector connector = connectors.get(mRng.getRandomInt(0, connectors.size() - 1));
 
             addJunction(connector);
 
@@ -614,7 +616,7 @@ public class ProceduralGenerator {
                 if (spannedRegions.size() <= 1)  {
                     // This connecter isn't needed, but connect it occasionally so that the
                     // dungeon isn't singly-connected.
-                    if (NumberGenerator.getRandomInt(0, mExtraConnectorChance) == 0) {
+                    if (mRng.getRandomInt(0, mExtraConnectorChance) == 0) {
                         addJunction(pos);
                     }
 
@@ -660,7 +662,7 @@ public class ProceduralGenerator {
     private void addJunction(Vector cell) {
         setTile(cell, Mansion.DOORWAY);
 
-        if (NumberGenerator.getRandomInt(0, 1) == 0) {
+        if (mRng.getRandomInt(0, 1) == 0) {
             // mapData.doors.set(cell.toString(), new DoorObject(cell.x, cell.y, getOpenDoorTile(), getClosedDoorTile(), true));
         } else {
             mDoors.put(cell.toString(), new Door(cell.x(), cell.y(), getOpenDoorTile(), getClosedDoorTile()));

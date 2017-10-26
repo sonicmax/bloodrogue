@@ -45,11 +45,14 @@ public class MansionDecorator {
     private ArrayList<GameObject> mEnemies;
     private ArrayList<GameObject>[][] mObjectGrid;
 
+    private RandomNumberGenerator mRng;
+
     public MansionDecorator(int mapWidth, int mapHeight, int theme, String key) {
         this.mMapWidth = mapWidth;
         this.mMapHeight = mapHeight;
         this.mTheme = theme;
         this.mThemeKey = key;
+        this.mRng = new RandomNumberGenerator();
     }
 
     public void setGeneratorData(GameObject[][] mapGrid, ArrayList<GameObject> objects,
@@ -95,7 +98,7 @@ public class MansionDecorator {
             Room room = (Room) it.next();
 
             if (AxisAlignedBoxTester.test(livingQuartersQuad, room)) {
-                if (NumberGenerator.getRandomInt(0, 2) > 0) {
+                if (mRng.getRandomInt(0, 2) > 0) {
                     convertRoomToBedroom(room);
                 } else {
                     convertRoomToBathroom(room);
@@ -141,7 +144,7 @@ public class MansionDecorator {
     }
 
     public void furnishRoom(GameObject room) {
-        int roomChance = NumberGenerator.getRandomInt(0, 2);
+        int roomChance = mRng.getRandomInt(0, 2);
 
         if (mOfficeCount < 3 && roomChance == 0) {
             convertRoomToOffice((Room) room);
@@ -173,7 +176,7 @@ public class MansionDecorator {
             GameObject object = getMapObjectForCell(cell);
 
             if (object instanceof Wall && paintings.size() > 0) {
-                int random = NumberGenerator.getRandomInt(0, paintings.size() - 1);
+                int random = mRng.getRandomInt(0, paintings.size() - 1);
                 Decoration painting = new Decoration(x, cell.y(), paintings.remove(random));
 
                 mObjects.add(painting);
@@ -194,7 +197,7 @@ public class MansionDecorator {
 
         for (Vector corner : corners) {
             if (statueCount < 3 && !detectCollisions(corner) && !blocksDoorway(corner)) {
-                mObjects.add(new Decoration(corner.x(), corner.y(), Mansion.STATUES[NumberGenerator.getRandomInt(0, Mansion.STATUES.length - 1)]));
+                mObjects.add(new Decoration(corner.x(), corner.y(), Mansion.STATUES[mRng.getRandomInt(0, Mansion.STATUES.length - 1)]));
                 statueCount++;
             }
         }
@@ -221,7 +224,7 @@ public class MansionDecorator {
         corners.add(new Vector(room.x() + room.width() - 1, room.y() + room.height() - 1));
 
         // Pick corner to place desk. Make sure it's not blocking doorway
-        Vector deskLocation = corners.remove(NumberGenerator.getRandomInt(0, corners.size() - 1));
+        Vector deskLocation = corners.remove(mRng.getRandomInt(0, corners.size() - 1));
 
         if (blocksDoorway(deskLocation)) return;
 
@@ -238,21 +241,21 @@ public class MansionDecorator {
         }
 
         // Find corner to add filing cabinets. If we placed table but failed to place cabinet, skip
-        Vector filingCabinetLocation = corners.remove(NumberGenerator.getRandomInt(0, corners.size() - 1));
+        Vector filingCabinetLocation = corners.remove(mRng.getRandomInt(0, corners.size() - 1));
 
         if (blocksDoorway(filingCabinetLocation)) return;
 
         mObjects.add(new Decoration(filingCabinetLocation.x(), filingCabinetLocation.y(), Mansion.FILING_CABINET));
 
         // Finally, place office plant
-        Vector plantLocation = corners.remove(NumberGenerator.getRandomInt(0, corners.size() - 1));
+        Vector plantLocation = corners.remove(mRng.getRandomInt(0, corners.size() - 1));
 
         if (blocksDoorway(plantLocation)) return;
 
         mObjects.add(new Decoration(plantLocation.x(), plantLocation.y(), Mansion.OFFICE_PLANT));
 
         String[] floorTiles = new String[] {Mansion.WOOD_FLOOR_1, Mansion.WOOD_FLOOR_2, Mansion.WOOD_FLOOR_3, Mansion.TILED_FLOOR_1};
-        retextureFloor(room, floorTiles[NumberGenerator.getRandomInt(0, floorTiles.length - 1)]);
+        retextureFloor(room, floorTiles[mRng.getRandomInt(0, floorTiles.length - 1)]);
 
         populateObjectGrid();
         mOfficeCount++;
@@ -264,11 +267,11 @@ public class MansionDecorator {
         ArrayList<Vector> corners = getCornerTiles(room);
 
         // Pick corner to place desk. Make sure it's not blocking doorway
-        Vector bedLocation = corners.remove(NumberGenerator.getRandomInt(0, corners.size() - 1));
+        Vector bedLocation = corners.remove(mRng.getRandomInt(0, corners.size() - 1));
 
         if (blocksDoorway(bedLocation)) return;
 
-        mObjects.add(new Decoration(bedLocation.x(), bedLocation.y(), Mansion.BEDS[NumberGenerator.getRandomInt(0, 1)]));
+        mObjects.add(new Decoration(bedLocation.x(), bedLocation.y(), Mansion.BEDS[mRng.getRandomInt(0, 1)]));
 
         // Find adjacent space to place office chair. Can be skipped
 
@@ -280,20 +283,20 @@ public class MansionDecorator {
             }
         }
 
-        Vector wardrobeLocation = corners.remove(NumberGenerator.getRandomInt(0, corners.size() - 1));
+        Vector wardrobeLocation = corners.remove(mRng.getRandomInt(0, corners.size() - 1));
 
         if (blocksDoorway(wardrobeLocation)) return;
 
         mObjects.add(new Decoration(wardrobeLocation.x(), wardrobeLocation.y(), Mansion.WARDROBE));
 
-        Vector plantLocation = corners.remove(NumberGenerator.getRandomInt(0, corners.size() - 1));
+        Vector plantLocation = corners.remove(mRng.getRandomInt(0, corners.size() - 1));
 
         if (blocksDoorway(plantLocation)) return;
 
         mObjects.add(new Decoration(plantLocation.x(), plantLocation.y(), Mansion.OFFICE_PLANT));
 
         String[] floor = new String[] {Mansion.WOOD_FLOOR_1, Mansion.WOOD_FLOOR_2, Mansion.WOOD_FLOOR_3};
-        retextureFloor(room, floor[NumberGenerator.getRandomInt(0, floor.length - 1)]);
+        retextureFloor(room, floor[mRng.getRandomInt(0, floor.length - 1)]);
 
         populateObjectGrid();
         mBedroomCount++;
@@ -304,26 +307,26 @@ public class MansionDecorator {
 
         ArrayList<Vector> corners = getCornerTiles(room);
 
-        Vector toiletLocation = corners.remove(NumberGenerator.getRandomInt(0, corners.size() - 1));
+        Vector toiletLocation = corners.remove(mRng.getRandomInt(0, corners.size() - 1));
 
         if (blocksDoorway(toiletLocation)) return;
 
         mObjects.add(new Decoration(toiletLocation.x(), toiletLocation.y(), Mansion.TOILET));
 
-        Vector sinkLocation = corners.remove(NumberGenerator.getRandomInt(0, corners.size() - 1));
+        Vector sinkLocation = corners.remove(mRng.getRandomInt(0, corners.size() - 1));
 
         if (blocksDoorway(sinkLocation)) return;
 
         mObjects.add(new Decoration(sinkLocation.x(), sinkLocation.y(), Mansion.SINK));
 
-        Vector bathLocation = corners.remove(NumberGenerator.getRandomInt(0, corners.size() - 1));
+        Vector bathLocation = corners.remove(mRng.getRandomInt(0, corners.size() - 1));
 
         if (blocksDoorway(bathLocation)) return;
 
         mObjects.add(new Decoration(bathLocation.x(), bathLocation.y(), Mansion.BATH));
 
         String[] floor = new String[] {Mansion.MARBLE_FLOOR_2, Mansion.MARBLE_FLOOR_3, Mansion.MARBLE_FLOOR_4, Mansion.MARBLE_FLOOR_5};
-        retextureFloor(room, floor[NumberGenerator.getRandomInt(0, floor.length - 1)]);
+        retextureFloor(room, floor[mRng.getRandomInt(0, floor.length - 1)]);
 
         populateObjectGrid();
         mBathroomCount++;
@@ -421,7 +424,7 @@ public class MansionDecorator {
             itemCoord = new Vector(room.x() + (int) Math.floor(room.width() / 2), topLeft.y());
         }
 
-        mObjects.add(new Decoration(itemCoord.x(), itemCoord.y(), Mansion.DECORATIONS[NumberGenerator.getRandomInt(0, Mansion.DECORATIONS.length - 1)]));
+        mObjects.add(new Decoration(itemCoord.x(), itemCoord.y(), Mansion.DECORATIONS[mRng.getRandomInt(0, Mansion.DECORATIONS.length - 1)]));
     }
 
     /**
@@ -460,7 +463,7 @@ public class MansionDecorator {
     private void convertRoomToLibrary(Room room) {
         if (room.height() < 5) return;
 
-        if (NumberGenerator.getRandomInt(0, 1) == 0) { // Add rows of bookshelves
+        if (mRng.getRandomInt(0, 1) == 0) { // Add rows of bookshelves
 
             // Check whether height is odd/even to decide where to start placing bookshelf rows
             int startPositionY;
@@ -518,7 +521,7 @@ public class MansionDecorator {
             if (!inBounds || getMapObjectForCell(lookahead) instanceof Floor) {
 
                 if (!cellBlocksDoorway(cell, isEven)) {
-                    mObjects.add(new Decoration(cell.x(), cell.y(), Mansion.BOOKSHELVES[NumberGenerator.getRandomInt(0, Mansion.BOOKSHELVES.length - 1)]));
+                    mObjects.add(new Decoration(cell.x(), cell.y(), Mansion.BOOKSHELVES[mRng.getRandomInt(0, Mansion.BOOKSHELVES.length - 1)]));
                 }
             }
 
@@ -540,7 +543,7 @@ public class MansionDecorator {
             if (!inBounds || getMapObjectForCell(lookahead) instanceof Floor) {
 
                 if (!cellBlocksDoorway(cell, isEven)) {
-                    mObjects.add(new Decoration(cell.x(), cell.y(), Mansion.BOOKSHELVES[NumberGenerator.getRandomInt(0, Mansion.BOOKSHELVES.length - 1)]));
+                    mObjects.add(new Decoration(cell.x(), cell.y(), Mansion.BOOKSHELVES[mRng.getRandomInt(0, Mansion.BOOKSHELVES.length - 1)]));
                 }
             }
 
@@ -583,7 +586,7 @@ public class MansionDecorator {
 
     private void addLightingToRoom(Room room) {
         String[] bearings = new String[] {"NORTH", "EAST", "WEST"};
-        String bearing = bearings[NumberGenerator.getRandomInt(0, 2)];
+        String bearing = bearings[mRng.getRandomInt(0, 2)];
         Vector direction = Directions.Cardinal.get(bearing);
         Vector cell = room.roundedCentre();
 
@@ -626,7 +629,7 @@ public class MansionDecorator {
      */
 
     private void addChestsToRoom(Room room) {
-        int chanceToAdd = NumberGenerator.getRandomInt(0, mChestChance);
+        int chanceToAdd = mRng.getRandomInt(0, mChestChance);
 
         if (chanceToAdd != 0) return;
 
@@ -768,26 +771,20 @@ public class MansionDecorator {
     }
 
     private void addEnemiesToRoom(Room room) {
-        int numberOfEnemies = NumberGenerator.getRandomInt(mMinEnemies, mMaxEnemies);
+        int numberOfEnemies = mRng.getRandomInt(mMinEnemies, mMaxEnemies);
 
-        if (NumberGenerator.getRandomInt(0, 1) == 0) {
+        // We don't want player to be mobbed by several enemies when starting a new floor.
+        if (room.isEntrance() && numberOfEnemies > 1) {
+            numberOfEnemies = 1;
+        }
 
-            // We don't want player to be mobbed by several enemies when starting a new floor.
-            if (room.isEntrance() && numberOfEnemies > 1) {
-                numberOfEnemies = 1;
-            }
-
-            for (int i = 0; i < numberOfEnemies; i++) {
-                // Account for walls when placing enemies
-                int x = NumberGenerator.getRandomInt(room.x() + 1, room.x() + room.width() - 1);
-                int y = NumberGenerator.getRandomInt(room.y() + 1, room.y() + room.height() - 1);
-                int level = NumberGenerator.getRandomInt(1, mMaxEnemyLevel);
-
-                if (objectNotBlockingPath(new Vector(x, y))) {
-                    mEnemies.add(EnemyFactory.getRandomEnemy(x, y, level));
-                    populateObjectGrid();
-                }
-            }
+        for (int i = 0; i < numberOfEnemies; i++) {
+            // Account for walls when placing enemies
+            int x = mRng.getRandomInt(room.x() + 1, room.x() + room.width() - 1);
+            int y = mRng.getRandomInt(room.y() + 1, room.y() + room.height() - 1);
+            int level = mRng.getRandomInt(1, mMaxEnemyLevel);
+            mEnemies.add(EnemyFactory.getRandomEnemy(x, y, level));
+            populateObjectGrid();
         }
     }
 
