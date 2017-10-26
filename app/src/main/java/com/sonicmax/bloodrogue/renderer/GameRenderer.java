@@ -13,7 +13,6 @@ import com.sonicmax.bloodrogue.engine.Frame;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 import com.sonicmax.bloodrogue.engine.objects.Animation;
 import com.sonicmax.bloodrogue.engine.objects.GameObject;
-import com.sonicmax.bloodrogue.renderer.sprites.Sprite;
 import com.sonicmax.bloodrogue.renderer.sprites.SpriteLoader;
 import com.sonicmax.bloodrogue.renderer.sprites.SpriteSheetRenderer;
 import com.sonicmax.bloodrogue.renderer.text.Status;
@@ -55,7 +54,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private HashMap<String, Integer> mSpriteIndexes;
     private HashMap<String, Integer> mSprites;
     private TextRenderer mTextManager;
-    private boolean mNeedsCache;
 
     // Matrixes for GL surface
     private final float[] mMVPMatrix;
@@ -125,7 +123,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mSprites = new HashMap<>();
         mZoom = 1f;
 
-        mNeedsCache = true; // Always cache on first run
         mFirstRender = true;
     }
 
@@ -412,9 +409,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 mFov = mFrame.getFov();
 
                 mFirstRender = false;
-            }
-
-            else {
+            } else {
                 // Replace existing frame with new frame
                 mFrame = mNewFrame;
                 mLightMap = mFrame.getLightMap();
@@ -422,13 +417,13 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 calculateScroll();
             }
 
-            if (mNeedsCache) {
-                cacheImmutableSprites();
-                mNeedsCache = false;
-            }
+            // Get total sprite count and pass to renderer so we can init float and short arrays.
+            int size = countSprites();
+            mSpriteSheetRenderer.initArrays(size);
 
-            // Iterate over the data in Frame object and send to renderer
-            addSpritesToRenderer();
+            // Iterate over game data and send to renderer
+            addBackgroundLayer();
+            addForegroundLayer();
             addUiLayer();
 
             // Check whether we need to translate matrix to account for touch scrolling
@@ -438,7 +433,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 Matrix.translateM(renderMatrix, 0, mMVPMatrix, 0, scrollDx, scrollDy, 0f);
             }
 
-            mSpriteSheetRenderer.prepareDrawInfo();
             mSpriteSheetRenderer.renderSprites(renderMatrix);
 
             // Add our text overlay
@@ -454,11 +448,30 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
     }
 
-    /**
-     *  Caches terrain and stationary, non-interactive objects
-     */
+    private int countSprites() {
+        int terrainCount = mMapWidth * mMapHeight;
+        int objectCount = 0;
+        int animationCount = 0;
+        int uiCount = 0;
 
-    private void cacheImmutableSprites() {
+        ArrayList<GameObject>[][] objects = mFrame.getObjects();
+        ArrayList<GameObject>[][] animations = mFrame.getAnimations();
+
+        for (int x = 0; x < mMapWidth; x++) {
+            for (int y = 0; y < mMapHeight; y++) {
+                objectCount += objects[x][y].size();
+                animationCount += animations[x][y].size();
+            }
+        }
+
+        if (mCurrentPath != null) {
+            uiCount += mCurrentPath.size();
+        }
+
+        return terrainCount + objectCount + animationCount + uiCount;
+    }
+
+    private void addBackgroundLayer() {
         GameObject[][] mapGrid = mFrame.getTerrain();
         ArrayList<GameObject>[][] objectGrid = mFrame.getObjects();
 
@@ -466,10 +479,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             for (int x = 0; x < mMapWidth; x++) {
                 if (!inBounds(x, y)) continue;
 
+                float lighting = (float) getLightingForGrid(x, y);
+
                 GameObject terrain = mapGrid[x][y];
                 int index = mSpriteIndexes.get(terrain.tile());
 
-                mSpriteSheetRenderer.cacheSprite(new Sprite(x, y, index));
+                mSpriteSheetRenderer.addSpriteData(x, y,index, lighting, 0f, 0f);
 
                 ArrayList<GameObject> objectsInCell = objectGrid[x][y];
 
@@ -481,28 +496,27 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                         if (mFov[x][y] > 0) {
                             int destX = object.getDestX();
                             int destY = object.getDestY();
-                            mSpriteSheetRenderer.cacheSprite(new Sprite(destX, destY, mSpriteIndexes.get(object.tile())));
+                            mSpriteSheetRenderer.addSpriteData(destX, destY, index, (float) getLightingForGrid(destX, destY), 0f, 0f);
                         }
 
                     }
 
                     else if (object.isImmutable() && (object.isStationary())) {
-                        mSpriteSheetRenderer.cacheSprite(new Sprite(x, y, mSpriteIndexes.get(object.tile())));
+                        mSpriteSheetRenderer.addSpriteData(x, y, mSpriteIndexes.get(object.tile()), lighting, 0f, 0f);
                     }
                 }
             }
         }
     }
 
-    private void addSpritesToRenderer() {
+    private void addForegroundLayer() {
         ArrayList<GameObject>[][] objectGrid = mFrame.getObjects();
         ArrayList<GameObject>[][] animations = mFrame.getAnimations();
-
-        mSpriteSheetRenderer.clear();
+        ArrayList<GameObject> movingObjects = new ArrayList<>();
 
         for (int y = 0; y < mMapHeight; y++) {
             for (int x = 0; x < mMapWidth; x++) {
-                mSpriteSheetRenderer.setLighting(x, y, getLightingForGrid(x, y));
+                float lighting = (float) getLightingForGrid(x, y);
 
                 // Todo: maybe we could draw objects outside FOV using low lighting + alpha
 
@@ -513,36 +527,53 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                         GameObject object = objectGrid[x][y].get(i);
                         if (!object.isProjected() && (!object.isStationary() || !object.isImmutable())) {
                             if (object.getlastMove() != null) {
-                                handleMovingObject(x, y, object);
+                                // Wait until after we've finished iterating before adding to renderer
+                                // to make sure they aren't drawn underneath other sprites
+                                movingObjects.add(object);
                             }
                             else {
-                            mSpriteSheetRenderer.addSprite(new Sprite(x, y, mSpriteIndexes.get(object.tile())));
+                                mSpriteSheetRenderer.addSpriteData(x, y, mSpriteIndexes.get(object.tile()), lighting, 0f, 0f);
                         }
                     }
                     }
+
                     int animationsSize = animations[x][y].size();
                     for (int i = 0; i < animationsSize; i++) {
                         Animation animation = (Animation) animations[x][y].get(i);
                         int frameIndex = processAnimation(animation);
-                        mSpriteSheetRenderer.addSprite(new Sprite(x, y, frameIndex));
+                        mSpriteSheetRenderer.addSpriteData(x, y, frameIndex, lighting, 0f, 0f);
                     }
                 }
 
                 handleFinishedAnimations(animations[x][y]);
             }
         }
+
+        handleMovingObjects(movingObjects);
     }
 
-    private void handleMovingObject(int x, int y, GameObject object) {
+    private void handleMovingObjects(ArrayList<GameObject> objects) {
+        for (GameObject object : objects) {
+            int x = object.x();
+            int y = object.y();
         float fraction = object.advanceMovement();
-        float offsetX = (object.x() - object.getlastMove().x()) * fraction;
-        float offsetY = (object.y() - object.getlastMove().y()) * fraction;
+            float offsetX = (x - object.getlastMove().x()) * fraction;
+            float offsetY = (y - object.getlastMove().y()) * fraction;
+            float lighting = (float) getLightingForGrid(x, y);
         if (fraction == 1) {
             object.setLastMove(null);
-            mSpriteSheetRenderer.addSprite(new Sprite(x, y, mSpriteIndexes.get(object.tile())));
+                mSpriteSheetRenderer.addSpriteData(x, y, mSpriteIndexes.get(object.tile()), lighting, 0f, 0f);
+            } else {
+                mSpriteSheetRenderer.addSpriteData(object.getlastMove().x(), object.getlastMove().y(), mSpriteIndexes.get(object.tile()), lighting, offsetX, offsetY);
+
+                if (object.isPlayerControlled()) {
+                    /*scrollDx -= offsetX * (SPRITE_SIZE / 2);
+                    scrollDy -= offsetY * (SPRITE_SIZE / 2);*/
+
+                    // No scrolling, but more accurate?
+                    centreAtPlayerPos();
+                }
         }
-        else {
-            mSpriteSheetRenderer.addSprite(new Sprite(object.getlastMove().x(), object.getlastMove().y(), mSpriteIndexes.get(object.tile()), offsetX, offsetY));
         }
     }
 
@@ -552,14 +583,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             int pathSize = mCurrentPath.size();
             for (int i = 0; i < pathSize; i++) {
                 Vector segment = mCurrentPath.get(i);
-
                 int x = segment.x();
                 int y = segment.y();
-
-                Sprite sprite = new Sprite(x, y, index);
-                sprite.lighting = 1f;
-
-                mSpriteSheetRenderer.addSprite(sprite);
+                mSpriteSheetRenderer.addSpriteData(x, y, index, 1f, 0f, 0f);
             }
         }
     }

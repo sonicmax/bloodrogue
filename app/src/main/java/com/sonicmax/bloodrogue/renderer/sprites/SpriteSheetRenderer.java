@@ -7,7 +7,6 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
-import java.util.ArrayList;
 
 /**
  *  Class which handles the majority of rendering for our game. Caches UV coordinates for our sprite
@@ -51,15 +50,9 @@ public class SpriteSheetRenderer {
     private int mSpriteSheetHandle;
     private int mShaderHandle;
 
-    private ArrayList<Sprite> mSprites;
-    private ArrayList<Sprite> mCachedSprites;
     private float[][] mCachedLighting;
 
     public SpriteSheetRenderer() {
-        mSprites = new ArrayList<>();
-        mCachedSprites = new ArrayList<>();
-        mCachedLighting = new float[32][32];
-
         mUniformScale = 1f;
         offsetX = 0;
         offsetY = 0;
@@ -77,18 +70,17 @@ public class SpriteSheetRenderer {
         mSpriteSheetHandle = val;
     }
 
-    public void setScrollOffset(int x, int y) {
-        this.offsetX = x;
-        this.offsetY = y;
-    }
+    public void initArrays(int size) {
+        index_vecs = 0;
+        index_indices = 0;
+        index_uvs = 0;
+        index_colors = 0;
 
-    public void setLighting(int x, int y, double lighting) {
-        mCachedLighting[x][y] = (float) (1f * lighting);
+        vecs = new float[size * 12];
+        colors = new float[size * 16];
+        uvs = new float[size * 8];
+        indices = new short[size * 6];
     }
-
-    /**
-     *  Precalculates the position for each visible tile on screen.
-     */
 
     public void precalculatePositions(int width, int height) {
         cachedVecs = new float[width][height][12];
@@ -145,11 +137,6 @@ public class SpriteSheetRenderer {
         return offsetVec;
     }
 
-    /**
-     *  Precalculates UV coords for each texture in sprite sheet.
-     *  Textures are ordered alphabetically.
-     */
-
     public void precalculateUv(int numberOfIndexes) {
         cachedUvs = new float[numberOfIndexes][8];
 
@@ -179,54 +166,28 @@ public class SpriteSheetRenderer {
         }
     }
 
-    /**
-     *  Sprites added using this method will be stored indefinitely.
-     *  Use for immutable objects like terrain, furniture, etc
-     */
-
-    public void cacheSprite(Sprite sprite) {
-        mCachedSprites.add(sprite);
-    }
-
-    /**
-     * Sprites added using this method will be cleared after each frame.
-     * Use for mutable objects like actors, animations or chests
-     */
-
-    public void addSprite(Sprite sprite) {
-        mSprites.add(sprite);
-    }
-
-    public void clear() {
-        mSprites.clear();
-    }
-
-    public void prepareDrawInfo() {
-        // Reset the indices.
-        index_vecs = 0;
-        index_indices = 0;
-        index_uvs = 0;
-        index_colors = 0;
-
-        // Get the total amount of sprites to be rendered
-        int spriteCount = mSprites.size() + mCachedSprites.size();
-
-        // Create the arrays we need with the correct size.
-        vecs = new float[spriteCount * 12];
-        colors = new float[spriteCount * 16];
-        uvs = new float[spriteCount * 8];
-        indices = new short[spriteCount * 6];
-
-        int cachedSpritesSize = mCachedSprites.size();
-
-        for (int i = 0; i < cachedSpritesSize; i++) {
-            convertSpriteToTriangleInfo(mCachedSprites.get(i));
+    public void addSpriteData(int x, int y, int spriteIndex, float lighting, float offsetX, float offsetY) {
+        if (lighting == -1f) {
+            lighting = mCachedLighting[x][y];
         }
 
-        int spritesSize = mSprites.size();
+        float[] colors = new float[] {
+                lighting, lighting, lighting, 1f,
+                lighting, lighting, lighting, 1f,
+                lighting, lighting, lighting, 1f,
+                lighting, lighting, lighting, 1f
+        };
 
-        for (int i = 0; i < spritesSize; i++) {
-            convertSpriteToTriangleInfo(mSprites.get(i));
+        if (spriteIndex == -1) {
+            Log.e(LOG_TAG, "Invalid sprite at " + x + ", " + y);
+            return;
+        }
+
+        if (offsetX == 0 && offsetY == 0) {
+            addRenderInformation(cachedVecs[x][y], colors, cachedUvs[spriteIndex], mIndices);
+        }
+        else {
+            addRenderInformation(calculateOffset(cachedVecs[x][y], offsetX, offsetY), colors, cachedUvs[spriteIndex], mIndices);
         }
     }
 
@@ -253,37 +214,6 @@ public class SpriteSheetRenderer {
         for (int j = 0; j < indi.length; j++) {
             indices[index_indices] = (short) (base + indi[j]);
             index_indices++;
-        }
-    }
-
-    private void convertSpriteToTriangleInfo(Sprite sprite) {
-        int x = sprite.x;
-        int y = sprite.y;
-        float lighting;
-        if (sprite.lighting > -1f) {
-            lighting = sprite.lighting;
-        }
-        else {
-            lighting = mCachedLighting[x][y];
-        }
-
-        float[] colors = new float[] {
-                lighting, lighting, lighting, 1f,
-                lighting, lighting, lighting, 1f,
-                lighting, lighting, lighting, 1f,
-                lighting, lighting, lighting, 1f
-        };
-
-        if (sprite.index == -1) {
-            Log.e(LOG_TAG, "Invalid sprite at " + x + ", " + y);
-            return;
-        }
-
-        if (sprite.offsetX == 0 && sprite.offsetY == 0) {
-            addRenderInformation(cachedVecs[sprite.x][sprite.y], colors, cachedUvs[sprite.index], mIndices);
-        }
-        else {
-            addRenderInformation(calculateOffset(cachedVecs[sprite.x][sprite.y], sprite.offsetX, sprite.offsetY), colors, cachedUvs[sprite.index], mIndices);
         }
     }
 
