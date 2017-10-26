@@ -7,6 +7,9 @@ import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
 
 public class TextRenderer {
     private final String LOG_TAG = this.getClass().getSimpleName();
@@ -47,11 +50,11 @@ public class TextRenderer {
 
     private float mUniformScale;
 
-    public ArrayList<TextObject> mText;
+    private final List<TextObject> mText;
 
     public TextRenderer() {
         // Create our container
-        mText = new ArrayList<>();
+        mText = Collections.synchronizedList(new ArrayList<TextObject>());
 
         // Create the arrays
         vecs = new float[3 * 10];
@@ -78,7 +81,7 @@ public class TextRenderer {
     }
 
     public void clear() {
-        mText = new ArrayList<>();
+        mText.clear();
     }
 
     /**
@@ -220,12 +223,13 @@ public class TextRenderer {
     }
 
     public void prepareText() {
-        prepareDrawInfo();
+        synchronized(mText) {
 
-        int size = mText.size();
+            prepareDrawInfo();
 
-        for (int i = 0; i < size; i++) {
-            convertTextToTriangleInfo(mText.get(i));
+            Iterator<TextObject> i = mText.iterator(); // Must be in synchronized block
+            while (i.hasNext())
+                convertTextToTriangleInfo(i.next());
         }
     }
 

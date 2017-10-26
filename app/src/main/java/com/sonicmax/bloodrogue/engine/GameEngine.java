@@ -709,8 +709,7 @@ public class GameEngine {
         }
 
         // Update combat log and display hit animations
-        mGameInterface.addNarration(attacker.getName() + " hit " + defender.getName()
-                + " for " + damage + " damage.");
+        mGameInterface.displayStatus(defender, damage + "", TextColours.STATUS_RED); // Todo: yuck
 
         // renderer.addAnimation(target.getDamageAnimation());
 

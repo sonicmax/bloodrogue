@@ -92,6 +92,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     // Text
     private ArrayList<TextObject> mNarrations;
+    private ArrayList<TextObject> mStatuses;
     private int mTextRowHeight;
 
     // GL handles
@@ -119,6 +120,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mTMatrix = new float[16];
 
         mNarrations = new ArrayList<>();
+        mStatuses = new ArrayList<>();
 
         mSprites = new HashMap<>();
         mZoom = 1f;
@@ -183,7 +185,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
             mStartTime = mEndTime;
 
-            calculateFps(dt);
+            checkElapsedTime(dt);
             renderScreen();
         }
     }
@@ -438,9 +440,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             // Add our text overlay
             mTextManager.clear();
             mTextManager.addText(new TextObject(mFps + " fps", mTextRowHeight - 1));
-            for (TextObject object : mNarrations) {
-                mTextManager.addText(object);
-            }
+
+            prepareNarrationText();
+            prepareStatusText();
+
             mTextManager.prepareText();
             mTextManager.renderText(mMVPMatrix);
 
@@ -624,6 +627,31 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
     }
 
+    private void prepareNarrationText() {
+        synchronized (mNarrations) {
+            for (TextObject object : mNarrations) {
+                mTextManager.addText(object);
+            }
+        }
+    }
+
+    private void prepareStatusText() {
+        synchronized (mStatuses) {
+            Iterator<TextObject> it = mStatuses.iterator();
+            while (it.hasNext()) {
+                Status status = (Status) it.next();
+                float fraction = status.advanceScroll();
+                if (fraction == 1) {
+                    it.remove();
+                } else {
+                    status.offsetY = fraction;
+                    status.alphaModifier = fraction;
+                    mTextManager.addText(status);
+                }
+            }
+        }
+    }
+
     private double getLightingForGrid(int x, int y) {
         double lightSource, fov;
 
@@ -658,15 +686,26 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         return (x >= 0 && x < 32 && y >= 0 && y < 32);
     }
 
-    public void calculateFps(long dt) {
+    private boolean mHalfSec = false;
+
+    public void checkElapsedTime(long dt) {
         currentFrameTime += dt;
         frameCount++;
+
+        if (currentFrameTime >= 500) {
+            mGameInterface.checkNarrations();
+            mHalfSec = true;
+        }
 
         if (currentFrameTime >= 1000) {
             mFps = frameCount;
             currentFrameTime = 0;
             frameCount = 0;
+            if (!mHalfSec) {
             mGameInterface.checkNarrations();
+        }
+
+            mHalfSec = false;
         }
     }
 
@@ -690,6 +729,24 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         float gridY = correctedY / spriteSize;
 
         return new Vector((int) gridX, (int) gridY);
+    }
+
+    public float[] getRenderCoordsForObject(Vector objectPos) {
+        float x = objectPos.x();
+        float y = objectPos.y();
+        float spriteSize = SPRITE_SIZE * mZoom * ssu;
+
+        x *= spriteSize;
+        y *= spriteSize;
+
+        x += 30;
+        y += spriteSize * 1.1;
+
+        // Subtract scroll offset to find visible surface coords
+        x += scrollDx;
+        y += scrollDy;
+
+        return new float[] {x, y};
     }
 
     public void setFrame(Frame frame) {
@@ -722,5 +779,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     public void setNarrations(ArrayList<TextObject> narrations) {
         this.mNarrations = narrations;
+    }
+
+    public void addStatusText(TextObject object) {
+        this.mStatuses.add(object);
     }
 }

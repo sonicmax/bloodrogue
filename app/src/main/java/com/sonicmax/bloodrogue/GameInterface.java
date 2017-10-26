@@ -164,4 +164,11 @@ public class GameInterface {
     public AssetManager getAssets() {
         return mContext.getAssets();
     }
+
+    public void displayStatus(GameObject object, String message, float[] color) {
+        float[] coords = mRenderer.getRenderCoordsForObject(object.getVector());
+        Log.v(LOG_TAG, "coords: " + coords[0] + ", " + coords[1]);
+        Status status = new Status(message, coords[0], coords[1], color);
+        mRenderer.addStatusText(status);
+    }
 }
