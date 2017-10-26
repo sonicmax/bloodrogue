@@ -158,7 +158,7 @@ public class GameInterface {
 
     public void checkNarrations() {
         mNarrationManager.checkQueueAndRemove();
-        mRenderer.setNarrations(mNarrationManager.getTextObjects());
+        mRenderer.queueNarrationUpdate(mNarrationManager.getTextObjects());
     }
 
     public AssetManager getAssets() {
@@ -169,6 +169,6 @@ public class GameInterface {
         float[] coords = mRenderer.getRenderCoordsForObject(object.getVector());
         Log.v(LOG_TAG, "coords: " + coords[0] + ", " + coords[1]);
         Status status = new Status(message, coords[0], coords[1], color);
-        mRenderer.addStatusText(status);
+        mRenderer.queueNewStatus(status);
     }
 }

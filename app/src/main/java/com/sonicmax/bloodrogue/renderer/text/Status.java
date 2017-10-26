@@ -1,7 +1,7 @@
 package com.sonicmax.bloodrogue.renderer.text;
 
 public class Status extends TextObject {
-    private final int SCROLL_STEP_MAX = 30;
+    private final int SCROLL_STEP_MAX = 120;
     private int scrollStep;
 
     public Status(String text, float x, float y, float[] color) {
@@ -22,5 +22,4 @@ public class Status extends TextObject {
         // Return squared value to provide simple easing effect on movement
         return (fraction * fraction);
     }
-
 }

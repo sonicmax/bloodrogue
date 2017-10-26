@@ -10,6 +10,7 @@ import android.util.Log;
 
 import com.sonicmax.bloodrogue.GameInterface;
 import com.sonicmax.bloodrogue.engine.Frame;
+import com.sonicmax.bloodrogue.renderer.text.TextColours;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 import com.sonicmax.bloodrogue.engine.objects.Animation;
 import com.sonicmax.bloodrogue.engine.objects.GameObject;
@@ -50,16 +51,15 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     // Resources
     private SpriteLoader mSpriteManager;
-    private SpriteSheetRenderer mSpriteSheetRenderer;
+    private SpriteSheetRenderer mSpriteRenderer;
     private HashMap<String, Integer> mSpriteIndexes;
     private HashMap<String, Integer> mSprites;
-    private TextRenderer mTextManager;
+    private TextRenderer mTextRenderer;
 
     // Matrixes for GL surface
     private final float[] mMVPMatrix;
     private final float[] mProjMatrix;
     private final float[] mVMatrix;
-    private float[] mTMatrix;
 
     /**
      *  Screen size and scaling
@@ -93,6 +93,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     // Text
     private ArrayList<TextObject> mNarrations;
     private ArrayList<TextObject> mStatuses;
+    private ArrayList<TextObject> mQueuedStatuses;
+    private ArrayList<TextObject> mQueuedNarrations;
     private int mTextRowHeight;
 
     // GL handles
@@ -117,10 +119,11 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mProjMatrix = new float[16];
         mVMatrix = new float[16];
         mMVPMatrix = new float[16];
-        mTMatrix = new float[16];
 
         mNarrations = new ArrayList<>();
         mStatuses = new ArrayList<>();
+        mQueuedNarrations = new ArrayList<>();
+        mQueuedStatuses = new ArrayList<>();
 
         mSprites = new HashMap<>();
         mZoom = 1f;
@@ -139,13 +142,13 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         prepareGLSurface();
         calculateGridSize();
 
-                mRenderState = SPLASH;
-                loadImages();
-                setupMatrixes();
-                scaleScreen();
-                prepareTextRenderer();
-                prepareSpriteRenderer();
-                mRenderState = GAME;
+        mRenderState = SPLASH;
+        loadImages();
+        setupMatrixes();
+        scaleScreen();
+        prepareTextRenderer();
+        prepareSpriteRenderer();
+        mRenderState = GAME;
 
         // Post new runnable to GLSurfaceView which allows us to load textures/etc in background
         /*mGLSurfaceView.queueEvent(new Runnable() {
@@ -273,23 +276,23 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     private void prepareSpriteRenderer() {
-        mSpriteSheetRenderer = new SpriteSheetRenderer();
-        mSpriteSheetRenderer.setShaderProgramHandle(mSpriteShaderProgram);
-        mSpriteSheetRenderer.setSpriteSheetHandle(mSprites.get("sprite_sheets/sheet.png"));
-        mSpriteSheetRenderer.setUniformScale(ssu);
-        mSpriteSheetRenderer.precalculatePositions(mMapWidth, mMapHeight);
-        mSpriteSheetRenderer.precalculateUv(mSpriteIndexes.size());
+        mSpriteRenderer = new SpriteSheetRenderer();
+        mSpriteRenderer.setShaderProgramHandle(mSpriteShaderProgram);
+        mSpriteRenderer.setSpriteSheetHandle(mSprites.get("sprite_sheets/sheet.png"));
+        mSpriteRenderer.setUniformScale(ssu);
+        mSpriteRenderer.precalculatePositions(mMapWidth, mMapHeight);
+        mSpriteRenderer.precalculateUv(mSpriteIndexes.size());
     }
 
     private void prepareTextRenderer() {
         // Create our text manager
-        mTextManager = new TextRenderer();
-        mTextManager.setShaderProgramHandle(mSpriteShaderProgram);
-        mTextManager.setTextureHandle(mSprites.get("fonts/ccra_font.png"));
-        mTextManager.setUniformscale(ssu);
-        mTextManager.precalculateUv();
-        mTextManager.precalculateOffsets();
-        mTextRowHeight = mTextManager.precalculateRows(mHeight);
+        mTextRenderer = new TextRenderer();
+        mTextRenderer.setShaderProgramHandle(mSpriteShaderProgram);
+        mTextRenderer.setTextureHandle(mSprites.get("fonts/ccra_font.png"));
+        mTextRenderer.setUniformscale(ssu);
+        mTextRenderer.precalculateUv();
+        mTextRenderer.precalculateOffsets();
+        mTextRowHeight = mTextRenderer.precalculateRows(mHeight);
     }
 
     /*
@@ -419,35 +422,31 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 calculateScroll();
             }
 
+            String fps = mFps + " fps";
             // Get total sprite count and pass to renderer so we can init float and short arrays.
-            int size = countSprites();
-            mSpriteSheetRenderer.initArrays(size);
+            mSpriteRenderer.initArrays(countSprites());
+            mTextRenderer.initArrays(countTextObjects() + fps.length());
 
             // Iterate over game data and send to renderer
             addBackgroundLayer();
             addForegroundLayer();
             addUiLayer();
+            addTextLayer();
+            mTextRenderer.addTextData(mTextRowHeight - 1, fps, TextColours.WHITE, 0f);
 
             // Check whether we need to translate matrix to account for touch scrolling
-            float[] renderMatrix = mTMatrix.clone();
+            float[] renderMatrix = new float[16];
 
             if (scrollDx != 0 || scrollDy != 0) {
                 Matrix.translateM(renderMatrix, 0, mMVPMatrix, 0, scrollDx, scrollDy, 0f);
             }
 
-            mSpriteSheetRenderer.renderSprites(renderMatrix);
-
-            // Add our text overlay
-            mTextManager.clear();
-            mTextManager.addText(new TextObject(mFps + " fps", mTextRowHeight - 1));
-
-            prepareNarrationText();
-            prepareStatusText();
-
-            mTextManager.prepareText();
-            mTextManager.renderText(mMVPMatrix);
+            mSpriteRenderer.renderSprites(renderMatrix);
+            mTextRenderer.renderText(mMVPMatrix);
 
             isRendering = false;
+
+            addQueuedTextUpdates();
         }
     }
 
@@ -474,6 +473,26 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         return terrainCount + objectCount + animationCount + uiCount;
     }
 
+    /**
+     * Counts number of characters in each TextObject and returns combined total.
+     * We count individual latters as they are rendered 1 sprite per letter
+     */
+
+    private int countTextObjects() {
+        int narrationSize = 0;
+        int statusSize = 0;
+
+        for (TextObject object : mNarrations) {
+            narrationSize += object.text.length();
+        }
+
+        for (TextObject object : mStatuses) {
+            statusSize += object.text.length();
+        }
+
+        return narrationSize + statusSize;
+    }
+
     private void addBackgroundLayer() {
         GameObject[][] mapGrid = mFrame.getTerrain();
         ArrayList<GameObject>[][] objectGrid = mFrame.getObjects();
@@ -487,7 +506,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 GameObject terrain = mapGrid[x][y];
                 int index = mSpriteIndexes.get(terrain.tile());
 
-                mSpriteSheetRenderer.addSpriteData(x, y,index, lighting, 0f, 0f);
+                mSpriteRenderer.addSpriteData(x, y,index, lighting, 0f, 0f);
 
                 ArrayList<GameObject> objectsInCell = objectGrid[x][y];
 
@@ -499,13 +518,13 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                         if (mFov[x][y] > 0) {
                             int destX = object.getDestX();
                             int destY = object.getDestY();
-                            mSpriteSheetRenderer.addSpriteData(destX, destY, index, (float) getLightingForGrid(destX, destY), 0f, 0f);
+                            mSpriteRenderer.addSpriteData(destX, destY, index, (float) getLightingForGrid(destX, destY), 0f, 0f);
                         }
 
                     }
 
                     else if (object.isImmutable() && (object.isStationary())) {
-                        mSpriteSheetRenderer.addSpriteData(x, y, mSpriteIndexes.get(object.tile()), lighting, 0f, 0f);
+                        mSpriteRenderer.addSpriteData(x, y, mSpriteIndexes.get(object.tile()), lighting, 0f, 0f);
                     }
                 }
             }
@@ -535,16 +554,16 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                                 movingObjects.add(object);
                             }
                             else {
-                                mSpriteSheetRenderer.addSpriteData(x, y, mSpriteIndexes.get(object.tile()), lighting, 0f, 0f);
+                                mSpriteRenderer.addSpriteData(x, y, mSpriteIndexes.get(object.tile()), lighting, 0f, 0f);
+                            }
                         }
-                    }
                     }
 
                     int animationsSize = animations[x][y].size();
                     for (int i = 0; i < animationsSize; i++) {
                         Animation animation = (Animation) animations[x][y].get(i);
                         int frameIndex = processAnimation(animation);
-                        mSpriteSheetRenderer.addSpriteData(x, y, frameIndex, lighting, 0f, 0f);
+                        mSpriteRenderer.addSpriteData(x, y, frameIndex, lighting, 0f, 0f);
                     }
                 }
 
@@ -559,15 +578,15 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         for (GameObject object : objects) {
             int x = object.x();
             int y = object.y();
-        float fraction = object.advanceMovement();
+            float fraction = object.advanceMovement();
             float offsetX = (x - object.getlastMove().x()) * fraction;
             float offsetY = (y - object.getlastMove().y()) * fraction;
             float lighting = (float) getLightingForGrid(x, y);
-        if (fraction == 1) {
-            object.setLastMove(null);
-                mSpriteSheetRenderer.addSpriteData(x, y, mSpriteIndexes.get(object.tile()), lighting, 0f, 0f);
+            if (fraction == 1) {
+                object.setLastMove(null);
+                mSpriteRenderer.addSpriteData(x, y, mSpriteIndexes.get(object.tile()), lighting, 0f, 0f);
             } else {
-                mSpriteSheetRenderer.addSpriteData(object.getlastMove().x(), object.getlastMove().y(), mSpriteIndexes.get(object.tile()), lighting, offsetX, offsetY);
+                mSpriteRenderer.addSpriteData(object.getlastMove().x(), object.getlastMove().y(), mSpriteIndexes.get(object.tile()), lighting, offsetX, offsetY);
 
                 if (object.isPlayerControlled()) {
                     /*scrollDx -= offsetX * (SPRITE_SIZE / 2);
@@ -576,7 +595,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                     // No scrolling, but more accurate?
                     centreAtPlayerPos();
                 }
-        }
+            }
         }
     }
 
@@ -588,7 +607,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 Vector segment = mCurrentPath.get(i);
                 int x = segment.x();
                 int y = segment.y();
-                mSpriteSheetRenderer.addSpriteData(x, y, index, 1f, 0f, 0f);
+                mSpriteRenderer.addSpriteData(x, y, index, 1f, 0f, 0f);
             }
         }
     }
@@ -627,27 +646,22 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
     }
 
-    private void prepareNarrationText() {
-        synchronized (mNarrations) {
-            for (TextObject object : mNarrations) {
-                mTextManager.addText(object);
-            }
+    private void addTextLayer() {
+        for (TextObject object : mNarrations) {
+            mTextRenderer.addTextData(object.row, object.text, object.color, object.alphaModifier);
         }
-    }
 
-    private void prepareStatusText() {
-        synchronized (mStatuses) {
-            Iterator<TextObject> it = mStatuses.iterator();
-            while (it.hasNext()) {
-                Status status = (Status) it.next();
-                float fraction = status.advanceScroll();
-                if (fraction == 1) {
-                    it.remove();
-                } else {
-                    status.offsetY = fraction;
-                    status.alphaModifier = fraction;
-                    mTextManager.addText(status);
-                }
+        Iterator<TextObject> it = mStatuses.iterator();
+
+        while (it.hasNext()) {
+            Status status = (Status) it.next();
+            float fraction = status.advanceScroll();
+            if (fraction == 1) {
+                it.remove();
+            } else {
+                status.offsetY = fraction;
+                status.alphaModifier = fraction;
+                mTextRenderer.addTextData(status.x, status.y, status.offsetY, status.scale, status.text, status.color, status.alphaModifier);
             }
         }
     }
@@ -702,8 +716,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             currentFrameTime = 0;
             frameCount = 0;
             if (!mHalfSec) {
-            mGameInterface.checkNarrations();
-        }
+                mGameInterface.checkNarrations();
+            }
 
             mHalfSec = false;
         }
@@ -717,7 +731,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     public Vector getGridCellForTouchCoords(float x, float y) {
         // NOTE: Origin for touch events is top-left, origin for game area is bottom-left.
-        int height = ScreenSizeGetter.getHeight();
+        x *= mZoom;
+        y *= mZoom;
+        float height = ScreenSizeGetter.getHeight();
         float correctedY = height - y;
 
         // Account for touch scrolling
@@ -725,6 +741,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         correctedY -= scrollDy;
 
         float spriteSize = SPRITE_SIZE * mZoom * ssu;
+
         float gridX = x / spriteSize;
         float gridY = correctedY / spriteSize;
 
@@ -761,7 +778,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     public void setZoom(float mZoom) {
-        this.mZoom = mZoom;
+        /*this.mZoom = mZoom;
+        setupMatrixes();*/
     }
 
     public void setHasGameData() {
@@ -777,11 +795,23 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mMapHeight = size[1];
     }
 
-    public void setNarrations(ArrayList<TextObject> narrations) {
-        this.mNarrations = narrations;
+    /**
+     *  Adding new text objects while renderScreen() is executing runs the risk of causing ArrayOutOfBoundsException
+     *  because float arrays in renderer won't be big enough to accomodate new objects. So we queue them and add
+     *  once the rendering has finished.
+     */
+
+    public void queueNarrationUpdate(ArrayList<TextObject> narrations) {
+        this.mQueuedNarrations = narrations;
     }
 
-    public void addStatusText(TextObject object) {
-        this.mStatuses.add(object);
+    public void queueNewStatus(TextObject object) {
+        this.mQueuedStatuses.add(object);
     }
+
+    private void addQueuedTextUpdates() {
+        this.mNarrations = mQueuedNarrations; // Narrations need to be replaced
+        this.mStatuses.addAll(mQueuedStatuses); // Statuses should be added
+    }
+
 }

@@ -50,18 +50,7 @@ public class TextRenderer {
 
     private float mUniformScale;
 
-    private final List<TextObject> mText;
-
-    public TextRenderer() {
-        // Create our container
-        mText = Collections.synchronizedList(new ArrayList<TextObject>());
-
-        // Create the arrays
-        vecs = new float[3 * 10];
-        colors = new float[4 * 10];
-        uvs = new float[2 * 10];
-        indices = new short[10];
-    }
+    public TextRenderer() {}
 
     public void setTextureHandle(int val) {
         mTextureHandle = val;
@@ -75,13 +64,16 @@ public class TextRenderer {
         this.mUniformScale = uniformscale;
     }
 
-    public void addText(TextObject obj) {
-        // Add text object to our collection
-        mText.add(obj);
-    }
+    public void initArrays(int size) {
+        index_vecs = 0;
+        index_indices = 0;
+        index_uvs = 0;
+        index_colors = 0;
 
-    public void clear() {
-        mText.clear();
+        vecs = new float[size * 12];
+        colors = new float[size * 16];
+        uvs = new float[size * 8];
+        indices = new short[size * 6];
     }
 
     /**
@@ -167,69 +159,27 @@ public class TextRenderer {
         short base = (short) (index_vecs / 3);
 
         // We should add the vec, translating the indices to our saved vector
-        for(int i=0;i<vec.length;i++)
-        {
+        for (int i = 0; i < vec.length; i++) {
             vecs[index_vecs] = vec[i];
             index_vecs++;
         }
 
         // We should add the colors.
-        for(int i=0;i<cs.length;i++)
-        {
+        for (int i = 0; i < cs.length; i++) {
             colors[index_colors] = cs[i];
             index_colors++;
         }
 
         // We should add the uvs
-        for(int i=0;i<uv.length;i++)
-        {
+        for (int i = 0; i < uv.length; i++) {
             uvs[index_uvs] = uv[i];
             index_uvs++;
         }
 
         // We handle the indices
-        for(int j=0;j<indi.length;j++)
-        {
+        for (int j = 0; j < indi.length; j++) {
             indices[index_indices] = (short) (base + indi[j]);
             index_indices++;
-        }
-    }
-
-    public void prepareDrawInfo() {
-        // Reset the indices.
-        index_vecs = 0;
-        index_indices = 0;
-        index_uvs = 0;
-        index_colors = 0;
-
-        // Get the total amount of characters
-        int charCount = 0;
-        int size = mText.size();
-
-        for (int i = 0; i < size; i++) {
-            charCount += mText.get(i).text.length();
-        }
-
-        // Create the arrays we need with the correct size.
-        vecs = null;
-        colors = null;
-        uvs = null;
-        indices = null;
-
-        vecs = new float[charCount * 12];
-        colors = new float[charCount * 16];
-        uvs = new float[charCount * 8];
-        indices = new short[charCount * 6];
-    }
-
-    public void prepareText() {
-        synchronized(mText) {
-
-            prepareDrawInfo();
-
-            Iterator<TextObject> i = mText.iterator(); // Must be in synchronized block
-            while (i.hasNext())
-                convertTextToTriangleInfo(i.next());
         }
     }
 
@@ -238,10 +188,12 @@ public class TextRenderer {
         return value - 33;
     }
 
-    private void convertTextToTriangleInfo(TextObject val) {
-        float x = val.x;
-        float y = val.y;
-        String text = val.text;
+    /**
+     * Tells renderer to display a given string at a particular row on screen.
+     */
+
+    public void addTextData(int row, String text, float[] color, float alphaModifier) {
+        float x = 0f;
 
         for (int j = 0; j < text.length(); j++) {
             char c = text.charAt(j);
@@ -254,19 +206,47 @@ public class TextRenderer {
             }
 
             // Creating the triangle information
-            float[] vec;
-
-            if (val.row == -1) {
-                vec = getFreeVector(x, y, val.offsetY, val.scale);
-            } else {
-                vec = getRowVector(val.row, x);
-            }
+            float[] vec = getRowVector(row, x);
 
             float[] colors = new float[] {
-                    val.color[0], val.color[1], val.color[2], val.color[3] - val.alphaModifier,
-                    val.color[0], val.color[1], val.color[2], val.color[3] - val.alphaModifier,
-                    val.color[0], val.color[1], val.color[2], val.color[3] - val.alphaModifier,
-                    val.color[0], val.color[1], val.color[2], val.color[3] - val.alphaModifier
+                    color[0], color[1], color[2], color[3] - alphaModifier,
+                    color[0], color[1], color[2], color[3] - alphaModifier,
+                    color[0], color[1], color[2], color[3] - alphaModifier,
+                    color[0], color[1], color[2], color[3] - alphaModifier
+            };
+
+            // Add our triangle information to our collection for 1 render call.
+            addCharRenderInformation(vec, colors, cachedUvs[charIndex], mIndices);
+
+            // Calculate the new position
+            x += cachedOffsets[charIndex];
+        }
+    }
+
+    /**
+     *  Tells renderer to display a given string at coordinates provided where (0, 0) = bottom left
+     *  Also takes a Y offset to support scrolling effect
+     */
+
+    public void addTextData(float x, float y, float offsetY, float scale, String text, float[] color, float alphaModifier) {
+        for (int j = 0; j < text.length(); j++) {
+            char c = text.charAt(j);
+            int charIndex = convertCharValueToUvIndex((int) c);
+
+            if (charIndex == -1) {
+                // Space or unknown character
+                x += ((TEXT_SPACESIZE) * mUniformScale);
+                continue;
+            }
+
+            // Creating the triangle information
+            float[] vec = getFreeVector(x, y, offsetY, scale);
+
+            float[] colors = new float[] {
+                    color[0], color[1], color[2], color[3] - alphaModifier,
+                    color[0], color[1], color[2], color[3] - alphaModifier,
+                    color[0], color[1], color[2], color[3] - alphaModifier,
+                    color[0], color[1], color[2], color[3] - alphaModifier
             };
 
             // Add our triangle information to our collection for 1 render call.
@@ -281,7 +261,6 @@ public class TextRenderer {
         float[] vec = cachedRows[row].clone();
 
         // Update x values in cached row with letter positions
-
         vec[0] = x;
         vec[3] = x;
         vec[6] = x + (TEXT_WIDTH * mUniformScale);
