@@ -83,12 +83,11 @@ public class MansionDecorator {
      * Iterates over array of Room objects and decides how to decorate them.
      * Decorations are added to object grid/object array and retrieved later
      *
-     * @param oldRooms
      */
 
-    public void decorateRooms(ArrayList<GameObject> oldRooms) {
+    public void decorateRooms(ArrayList<GameObject> rooms) {
         // Make copy of rooms array so we can modify it safely
-        ArrayList<GameObject> rooms = new ArrayList<>(oldRooms);
+        ArrayList<GameObject> roomsCopy = new ArrayList<>(rooms);
 
         // Designate 1 quarter of the map to a specific type of room & attempt to decorate each one.
         // Any rooms which are missed (eg. for being too small/big) will be decorated later
@@ -96,16 +95,18 @@ public class MansionDecorator {
 
         Room livingQuartersQuad = new Room(0, 0, sectionSize, sectionSize);
 
-        Iterator it = rooms.iterator();
+        Iterator it = roomsCopy.iterator();
+
+        int bathroomCount = 0;
 
         while (it.hasNext()) {
             Room room = (Room) it.next();
-
             if (AxisAlignedBoxTester.test(livingQuartersQuad, room)) {
-                if (mRng.getRandomInt(0, 2) > 0) {
-                    convertRoomToBedroom(room);
-                } else {
+                if (bathroomCount <= 2) {
                     convertRoomToBathroom(room);
+                    bathroomCount++;
+                } else {
+                    convertRoomToBedroom(room);
                 }
 
                 it.remove();
@@ -114,7 +115,7 @@ public class MansionDecorator {
 
         Room officeQuad = new Room(sectionSize, 0, sectionSize, sectionSize);
 
-        it = rooms.iterator();
+        it = roomsCopy.iterator();
 
         while (it.hasNext()) {
             Room room = (Room) it.next();
@@ -126,12 +127,12 @@ public class MansionDecorator {
         }
 
         // Now iterate over the remaining rooms and assign random styles to theme
-        for (GameObject room : rooms) {
+        for (GameObject room : roomsCopy) {
             furnishRoom(room);
         }
 
         // Iterate over unmodified rooms array and add lighting/chests/enemies/etc
-        for (GameObject object : oldRooms) {
+        for (GameObject object : rooms) {
 
             Room room = (Room) object;
 
@@ -148,19 +149,17 @@ public class MansionDecorator {
         }
     }
 
-    public void furnishRoom(GameObject room) {
-        int roomChance = mRng.getRandomInt(0, 2);
-
-        if (mOfficeCount < 3 && roomChance == 0) {
-            convertRoomToOffice((Room) room);
-        }
-
-        if (mLibraryCount < 2 && roomChance == 1) {
+    private void furnishRoom(GameObject room) {
+        if (mLibraryCount < 2) {
             convertRoomToLibrary((Room) room);
         }
 
-        if (mGalleryCount < 2 && roomChance == 2) {
+        else if (mGalleryCount < 2) {
             convertRoomToArtGallery((Room) room);
+        }
+
+        else {
+            convertRoomToOffice((Room) room);
         }
     }
 
@@ -219,48 +218,57 @@ public class MansionDecorator {
      */
 
     private void convertRoomToOffice(Room room) {
-        if (room.width() * room.height() > 25) return;
+        if (room.width() * room.height() > 30) return;
 
         // Add/subtract 1 from corner to account for position of wall
-        ArrayList<Vector> corners = new ArrayList<>();
-        corners.add(new Vector(room.x(), room.y()));
-        corners.add(new Vector(room.x() + room.width() - 1, room.y()));
-        corners.add(new Vector(room.x(), room.y() + room.height() - 1));
-        corners.add(new Vector(room.x() + room.width() - 1, room.y() + room.height() - 1));
+        ArrayList<Vector> corners = getCornerTiles(room);
 
-        // Pick corner to place desk. Make sure it's not blocking doorway
-        Vector deskLocation = corners.remove(mRng.getRandomInt(0, corners.size() - 1));
+        boolean deskAdded = false;
+        boolean filingCabinetAdded = false;
+        boolean plantAdded = false;
 
-        if (blocksDoorway(deskLocation)) return;
+        // Iterate over each corner and attempt to place decorations in order of importance.
 
-        mObjects.add(new Decoration(deskLocation.x(), deskLocation.y(), Mansion.OFFICE_DESK));
+        for (Vector corner : corners) {
+            if (!deskAdded) {
+                if (blocksDoorway(corner)) continue;
 
-        // Find adjacent space to place office chair. Can be skipped
+                mObjects.add(new Decoration(corner.x(), corner.y(), Mansion.OFFICE_DESK));
 
-        for (Vector direction : Directions.Cardinal.values()) {
-            Vector adjacent = deskLocation.add(direction);
-            if (!detectCollisions(adjacent) && !blocksDoorway(adjacent)) {
-                mObjects.add(new Decoration(adjacent.x(), adjacent.y(), Mansion.OFFICE_CHAIR));
-                break;
+                // Find adjacent space to place office chair. Can be skipped
+
+                for (Vector direction : Directions.Cardinal.values()) {
+                    Vector adjacent = corner.add(direction);
+                    if (!detectCollisions(adjacent) && !blocksDoorway(adjacent)) {
+                        mObjects.add(new Decoration(adjacent.x(), adjacent.y(), Mansion.OFFICE_CHAIR));
+                        break;
+                    }
+                }
+
+                deskAdded = true;
+                continue;
+            }
+
+            if (!filingCabinetAdded) {
+                if (blocksDoorway(corner)) return;
+
+                mObjects.add(new Decoration(corner.x(), corner.y(), Mansion.FILING_CABINET));
+
+                filingCabinetAdded = true;
+                continue;
+            }
+
+            if (!plantAdded) {
+                if (blocksDoorway(corner)) return;
+
+                mObjects.add(new Decoration(corner.x(), corner.y(), Mansion.OFFICE_PLANT));
+
+                String[] floorTiles = new String[] {Mansion.WOOD_FLOOR_1, Mansion.WOOD_FLOOR_2, Mansion.WOOD_FLOOR_3, Mansion.TILED_FLOOR_1};
+                retextureFloor(room, floorTiles[mRng.getRandomInt(0, floorTiles.length - 1)]);
+
+                plantAdded = true;
             }
         }
-
-        // Find corner to add filing cabinets. If we placed table but failed to place cabinet, skip
-        Vector filingCabinetLocation = corners.remove(mRng.getRandomInt(0, corners.size() - 1));
-
-        if (blocksDoorway(filingCabinetLocation)) return;
-
-        mObjects.add(new Decoration(filingCabinetLocation.x(), filingCabinetLocation.y(), Mansion.FILING_CABINET));
-
-        // Finally, place office plant
-        Vector plantLocation = corners.remove(mRng.getRandomInt(0, corners.size() - 1));
-
-        if (blocksDoorway(plantLocation)) return;
-
-        mObjects.add(new Decoration(plantLocation.x(), plantLocation.y(), Mansion.OFFICE_PLANT));
-
-        String[] floorTiles = new String[] {Mansion.WOOD_FLOOR_1, Mansion.WOOD_FLOOR_2, Mansion.WOOD_FLOOR_3, Mansion.TILED_FLOOR_1};
-        retextureFloor(room, floorTiles[mRng.getRandomInt(0, floorTiles.length - 1)]);
 
         populateObjectGrid();
         mOfficeCount++;
@@ -271,35 +279,59 @@ public class MansionDecorator {
 
         ArrayList<Vector> corners = getCornerTiles(room);
 
-        // Pick corner to place desk. Make sure it's not blocking doorway
-        Vector bedLocation = corners.remove(mRng.getRandomInt(0, corners.size() - 1));
+        boolean bedAdded = false;
+        boolean deskAdded = false;
+        boolean wardrobeAdded = false;
+        boolean plantAdded = false;
 
-        if (blocksDoorway(bedLocation)) return;
+        // Iterate over each corner and attempt to place decorations in order of importance.
 
-        mObjects.add(new Decoration(bedLocation.x(), bedLocation.y(), Mansion.BEDS[mRng.getRandomInt(0, 1)]));
+        for (Vector corner : corners) {
+            if (!bedAdded) {
+                if (blocksDoorway(corner)) continue;
 
-        // Find adjacent space to place office chair. Can be skipped
+                mObjects.add(new Decoration(corner.x(), corner.y(), Mansion.BEDS[mRng.getRandomInt(0, 1)]));
 
-        for (Vector direction : Directions.Cardinal.values()) {
-            Vector adjacent = bedLocation.add(direction);
-            if (!detectCollisions(adjacent) && !blocksDoorway(adjacent)) {
-                mObjects.add(new Decoration(adjacent.x(), adjacent.y(), Mansion.BEDSIDE_CABINET));
-                break;
+                // Find adjacent space to place bedside cabinet. Can be skipped
+
+                for (Vector direction : Directions.Cardinal.values()) {
+                    Vector adjacent = corner.add(direction);
+                    if (!detectCollisions(adjacent) && !blocksDoorway(adjacent)) {
+                        mObjects.add(new Decoration(adjacent.x(), adjacent.y(), Mansion.BEDSIDE_CABINET));
+                        break;
+                    }
+                }
+
+                bedAdded = true;
+                continue;
+            }
+
+            if (!deskAdded) {
+                if (blocksDoorway(corner)) continue;
+
+                mObjects.add(new Decoration(corner.x(), corner.y(), Mansion.FILING_CABINET));
+
+                deskAdded = true;
+                continue;
+            }
+
+            if (!wardrobeAdded) {
+                if (blocksDoorway(corner)) continue;
+
+                mObjects.add(new Decoration(corner.x(), corner.y(), Mansion.WARDROBE));
+                wardrobeAdded = true;
+                continue;
+            }
+
+            if (!plantAdded) {
+                if (blocksDoorway(corner)) continue;
+
+                mObjects.add(new Decoration(corner.x(), corner.y(), Mansion.OFFICE_PLANT));
+                plantAdded = true;
             }
         }
 
-        Vector wardrobeLocation = corners.remove(mRng.getRandomInt(0, corners.size() - 1));
-
-        if (blocksDoorway(wardrobeLocation)) return;
-
-        mObjects.add(new Decoration(wardrobeLocation.x(), wardrobeLocation.y(), Mansion.WARDROBE));
-
-        Vector plantLocation = corners.remove(mRng.getRandomInt(0, corners.size() - 1));
-
-        if (blocksDoorway(plantLocation)) return;
-
-        mObjects.add(new Decoration(plantLocation.x(), plantLocation.y(), Mansion.OFFICE_PLANT));
-
+        // We want bedrooms to have wooden floors
         String[] floor = new String[] {Mansion.WOOD_FLOOR_1, Mansion.WOOD_FLOOR_2, Mansion.WOOD_FLOOR_3};
         retextureFloor(room, floor[mRng.getRandomInt(0, floor.length - 1)]);
 
@@ -312,30 +344,43 @@ public class MansionDecorator {
 
         ArrayList<Vector> corners = getCornerTiles(room);
 
-        Vector toiletLocation = corners.remove(mRng.getRandomInt(0, corners.size() - 1));
+        boolean toiletAdded = false;
+        boolean sinkAdded = false;
+        boolean bathAdded = false;
 
-        if (blocksDoorway(toiletLocation)) return;
+        // Iterate over each corner and attempt to place decorations in order of importance.
 
-        mObjects.add(new Decoration(toiletLocation.x(), toiletLocation.y(), Mansion.TOILET));
+        for (Vector corner : corners) {
+            if (!toiletAdded) {
+                if (blocksDoorway(corner)) continue;
 
-        Vector sinkLocation = corners.remove(mRng.getRandomInt(0, corners.size() - 1));
+                mObjects.add(new Decoration(corner.x(), corner.y(), Mansion.TOILET));
+                toiletAdded = true;
+                continue;
+            }
 
-        if (blocksDoorway(sinkLocation)) return;
+            if (!sinkAdded) {
+                if (blocksDoorway(corner)) return;
 
-        mObjects.add(new Decoration(sinkLocation.x(), sinkLocation.y(), Mansion.SINK));
+                mObjects.add(new Decoration(corner.x(), corner.y(), Mansion.SINK));
+                sinkAdded = true;
+                continue;
+            }
 
-        Vector bathLocation = corners.remove(mRng.getRandomInt(0, corners.size() - 1));
+            if (!bathAdded) {
+                if (blocksDoorway(corner)) return;
 
-        if (blocksDoorway(bathLocation)) return;
+                mObjects.add(new Decoration(corner.x(), corner.y(), Mansion.BATH));
+                bathAdded = true;
+            }
+        }
 
-        mObjects.add(new Decoration(bathLocation.x(), bathLocation.y(), Mansion.BATH));
-
+        // Give bathrooms a marble tiled floor
         String[] floor = new String[] {Mansion.MARBLE_FLOOR_2, Mansion.MARBLE_FLOOR_3, Mansion.MARBLE_FLOOR_4, Mansion.MARBLE_FLOOR_5};
         retextureFloor(room, floor[mRng.getRandomInt(0, floor.length - 1)]);
 
         populateObjectGrid();
         mBathroomCount++;
-        room.furnished = true;
     }
 
     private ArrayList<Vector> getCornerTiles(Room room) {
@@ -446,16 +491,6 @@ public class MansionDecorator {
                     mMapGrid[x][y] = new Floor(x, y, imgPath);
                 }
             }
-        }
-    }
-
-    public boolean themeHasFurniture(String key) {
-        switch (key) {
-            case Mansion.KEY:
-                return true;
-
-            default:
-                return false;
         }
     }
 
@@ -624,10 +659,6 @@ public class MansionDecorator {
                 return All.LIGHT_SOURCE;
         }
     }
-
-    /**
-     *  % chance to place chest in front of random wall in room.
-     */
 
     private void addChestsToRoom(Room room) {
         int chanceToAdd = mRng.getRandomInt(0, mChestChance);
@@ -822,18 +853,18 @@ public class MansionDecorator {
                 if (getMapObjectForCell(north) instanceof Floor) {
                     Floor floor = (Floor) getMapObjectForCell(north);
                     if (floor.isDoorway()) {
-                    doorCount++;
+                        doorCount++;
+                    }
                 }
-            }
             }
 
             if (inBounds(south)) {
                 if (getMapObjectForCell(south) instanceof Floor) {
                     Floor floor = (Floor) getMapObjectForCell(south);
                     if (floor.isDoorway()) {
-                    doorCount++;
+                        doorCount++;
+                    }
                 }
-            }
             }
         }
 
@@ -845,31 +876,22 @@ public class MansionDecorator {
                 if (getMapObjectForCell(east) instanceof Floor) {
                     Floor floor = (Floor) getMapObjectForCell(east);
                     if (floor.isDoorway()) {
-                            doorCount++;
-                        }
+                        doorCount++;
                     }
                 }
+            }
 
             if (inBounds(west)) {
                 if (getMapObjectForCell(west) instanceof Floor) {
                     Floor floor = (Floor) getMapObjectForCell(west);
                     if (floor.isDoorway()) {
-                            doorCount++;
-                        }
+                        doorCount++;
+                    }
                 }
             }
         }
 
         return doorCount;
-    }
-
-    private GameObject getMapObjectForCell(Vector coords) {
-        if (inBounds(coords)) {
-            return mMapGrid[coords.x()][coords.y()];
-        }
-        else {
-            throw new Error("Coords (" + coords.x() + ", " + coords.y() + ") are not in bounds");
-        }
     }
 
     /*
@@ -880,6 +902,15 @@ public class MansionDecorator {
 
     private void addObjectToStack(int x, int y, GameObject object) {
         mObjectGrid[x][y].add(object);
+    }
+
+    private GameObject getMapObjectForCell(Vector coords) {
+        if (inBounds(coords)) {
+            return mMapGrid[coords.x()][coords.y()];
+        }
+        else {
+            throw new Error("Coords (" + coords.x() + ", " + coords.y() + ") are not in bounds");
+        }
     }
 
     /**
@@ -939,43 +970,5 @@ public class MansionDecorator {
 
     private boolean inBounds(Vector cell) {
         return (cell.x() >= 0 && cell.x() < mMapWidth && cell.y() >= 0 && cell.y() < mMapHeight);
-    }
-
-    private boolean adjacentCellsAreCarvable(Vector cell) {
-        HashMap<String, Vector> adjacentCells = getAdjacentCells(cell, 1, false);
-
-        for (Vector adjacent : adjacentCells.values()) {
-
-            if (!inBounds(adjacent) || !(getMapObjectForCell(adjacent) instanceof Wall)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private HashMap<String, Vector> getAdjacentCells(Vector coords, int lookahead, boolean directlyAdjacent) {
-        int x = coords.x();
-        int y = coords.y();
-
-        HashMap<String, Vector> cells = new HashMap<>();
-
-        cells.put("up", new Cell(x, y + lookahead, "up"));
-        cells.put("right", new Cell(x + lookahead, y, "right"));
-        cells.put("down", new Cell(x, y - lookahead, "down"));
-        cells.put("left", new Cell(x - lookahead, y, "left"));
-
-        if (directlyAdjacent) {
-            return cells;
-        }
-
-        else {
-            // Include diagonally adjacent cells
-            cells.put("up-right", new Cell(x + lookahead, y + lookahead, "up-right"));
-            cells.put("up-left", new Cell(x - lookahead, y + lookahead, "up-left"));
-            cells.put("down-right", new Cell(x + lookahead, y - lookahead, "down-right"));
-            cells.put("down-left", new Cell(x - lookahead, y - lookahead, "down-left"));
-            return cells;
-        }
     }
 }
