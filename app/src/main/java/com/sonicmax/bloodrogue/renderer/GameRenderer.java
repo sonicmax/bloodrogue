@@ -36,6 +36,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private final int NONE = 0;
     private final int SPLASH = 1;
     private final int GAME = 2;
+    private final float DEFAULT_OFFSET_X = 0f;
+    private final float DEFAULT_OFFSET_Y = 0f;
 
     private final long FRAME_TIME = 17L;
 
@@ -379,14 +381,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             mVisibleGridWidth = (int) xInterval;
             mVisibleGridHeight = (int) yInterval;
         }
-
-        mVisibleGridWidth++;
-        mVisibleGridHeight++;
     }
 
     private Vector calculateScrollOffset() {
         GameObject player = mFrame.getPlayer();
-
         return new Vector(player.x() - (mVisibleGridWidth / 2), player.y() - (mVisibleGridHeight / 2));
     }
 
@@ -426,7 +424,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             setGridChunkToRender();
 
             String fps = mFps + " fps";
-            // Get total sprite count and pass to renderer so we can init float and short arrays.
+            // Get total sprite count and pass to renderer so we can init float and short arrays used
+            // to store rendering data
             mSpriteRenderer.initArrays(countSprites());
             mTextRenderer.initArrays(countTextObjects() + fps.length());
 
@@ -500,6 +499,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         GameObject[][] mapGrid = mFrame.getTerrain();
         ArrayList<GameObject>[][] objectGrid = mFrame.getObjects();
 
+
         for (int y = mChunkOriginY; y < mChunkHeight; y++) {
             for (int x = mChunkOriginX; x < mChunkWidth; x++) {
                 if (!inBounds(x, y)) continue;
@@ -509,7 +509,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 GameObject terrain = mapGrid[x][y];
                 int index = mSpriteIndexes.get(terrain.tile());
 
-                mSpriteRenderer.addSpriteData(x, y,index, lighting, 0f, 0f);
+                mSpriteRenderer.addSpriteData(
+                        x, y,
+                        index,
+                        lighting,
+                        DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y
+                );
 
                 ArrayList<GameObject> objectsInCell = objectGrid[x][y];
 
@@ -517,17 +522,29 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
                 for (int i = 0; i < objectsSize; i++) {
                     GameObject object = objectsInCell.get(i);
+
                     if (object.isProjected()) {
-                        if (mFov[x][y] > 0) {
-                            int destX = object.getDestX();
-                            int destY = object.getDestY();
-                            mSpriteRenderer.addSpriteData(destX, destY, index, (float) getLightingForGrid(destX, destY), 0f, 0f);
+                        int fovX = object.getFovX();
+                        int fovY = object.getFovY();
+
+                        if (mFov[fovX][fovY] > 0.1) {
+                            mSpriteRenderer.addSpriteData(
+                                    x, y,
+                                    mSpriteIndexes.get(object.tile()),
+                                    lighting,
+                                    DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y
+                            );
                         }
 
                     }
 
                     else if (object.isImmutable() && (object.isStationary())) {
-                        mSpriteRenderer.addSpriteData(x, y, mSpriteIndexes.get(object.tile()), lighting, 0f, 0f);
+                        mSpriteRenderer.addSpriteData(
+                                x, y,
+                                mSpriteIndexes.get(object.tile()),
+                                lighting,
+                                DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y
+                        );
                     }
                 }
             }

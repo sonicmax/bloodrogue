@@ -12,8 +12,8 @@ public class GameObject {
 
     private int x;
     private int y;
-    private int destX;
-    private int destY;
+    private int fovX;
+    private int fovY;
 
     // Default values
     private int dijkstra = 0;
@@ -103,24 +103,24 @@ public class GameObject {
     }
 
     /**
-     Some objects have two sets of grid references - [x, y] is the grid square
-     which has to be in FOV for tile to be rendered, and [destX, destY] is the grid square
-     that the tile is rendered to. */
+     Some objects have two sets of grid references - fovX/fovY are used to determine
+     whether object should be displayed or not (eg. to make sure LightSources embedded in Wall tiles
+     don't shine on both sides of wall). */
 
-    public int getDestX() {
-        return this.destX;
+    public int getFovX() {
+        return this.fovX;
     }
 
-    public void setDestX(int x) {
-        this.destX = x;
+    public void setFovX(int x) {
+        this.fovX = x;
     }
 
-    public int getDestY() {
-        return this.destY;
+    public int getFovY() {
+        return this.fovY;
     }
 
-    public void setDestY(int y) {
-        this.destY = y;
+    public void setFovY(int y) {
+        this.fovY = y;
     }
 
     public void setProjected(boolean value) {

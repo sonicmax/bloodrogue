@@ -11,14 +11,14 @@ public class Decoration extends GameObject {
     }
 
     /**
-     *  fovX/fovY is the grid square which has to be in FOV for tile to be rendered, and destX/destY is the grid square
-     *  that the tile is rendered to. This prevents player from seeing decorations from wrong side of wall
+     *  x/y is the grid square which tile will be rendered to, and fovX/fovY is the grid square
+     *  that has to be in FOV for renderer to show tile
      */
 
-    public Decoration(int fovX, int fovY, int destX, int destY, String tile) {
-        super(fovX, fovY);
-        this.setDestX(destX);
-        this.setDestY(destY);
+    public Decoration(int x, int y, int fovX, int fovY, String tile) {
+        super(x, y);
+        this.setFovX(fovX);
+        this.setFovY(fovY);
         this.setTile(tile);
         this.setProjected(true);
         this.setBlocking(false);

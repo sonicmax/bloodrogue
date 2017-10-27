@@ -605,11 +605,8 @@ public class MansionDecorator {
         Vector fov = cell.subtract(direction);
         GameObject object = getMapObjectForCell(cell);
 
-        if ((object instanceof Floor) && ((Floor) object).isDoorway()) {
-
-        }
-        else {
-            LightSource lightSource = new LightSource(fov.x(), fov.y(), cell.x(), cell.y(), getLightSourceTile(bearing));
+        if (!(object instanceof Floor) || !((Floor) object).isDoorway()) {
+            LightSource lightSource = new LightSource(cell.x(), cell.y(), fov.x(), fov.y(), getLightSourceTile(bearing));
             room.addObject(lightSource);
         }
     }
