@@ -56,6 +56,13 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private HashMap<String, Integer> mSprites;
     private TextRenderer mTextRenderer;
 
+    // Text
+    private ArrayList<TextObject> mNarrations;
+    private ArrayList<TextObject> mStatuses;
+    private ArrayList<TextObject> mQueuedStatuses;
+    private ArrayList<TextObject> mQueuedNarrations;
+    private int mTextRowHeight;
+
     // Matrixes for GL surface
     private final float[] mMVPMatrix;
     private final float[] mProjMatrix;
@@ -79,6 +86,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private float resY;
     private float ssu;
 
+    // Visible grid chunk
+    private int mChunkOriginX;
+    private int mChunkOriginY;
+    private int mChunkWidth;
+    private int mChunkHeight;
+
     // Scrolling
     private float scrollDx = 0f;
     private float scrollDy = 0f;
@@ -89,13 +102,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private int frameCount;
     private long currentFrameTime;
     private int mFps;
-
-    // Text
-    private ArrayList<TextObject> mNarrations;
-    private ArrayList<TextObject> mStatuses;
-    private ArrayList<TextObject> mQueuedStatuses;
-    private ArrayList<TextObject> mQueuedNarrations;
-    private int mTextRowHeight;
 
     // GL handles
     private int mSpriteShaderProgram;
@@ -205,6 +211,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         calculateGridSize();
     }
 
+    /*
+    ---------------------------------------------
+      Resource loading and preparation
+    ---------------------------------------------
+    */
+
     private void prepareGLSurface() {
         GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         GLES20.glEnable(GL10.GL_TEXTURE_2D);
@@ -213,12 +225,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         GLES20.glEnable(GL10.GL_CULL_FACE);
         GLES20.glCullFace(GL10.GL_BACK);
     }
-
-    /*
-    ---------------------------------------------
-      Resource loading and preparation
-    ---------------------------------------------
-    */
 
     private void loadImages() {
         mSpriteIndexes = new HashMap<>();
@@ -422,6 +428,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 calculateScroll();
             }
 
+            setGridChunkToRender();
+
             String fps = mFps + " fps";
             // Get total sprite count and pass to renderer so we can init float and short arrays.
             mSpriteRenderer.initArrays(countSprites());
@@ -497,8 +505,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         GameObject[][] mapGrid = mFrame.getTerrain();
         ArrayList<GameObject>[][] objectGrid = mFrame.getObjects();
 
-        for (int y = 0; y < mMapHeight; y++) {
-            for (int x = 0; x < mMapWidth; x++) {
+        for (int y = mChunkOriginY; y < mChunkHeight; y++) {
+            for (int x = mChunkOriginX; x < mChunkWidth; x++) {
                 if (!inBounds(x, y)) continue;
 
                 float lighting = (float) getLightingForGrid(x, y);
@@ -536,8 +544,11 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         ArrayList<GameObject>[][] animations = mFrame.getAnimations();
         ArrayList<GameObject> movingObjects = new ArrayList<>();
 
-        for (int y = 0; y < mMapHeight; y++) {
-            for (int x = 0; x < mMapWidth; x++) {
+        for (int y = mChunkOriginY; y < mChunkHeight; y++) {
+            for (int x = mChunkOriginX; x < mChunkWidth; x++) {
+
+                if (!inBounds(x, y)) continue;
+
                 float lighting = (float) getLightingForGrid(x, y);
 
                 // Todo: maybe we could draw objects outside FOV using low lighting + alpha
@@ -746,6 +757,26 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         float gridY = correctedY / spriteSize;
 
         return new Vector((int) gridX, (int) gridY);
+    }
+
+    private void setGridChunkToRender() {
+        float x = 0;
+        float y = 0;
+
+        // Account for touch scrolling
+        x -= scrollDx;
+        y -= scrollDy;
+
+        float spriteSize = SPRITE_SIZE * mZoom * ssu;
+
+        int originX = (int) (x / spriteSize);
+        int originY = (int) (y / spriteSize);
+
+        // Render slightly larger chunk of grid than is actually visible
+        mChunkOriginX = originX - 1;
+        mChunkOriginY = originY - 1;
+        mChunkWidth = originX + mVisibleGridWidth + 1;
+        mChunkHeight = originY + mVisibleGridHeight + 1;
     }
 
     public float[] getRenderCoordsForObject(Vector objectPos) {
