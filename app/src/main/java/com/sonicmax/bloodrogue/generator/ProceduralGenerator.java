@@ -469,7 +469,7 @@ public class ProceduralGenerator {
         ArrayList<Vector> cells = new ArrayList<>();
         Vector lastCell = null;
         startRegion();
-        carve(start, Mansion.FLOOR);
+        carve(start, Mansion.WOOD_FLOOR_1);
         cells.add(start);
 
         while (cells.size() > 0) {
@@ -500,8 +500,8 @@ public class ProceduralGenerator {
 
                 Vector secondCarve = firstCarve.add(getVectorForDirection(firstCarve.getDirection()));
 
-                carve(firstCarve, Mansion.FLOOR);
-                carve(secondCarve, Mansion.FLOOR);
+                carve(firstCarve, Mansion.WOOD_FLOOR_1);
+                carve(secondCarve, Mansion.WOOD_FLOOR_1);
 
                 cells.add(secondCarve);
                 lastCell = firstCarve;
