@@ -18,6 +18,12 @@ public class Tiler {
         this.mTheme = theme;
     }
 
+    /*
+    ---------------------------------------------
+      Wall tiles
+    ---------------------------------------------
+    */
+
     public Wall getWallTile(int x, int y) {
         switch (mTheme) {
             case Mansion.KEY:
@@ -28,39 +34,6 @@ public class Tiler {
 
             default:
                 return new Wall(x, y, Mansion.WALL);
-        }
-    }
-
-    public String getBorderTilePath() {
-        switch (mTheme) {
-            case Mansion.KEY:
-                return Mansion.BRICK_WALL;
-
-            case Ruins.KEY:
-                return Ruins.BORDER;
-
-            default:
-                return All.DEFAULT_BORDER;
-        }
-    }
-
-    public String getOpenDoorTilePath() {
-        switch (mTheme) {
-            case Mansion.KEY:
-                return Mansion.DOUBLE_DOORS_OPEN;
-
-            default:
-                return Mansion.OPEN_DOOR;
-        }
-    }
-
-    public String getClosedDoorTilePath() {
-        switch (mTheme) {
-            case Mansion.KEY:
-                return Mansion.DOUBLE_DOORS;
-
-            default:
-                return Mansion.CLOSED_DOOR;
         }
     }
 
@@ -83,6 +56,25 @@ public class Tiler {
         }
     }
 
+    /*
+    ---------------------------------------------
+      Floor tiles
+    ---------------------------------------------
+    */
+
+    public Floor getFloorTile(int x, int y, int type) {
+        switch (mTheme) {
+            case Mansion.KEY:
+                return new Floor(x, y, getMansionFloorTilePath(type));
+
+            case Ruins.KEY:
+                return new Floor(x, y, Ruins.FLOOR);
+
+            default:
+                return new Floor(x, y, Mansion.FLOOR);
+        }
+    }
+
     public String getMansionFloorTilePath(int type) {
         switch (type) {
             case 0:
@@ -100,6 +92,51 @@ public class Tiler {
         }
     }
 
+    /*
+    ---------------------------------------------
+      Border tiles
+    ---------------------------------------------
+    */
+
+    public String getBorderTilePath() {
+        switch (mTheme) {
+            case Mansion.KEY:
+                return Mansion.BRICK_WALL;
+
+            case Ruins.KEY:
+                return Ruins.BORDER;
+
+            default:
+                return All.DEFAULT_BORDER;
+        }
+    }
+
+    /*
+    ---------------------------------------------
+      Door tiles
+    ---------------------------------------------
+    */
+
+    public String getOpenDoorTilePath() {
+        switch (mTheme) {
+            case Mansion.KEY:
+                return Mansion.DOUBLE_DOORS_OPEN;
+
+            default:
+                return Mansion.OPEN_DOOR;
+        }
+    }
+
+    public String getClosedDoorTilePath() {
+        switch (mTheme) {
+            case Mansion.KEY:
+                return Mansion.DOUBLE_DOORS;
+
+            default:
+                return Mansion.CLOSED_DOOR;
+        }
+    }
+
     public Floor getDoorwayTile(int x, int y) {
         switch (mTheme) {
             case Mansion.KEY:
@@ -112,18 +149,4 @@ public class Tiler {
                 return new Floor(x, y, Mansion.WOOD_FLOOR_1, Floor.IS_DOORWAY);
         }
     }
-
-    public Floor getFloorTile(int x, int y, int type) {
-        switch (mTheme) {
-            case Mansion.KEY:
-                return new Floor(x, y, getMansionFloorTilePath(type));
-
-            case Ruins.KEY:
-                return new Floor(x, y, Ruins.FLOOR);
-
-            default:
-                return new Floor(x, y, Mansion.FLOOR);
-        }
-    }
-
 }
