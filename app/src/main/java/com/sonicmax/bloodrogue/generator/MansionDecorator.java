@@ -103,6 +103,7 @@ public class MansionDecorator {
             Room room = (Room) it.next();
             if (AxisAlignedBoxTester.test(livingQuartersQuad, room)) {
                 if (bathroomCount <= 2) {
+                    // Todo: we should make sure that bathrooms arent connected to each other or other inappropriate rooms
                     convertRoomToBathroom(room);
                     bathroomCount++;
                 } else {
@@ -510,7 +511,7 @@ public class MansionDecorator {
 
             for (int y = startPositionY; y < startPositionY + room.height() + 1; y += 2) {
                 Vector cell = new Vector(room.x(), y);
-                addBookshelfRow(cell, y, isEven);
+                addBookshelfRow(cell, isEven);
             }
         }
 
@@ -531,7 +532,7 @@ public class MansionDecorator {
 
             for (int x = startPositionX; x < startPositionX + room.width(); x += 2) {
                 Vector cell = new Vector(x, room.y());
-                addBookshelfColumn(cell, x, isEven);
+                addBookshelfColumn(cell, isEven);
             }
         }
 
@@ -541,13 +542,20 @@ public class MansionDecorator {
         mLibraryCount++;
     }
 
-    private void addBookshelfColumn(Vector cell, int x, boolean isEven) {
+    private void addBookshelfColumn(Vector cell, boolean isEven) {
         while (inBounds(cell) && getMapObjectForCell(cell) instanceof Floor) {
 
-            Vector lookahead = cell.add(Directions.Cardinal.get("NORTH"));
-            boolean inBounds = inBounds(lookahead);
+            Floor floor = (Floor) getMapObjectForCell(cell);
 
-            if (!inBounds || getMapObjectForCell(lookahead) instanceof Floor) {
+            if (floor.isDoorway()) return;
+
+            Vector lookahead = cell.add(Directions.Cardinal.get("NORTH"));
+
+            if (!inBounds(lookahead) || getMapObjectForCell(lookahead) instanceof Floor) {
+
+                floor = (Floor) getMapObjectForCell(lookahead);
+
+                if (floor.isDoorway()) return;
 
                 if (!cellBlocksDoorway(cell, isEven)) {
                     mObjects.add(new Decoration(cell.x(), cell.y(), Mansion.BOOKSHELVES[mRng.getRandomInt(0, Mansion.BOOKSHELVES.length - 1)]));
@@ -555,29 +563,36 @@ public class MansionDecorator {
             }
 
             else {
-                break;
+                return;
             }
 
             cell = cell.add(Directions.Cardinal.get("NORTH"));
         }
     }
 
-    private void addBookshelfRow(Vector cell, int y, boolean isEven) {
+    private void addBookshelfRow(Vector cell, boolean isEven) {
 
         while (inBounds(cell) && getMapObjectForCell(cell) instanceof Floor) {
 
+            Floor floor = (Floor) getMapObjectForCell(cell);
+
+            if (floor.isDoorway()) return;
+
             Vector lookahead = cell.add(Directions.Cardinal.get("EAST"));
-            boolean inBounds = inBounds(lookahead);
 
-            if (!inBounds || getMapObjectForCell(lookahead) instanceof Floor) {
+            if (inBounds(lookahead) && getMapObjectForCell(lookahead) instanceof Floor) {
 
-                if (!cellBlocksDoorway(cell, isEven)) {
+                floor = (Floor) getMapObjectForCell(lookahead);
+
+                if (floor.isDoorway()) return;
+
+                else if (!cellBlocksDoorway(cell, isEven)) {
                     mObjects.add(new Decoration(cell.x(), cell.y(), Mansion.BOOKSHELVES[mRng.getRandomInt(0, Mansion.BOOKSHELVES.length - 1)]));
                 }
             }
 
             else {
-                break;
+                return;
             }
 
             cell = cell.add(Directions.Cardinal.get("EAST"));
