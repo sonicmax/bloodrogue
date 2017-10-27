@@ -4,6 +4,7 @@ import android.util.Log;
 import android.util.SparseIntArray;
 
 import com.sonicmax.bloodrogue.engine.collisions.AxisAlignedBoxTester;
+import com.sonicmax.bloodrogue.generator.tilesets.Ruins;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 import com.sonicmax.bloodrogue.engine.objects.Border;
 import com.sonicmax.bloodrogue.engine.objects.Decoration;
@@ -33,6 +34,10 @@ public class ProceduralGenerator {
     public final static int RUINS = 2;
     public final static int MANSION = 3;
 
+    private final String FLOOR_TILE = "f";
+    private final String WALL_TILE = "w";
+    private final String DOORWAY_TILE = "d";
+
     private final static boolean CARVABLE = true;
     private final static boolean NOT_CARVABLE = false;
 
@@ -41,10 +46,10 @@ public class ProceduralGenerator {
     private ArrayList<GameObject> mObjects;
     private ArrayList<GameObject> mEnemies;
     private Vector mStartPosition;
+    private int mType;
 
     private int mMapWidth;
     private int mMapHeight;
-    private int mType;
 
     private GameObject[][] mMapGrid;
     private int[][] mMapRegions;
@@ -61,21 +66,22 @@ public class ProceduralGenerator {
     private int mBirthLimit = 4;
     private int mDeathLimit = 3;
     private int mNumberOfSteps = 2;
-    private double mChanceToStartAlive = 0.45;
+    private float mChanceToStartAlive = 0.4F;
 
     // Configuration for room generation
-    private int mMinRoomWidth = 4;
-    private int mMaxRoomWidth = 10;
-    private int mMinRoomHeight = 4;
-    private int mMaxRoomHeight = 10;
+    private int mMinRoomWidth = 3;
+    private int mMaxRoomWidth = 9;
+    private int mMinRoomHeight = 3;
+    private int mMaxRoomHeight = 9;
     private int mRoomDensity = 2000; // Higher value = more attempts to place non-colliding rooms
 
-    private boolean mGeneratingCorridors = false;
+    private boolean mGeneratingCorridors;
     private int mTheme;
     private String mThemeKey;
     private int mCurrentRoomTheme;
 
     private MansionDecorator mDecorator;
+    private Tiler mTiler;
     private RandomNumberGenerator mRng;
 
     public ProceduralGenerator(int width, int height) {
@@ -86,6 +92,7 @@ public class ProceduralGenerator {
         mEnemies = new ArrayList<>();
         mDoors = new HashMap<>();
         mRng = new RandomNumberGenerator();
+        mGeneratingCorridors = false;
     }
 
 	/*
@@ -94,16 +101,16 @@ public class ProceduralGenerator {
 		---------------------------------------------
 	*/
 
-    public void initGrids() {
+    private void initGrids() {
         mMapGrid = new GameObject[mMapWidth][mMapHeight];
 
         for (int x = 0; x < mMapWidth; x++) {
             for (int y = 0; y < mMapHeight; y++) {
                 if (x == 0 || x == mMapWidth - 1 || y == 0 || y == mMapHeight - 1) {
-                    mMapGrid[x][y] = new Border(x, y, getBorderTile(Mansion.KEY));
+                    mMapGrid[x][y] = new Border(x, y, mTiler.getBorderTilePath());
                 }
                 else {
-                    mMapGrid[x][y] = getWallTile(x, y, Mansion.KEY);
+                    mMapGrid[x][y] = mTiler.getWallTile(x, y);
                 }
 
             }
@@ -133,17 +140,37 @@ public class ProceduralGenerator {
     public void generate(int type) {
         switch(type) {
             case DUNGEON:
+                initGrids();
                 generateDungeon();
                 break;
 
             case MANSION:
                 setThemeAsMansion();
+                mTiler = new Tiler(mThemeKey);
+                initGrids();
                 generateDungeon();
+                break;
+
+            case RUINS:
+                setThemeAsRuins();
+                initGrids();
+                generateRuins();
                 break;
 
             default:
                 throw new Error("Undefined map type");
         }
+    }
+
+    private void setThemeAsDungeon() {
+        mTheme = RoomStyles.MANSION;
+        mThemeKey = Mansion.KEY;
+        mMinRoomWidth = 3;
+        mMaxRoomWidth = 7;
+        mMinRoomHeight = 3;
+        mMaxRoomHeight = 7;
+        mRoomDensity = 1000;
+        mWindingPercent = 50;
     }
 
     private void setThemeAsMansion() {
@@ -153,9 +180,19 @@ public class ProceduralGenerator {
         mMaxRoomWidth = 7;
         mMinRoomHeight = 3;
         mMaxRoomHeight = 7;
-        mRoomDensity = 1000;
+        mRoomDensity = 2000;
         mWindingPercent = 20;
-        initGrids();
+    }
+
+    private void setThemeAsRuins() {
+        mTheme = RoomStyles.RUINS;
+        mThemeKey = Ruins.KEY;
+        mMinRoomWidth = 3;
+        mMaxRoomWidth = 7;
+        mMinRoomHeight = 3;
+        mMaxRoomHeight = 7;
+        mRoomDensity = 2000;
+        mWindingPercent = 20;
     }
 
     public void generateDungeon() {
@@ -182,24 +219,19 @@ public class ProceduralGenerator {
         calculateGoals();
     }
 
-
-    /*var generateRuins() {
-        mapData.mapType = MapTypes.RUINS;
-
-        setThemeAsMansion();
-
+    private void generateRuins() {
         generateRooms();
         carveRooms();
         generateCorridors();
         removeDeadEnds();
         checkForBrokenDoors();
-        decorateRooms();
+        // decorateRooms();
 
         generateCaverns();
         removeHiddenWalls();
         removeInaccessibleCells();
         calculateGoals();
-    }*/
+    }
 
 /*
     ---------------------------------------------
@@ -251,7 +283,7 @@ public class ProceduralGenerator {
         int right = room.x() + room.width() + 1;
         int top = room.y() + room.height();
 
-        String themedTile = getThemedWallTile();
+        String themedTile = mTiler.getMansionWallTilePath(mCurrentRoomTheme);
 
         for (int x = room.x() - 1; x <= right; x++) {
             Vector north = new Vector(x, top);
@@ -284,32 +316,13 @@ public class ProceduralGenerator {
         }
     }
 
-    private String getThemedWallTile() {
-        switch (mCurrentRoomTheme) {
-            case 0:
-                return Mansion.WALLPAPER_1;
-
-            case 1:
-                return Mansion.WALLPAPER_2;
-
-            case 2:
-                return Mansion.WALLPAPER_3;
-
-            case 3:
-                return Mansion.WOOD_WALL;
-
-            default:
-                return Mansion.WOOD_WALL;
-        }
-    }
-
     private void carveRoomFloor(Room room) {
         int right = room.x() + room.width();
         int bottom = room.y() + room.height();
 
         for (int x = room.x(); x < right; x++) {
             for (int y = room.y(); y < bottom; y++) {
-                carve(new Vector(x, y), getFloorTile(x, y, mThemeKey));
+                carve(new Vector(x, y), mTiler.getFloorTile(x, y, mCurrentRoomTheme));
             }
         }
     }
@@ -676,7 +689,8 @@ public class ProceduralGenerator {
         if (mRng.getRandomInt(0, 1) == 0) {
             // mapData.doors.set(cell.toString(), new DoorObject(cell.x, cell.y, getOpenDoorTile(), getClosedDoorTile(), true));
         } else {
-            mDoors.put(cell.toString(), new Door(cell.x(), cell.y(), getOpenDoorTile(), getClosedDoorTile()));
+            Door door = new Door(cell.x(), cell.y(), mTiler.getOpenDoorTilePath(), mTiler.getClosedDoorTilePath());
+            mDoors.put(cell.toString(), door);
         }
     }
 
@@ -759,15 +773,15 @@ public class ProceduralGenerator {
     private void setTile(Vector pos, String type) {
         switch(type) {
             case Mansion.FLOOR:
-                mMapGrid[pos.x()][pos.y()] = getFloorTile(pos.x(), pos.y(), mThemeKey);
+                mMapGrid[pos.x()][pos.y()] = mTiler.getFloorTile(pos.x(), pos.y(), mCurrentRoomTheme);
                 break;
 
             case Mansion.WALL:
-                mMapGrid[pos.x()][pos.y()] = getWallTile(pos.x(), pos.y(), mThemeKey);
+                mMapGrid[pos.x()][pos.y()] = mTiler.getWallTile(pos.x(), pos.y());
                 break;
 
             case Mansion.DOORWAY:
-                mMapGrid[pos.x()][pos.y()] = getDoorwayTile(pos.x(), pos.y(), mThemeKey);
+                mMapGrid[pos.x()][pos.y()] = mTiler.getDoorwayTile(pos.x(), pos.y());
                 break;
 
             default:
@@ -785,87 +799,6 @@ public class ProceduralGenerator {
         }
         else {
             throw new Error("Coords (" + coords.x() + ", " + coords.y() + ") are not in bounds");
-        }
-    }
-
-    private Floor getFloorTile(int x, int y, String theme) {
-        switch (theme) {
-            case Mansion.KEY:
-                return new Floor(x, y, getThemedMansionRoomFloor());
-
-            default:
-                return new Floor(x, y, Mansion.FLOOR);
-        }
-    }
-
-    private String getThemedMansionRoomFloor() {
-        switch (mCurrentRoomTheme) {
-            case 0:
-                return Mansion.MARBLE_FLOOR_1;
-
-            case 1:
-                return Mansion.TILED_FLOOR_1;
-
-            case 2:
-            case 3:
-                return Mansion.WOOD_FLOOR_1;
-
-            default:
-                return Mansion.WOOD_FLOOR_1;
-        }
-    }
-
-    private Wall getWallTile(int x, int y, String theme) {
-        switch (theme) {
-            case Mansion.KEY:
-                return new Wall(x, y, Mansion.WALLPAPER_3);
-
-            default:
-                return new Wall(x, y, Mansion.WALL);
-        }
-    }
-
-    private Floor getDoorwayTile(int x, int y, String theme) {
-        switch (theme) {
-            case Mansion.KEY:
-                if (mGeneratingCorridors) {
-                    return new Floor(x, y, Mansion.WOOD_FLOOR_1, Floor.IS_DOORWAY);
-                } else {
-                    return new Floor(x, y, Mansion.MARBLE_FLOOR_1, Floor.IS_DOORWAY);
-                }
-
-            default:
-                return new Floor(x, y, Mansion.WOOD_FLOOR_1, Floor.IS_DOORWAY);
-        }
-    }
-
-    private String getOpenDoorTile() {
-        switch (mThemeKey) {
-            case Mansion.KEY:
-                return Mansion.DOUBLE_DOORS_OPEN;
-
-            default:
-                return Mansion.OPEN_DOOR;
-        }
-    }
-
-    private String getClosedDoorTile() {
-        switch (mThemeKey) {
-            case Mansion.KEY:
-                return Mansion.DOUBLE_DOORS;
-
-            default:
-                return Mansion.CLOSED_DOOR;
-        }
-    }
-
-    private String getBorderTile(String key) {
-        switch (key) {
-            case Mansion.KEY:
-                return Mansion.BRICK_WALL;
-
-            default:
-                return All.DEFAULT_BORDER;
         }
     }
 
