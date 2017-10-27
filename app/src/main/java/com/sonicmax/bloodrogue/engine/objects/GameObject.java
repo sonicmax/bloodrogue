@@ -43,6 +43,10 @@ public class GameObject {
         this.name = this.getClass().getSimpleName();
     }
 
+    public String getId() {
+        return this.id;
+    }
+
     public String tile() {
         return this.tile;
     }

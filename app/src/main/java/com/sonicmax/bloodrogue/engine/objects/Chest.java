@@ -1,5 +1,7 @@
 package com.sonicmax.bloodrogue.engine.objects;
 
+import com.sonicmax.bloodrogue.engine.factories.AnimationFactory;
+
 import java.util.ArrayList;
 
 // Todo: We should find a way to create a generic class that can support what the Chest class does

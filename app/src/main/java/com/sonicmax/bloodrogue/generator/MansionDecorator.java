@@ -4,7 +4,7 @@ import android.util.Log;
 
 import com.sonicmax.bloodrogue.engine.collisions.AxisAlignedBoxTester;
 import com.sonicmax.bloodrogue.engine.Directions;
-import com.sonicmax.bloodrogue.engine.objects.EnemyFactory;
+import com.sonicmax.bloodrogue.engine.factories.EnemyFactory;
 import com.sonicmax.bloodrogue.engine.objects.LightSource;
 import com.sonicmax.bloodrogue.utils.maths.Calculator;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
