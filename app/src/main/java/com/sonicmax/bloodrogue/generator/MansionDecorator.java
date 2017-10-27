@@ -135,7 +135,7 @@ public class MansionDecorator {
 
             Room room = (Room) object;
 
-            if (getDoorsFromArea(room.roundedCentre()) == 0) {
+            if (getDoorsFromRoom(room) == 0) {
                 Log.v(LOG_TAG, "inaccessible room");
                 room.isAccessible = true;
             }
@@ -804,94 +804,58 @@ public class MansionDecorator {
         }
     }
 
-    private int getDoorsFromArea(Vector start) {
-        ArrayList<String> checked = new ArrayList<>();
-        ArrayList<Vector> queue = new ArrayList<>();
+    /**
+     *  Iterates over bounds of room and returns number of doorways.
+     */
 
+    private int getDoorsFromRoom(Room room) {
         int doorCount = 0;
 
-        Vector north = new Vector(0, 1);
-        Vector south = new Vector(0, -1);
-        Vector west = new Vector(-1, 0);
-        Vector east = new Vector(1, 0);
+        int right = room.x() + room.width() + 1;
+        int top = room.y() + room.height();
 
-        queue.add(start);
+        for (int x = room.x() - 1; x <= right; x++) {
+            Vector north = new Vector(x, top);
+            Vector south = new Vector(x, room.y() - 1);
 
-        // Use modified flood fill algorithm to find all the door tiles in current room.
-        // Add Door objects to array and return
-        while (queue.size() > 0) {
-            Vector cell = queue.remove(queue.size() - 1);
-
-            checked.add(cell.toString());
-
-            Vector eastCell = cell;
-            Vector westCell = cell;
-            ArrayList<Vector> scanline = new ArrayList<>();
-            GameObject object;
-
-            // Find floor tiles to east of player position
-            while (inBounds((eastCell)) && getMapObjectForCell(eastCell) instanceof Floor) {
-                checked.add(eastCell.toString());
-                scanline.add(eastCell);
-                eastCell = eastCell.add(east);
-            }
-
-            // Check for doors
-            if (inBounds(eastCell)) {
-                object = getMapObjectForCell((eastCell));
-                if (object instanceof Floor && ((Floor) object).isDoorway()) {
+            if (inBounds(north)) {
+                if (getMapObjectForCell(north) instanceof Floor) {
+                    Floor floor = (Floor) getMapObjectForCell(north);
+                    if (floor.isDoorway()) {
                     doorCount++;
                 }
             }
-
-            // Find floor tiles to west of player position.
-            while (inBounds(westCell) && getMapObjectForCell(westCell) instanceof Floor) {
-                checked.add(westCell.toString());
-                scanline.add(westCell);
-                westCell = westCell.add(west);
             }
 
-            if (inBounds(westCell)) {
-                // Check for doors
-                object = getMapObjectForCell((westCell));
-                if (object instanceof Floor && ((Floor) object).isDoorway()) {
+            if (inBounds(south)) {
+                if (getMapObjectForCell(south) instanceof Floor) {
+                    Floor floor = (Floor) getMapObjectForCell(south);
+                    if (floor.isDoorway()) {
                     doorCount++;
                 }
             }
+            }
+        }
 
-            // Iterate over each tile in scanline and check north/south for floor tiles.
-            // If we find floor tiles, add these to queue and repeat process.
+        for (int y = room.y() - 1; y <= top; y++) {
+            Vector east = new Vector(room.x() - 1, y);
+            Vector west = new Vector(room.x() + room.width(), y);
 
-            for (Vector item : scanline) {
-                Vector northCell = item.add(north);
-                Vector southCell = item.add(south);
-                GameObject northTile = getMapObjectForCell(northCell);
-                GameObject southTile = getMapObjectForCell(southCell);
-
-                if (!checked.contains(northCell.toString())) {
-                    if (northTile instanceof Floor) {
-                        Floor floor = (Floor) northTile;
-                        if (!floor.isDoorway()) {
-                            queue.add(northCell);
-                        }
-                        else {
+            if (inBounds(east)) {
+                if (getMapObjectForCell(east) instanceof Floor) {
+                    Floor floor = (Floor) getMapObjectForCell(east);
+                    if (floor.isDoorway()) {
                             doorCount++;
                         }
-
                     }
                 }
 
-                if (!checked.contains(southCell.toString())) {
-                    if (southTile instanceof Floor) {
-                        Floor floor = (Floor) southTile;
-                        if (!floor.isDoorway()) {
-                            queue.add(southCell);
-                        }
-                        else {
+            if (inBounds(west)) {
+                if (getMapObjectForCell(west) instanceof Floor) {
+                    Floor floor = (Floor) getMapObjectForCell(west);
+                    if (floor.isDoorway()) {
                             doorCount++;
                         }
-
-                    }
                 }
             }
         }
