@@ -1,4 +1,4 @@
-package com.sonicmax.bloodrogue.renderer.tilesets;
+package com.sonicmax.bloodrogue.generator.tilesets;
 
 /**
  *  Contains image paths for various types of tile associated with the mansion theme
