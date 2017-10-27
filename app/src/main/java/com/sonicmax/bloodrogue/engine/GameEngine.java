@@ -687,6 +687,8 @@ public class GameEngine {
     private void handlePlayerMetabolism() {}
 
     private void attack(Actor attacker, Actor defender) {
+        if (attacker.getId().equals(defender.getId())) return;
+
         int damage = attacker.attack(defender);
 
         if (damage == 0) {
