@@ -1,8 +1,10 @@
-package com.sonicmax.bloodrogue.engine.objects;
+package com.sonicmax.bloodrogue.engine.factories;
 
 import com.sonicmax.bloodrogue.engine.Directions;
+import com.sonicmax.bloodrogue.engine.objects.GameObject;
+import com.sonicmax.bloodrogue.engine.objects.Wall;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
-import com.sonicmax.bloodrogue.renderer.tilesets.All;
+import com.sonicmax.bloodrogue.generator.tilesets.All;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 
 import java.util.ArrayList;

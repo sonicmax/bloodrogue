@@ -1,5 +1,7 @@
-package com.sonicmax.bloodrogue.engine.objects;
+package com.sonicmax.bloodrogue.engine.factories;
 
+import com.sonicmax.bloodrogue.engine.objects.Actor;
+import com.sonicmax.bloodrogue.engine.objects.GameObject;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 
 /**

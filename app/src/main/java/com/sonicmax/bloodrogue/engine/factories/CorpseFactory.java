@@ -1,4 +1,6 @@
-package com.sonicmax.bloodrogue.engine.objects;
+package com.sonicmax.bloodrogue.engine.factories;
+
+import com.sonicmax.bloodrogue.engine.objects.GameObject;
 
 public class CorpseFactory {
     public static GameObject getCorpse(int x, int y, String type) {

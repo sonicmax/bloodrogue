@@ -1,4 +1,7 @@
-package com.sonicmax.bloodrogue.engine.objects;
+package com.sonicmax.bloodrogue.engine.factories;
+
+import com.sonicmax.bloodrogue.engine.objects.Animation;
+import com.sonicmax.bloodrogue.engine.objects.GameObject;
 
 import java.util.ArrayList;
 
