@@ -1,9 +1,12 @@
 package com.sonicmax.bloodrogue.generator;
 
+import android.util.Log;
+
 import com.sonicmax.bloodrogue.engine.collisions.AxisAlignedBoxTester;
 import com.sonicmax.bloodrogue.engine.Directions;
 import com.sonicmax.bloodrogue.engine.objects.EnemyFactory;
 import com.sonicmax.bloodrogue.engine.objects.LightSource;
+import com.sonicmax.bloodrogue.utils.maths.Calculator;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 import com.sonicmax.bloodrogue.engine.objects.Chest;
 import com.sonicmax.bloodrogue.engine.objects.Decoration;
@@ -11,8 +14,8 @@ import com.sonicmax.bloodrogue.engine.objects.Floor;
 import com.sonicmax.bloodrogue.engine.objects.GameObject;
 import com.sonicmax.bloodrogue.engine.objects.Room;
 import com.sonicmax.bloodrogue.engine.objects.Wall;
-import com.sonicmax.bloodrogue.renderer.tilesets.All;
-import com.sonicmax.bloodrogue.renderer.tilesets.Mansion;
+import com.sonicmax.bloodrogue.generator.tilesets.All;
+import com.sonicmax.bloodrogue.generator.tilesets.Mansion;
 import com.sonicmax.bloodrogue.utils.Array2DHelper;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 
@@ -22,6 +25,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 
 public class MansionDecorator {
+    private final String LOG_TAG = this.getClass().getSimpleName();
     private int mChestChance = 0; // Higher number = less chance that chest will be generated
 
     // Configuration for enemy placement
@@ -132,6 +136,7 @@ public class MansionDecorator {
             Room room = (Room) object;
 
             if (getDoorsFromArea(room.roundedCentre()) == 0) {
+                Log.v(LOG_TAG, "inaccessible room");
                 room.isAccessible = true;
             }
 
@@ -336,7 +341,6 @@ public class MansionDecorator {
     private ArrayList<Vector> getCornerTiles(Room room) {
         ArrayList<Vector> corners = new ArrayList<>();
 
-        // Add/subtract 1 from corner to account for position of wall
         corners.add(new Vector(room.x(), room.y()));
         corners.add(new Vector(room.x() + room.width() - 1, room.y()));
         corners.add(new Vector(room.x(), room.y() + room.height() - 1));
@@ -358,7 +362,7 @@ public class MansionDecorator {
     }
 
     private void addNorthWallTiles(Room room) {
-        Vector topLeft = new Vector(room.x(), room.y() + room.height());
+        /*Vector topLeft = new Vector(room.x(), room.y() + room.height());
         Vector topRight = new Vector(room.x() + room.width(), room.y() + room.height());
 
         for (int x = topLeft.x(); x < topRight.x(); x++) {
@@ -368,7 +372,7 @@ public class MansionDecorator {
             if (object instanceof Wall && adjacentCellsAreCarvable(cell)) {
                 object.setTile(Mansion.WALLPAPER_1);
             }
-        }
+        }*/
     }
 
     /**
@@ -481,7 +485,7 @@ public class MansionDecorator {
 
             for (int y = startPositionY; y < startPositionY + room.height() + 1; y += 2) {
                 Vector cell = new Vector(room.x(), y);
-                addLibraryRow(cell, y, isEven);
+                addBookshelfRow(cell, y, isEven);
             }
         }
 
@@ -502,7 +506,7 @@ public class MansionDecorator {
 
             for (int x = startPositionX; x < startPositionX + room.width(); x += 2) {
                 Vector cell = new Vector(x, room.y());
-                addVerticalLibraryRow(cell, x, isEven);
+                addBookshelfColumn(cell, x, isEven);
             }
         }
 
@@ -512,7 +516,7 @@ public class MansionDecorator {
         mLibraryCount++;
     }
 
-    private void addVerticalLibraryRow(Vector cell, int x, boolean isEven) {
+    private void addBookshelfColumn(Vector cell, int x, boolean isEven) {
         while (inBounds(cell) && getMapObjectForCell(cell) instanceof Floor) {
 
             Vector lookahead = cell.add(Directions.Cardinal.get("NORTH"));
@@ -533,7 +537,7 @@ public class MansionDecorator {
         }
     }
 
-    private void addLibraryRow(Vector cell, int y, boolean isEven) {
+    private void addBookshelfRow(Vector cell, int y, boolean isEven) {
 
         while (inBounds(cell) && getMapObjectForCell(cell) instanceof Floor) {
 
@@ -667,7 +671,7 @@ public class MansionDecorator {
      */
 
     private boolean objectNotBlockingPath(Vector cell) {
-        final int PATH_LIMIT = 6;
+        final int PATH_LIMIT = 8;
 
         // As player can move diagonally, we only have to test two paths: north-south and east-west.
         ArrayList<ArrayList<Vector>> paths = new ArrayList<>();
@@ -689,7 +693,7 @@ public class MansionDecorator {
 
             if (detectCollisions(start) || detectCollisions(end)) continue;
 
-            ArrayList<Vector> bestPath = testPath(start, end, cell);
+            ArrayList<Vector> bestPath = findShortestPathAroundObstacle(start, end, cell);
 
             // If path length === 0, no safe paths were found.
             // If path length exceeds PATH_LIMIT, the object is blocking player's path in a detrimental way
@@ -701,11 +705,14 @@ public class MansionDecorator {
         return false;
     }
 
-    private ArrayList<Vector> testPath(Vector startNode, Vector goalNode, Vector obstacle) {
+    private ArrayList<Vector> findShortestPathAroundObstacle(Vector startNode, Vector goalNode, Vector obstacle) {
         ArrayList<Vector> optimalPath = new ArrayList<>();
         ArrayList<Vector> openNodes = new ArrayList<>();
+        ArrayList<String> checkedNodes = new ArrayList<>();
 
-        HashMap<String, Boolean> checkedNodes = new HashMap<>();
+        if (startNode.equals(goalNode)) {
+            return optimalPath;
+        }
 
         openNodes.add(startNode);
 
@@ -715,76 +722,88 @@ public class MansionDecorator {
             Vector currentNode = openNodes.remove(openNodes.size() - 1);
 
             if (lastNode != null && lastNode.equals(currentNode)) {
+                ;       // This probably shouldn't happen
+                Log.w(LOG_TAG, "Duplicate node in findShortestPath at " + lastNode.toString());
                 break;
             }
 
             Vector closestNode = null;
-            int closestDistance = Integer.MAX_VALUE;
+            double bestDistance = Double.MAX_VALUE;
 
             // Find adjacent node which is closest to goal
-            for (Vector direction : Directions.Cardinal.values()) {
+            for (Vector direction : Directions.All.values()) {
                 Vector adjacentNode = currentNode.add(direction);
 
                 if (!inBounds(adjacentNode)) continue;
 
-                if (checkedNodes.containsKey(adjacentNode.toString())) continue;
+                if (checkedNodes.contains(adjacentNode.toString())) continue;
 
                 if (adjacentNode.equals(obstacle) || detectCollisions(adjacentNode)) continue;
 
-                int distanceToGoal = getDistance(adjacentNode, goalNode);
+                double distanceToGoal = Calculator.getDistance(adjacentNode, goalNode);
 
-                if (distanceToGoal < closestDistance) {
-                    closestDistance = distanceToGoal;
+                if (distanceToGoal < bestDistance) {
+                    bestDistance = distanceToGoal;
                     closestNode = adjacentNode;
                 }
             }
 
-            if (closestNode == null) {
-                break;
-            }
-
-            else if (closestNode.equals(goalNode)) {
-                optimalPath.add(closestNode);
-                lastNode = closestNode;
+            if (closestNode == null || closestNode.equals(goalNode)) {
+                return optimalPath;
             }
 
             else {
-                checkedNodes.put(currentNode.toString(), true);
+                checkedNodes.add(currentNode.toString());
                 lastNode = currentNode;
                 optimalPath.add(closestNode);
                 openNodes.add(closestNode);
             }
         }
 
-        if (lastNode == null || !lastNode.equals(goalNode)) {
-            // Path was blocked
-            return new ArrayList<>(0);
-        }
-
-        else {
-            return optimalPath;
-        }
-    }
-
-    private int getDistance(Vector a, Vector b) {
-        return (int) Math.sqrt(Math.pow(a.x() - b.x(), 2) + Math.pow(a.y() - b.y(), 2));
+        return optimalPath;
     }
 
     private void addEnemiesToRoom(Room room) {
-        int numberOfEnemies = mRng.getRandomInt(mMinEnemies, mMaxEnemies);
+        // Divide room size by 9 to find how many enemies would reasonably fit in room.
+        // (eg. 1 enemy for 3x3, 2 for 5x5, etc)
+        // Compare this value to mMaxEnemies and use smallest value
+
+        int enemyFit = (room.width() * room.height()) / 9;
+        int numberOfEnemies = Math.min(enemyFit, mMaxEnemies);
 
         // We don't want player to be mobbed by several enemies when starting a new floor.
         if (room.isEntrance() && numberOfEnemies > 1) {
             numberOfEnemies = 1;
         }
 
-        for (int i = 0; i < numberOfEnemies; i++) {
-            // Account for walls when placing enemies
-            int x = mRng.getRandomInt(room.x() + 1, room.x() + room.width() - 1);
-            int y = mRng.getRandomInt(room.y() + 1, room.y() + room.height() - 1);
+        // Iterate over each tile in room and find empty positions.
+        // Avoid rounded centre because that is where player character would be placed
+
+        ArrayList<Vector> empty = new ArrayList<>();
+        Vector centre = room.roundedCentre();
+
+        for (int x = room.x() + 1; x < room.x() + room.width() - 1; x++) {
+            for (int y = room.y() + 1; y < room.y() + room.height() - 1; y++) {
+                Vector pos = new Vector(x, y);
+                if (!pos.equals(centre) && !detectCollisions(new Vector(x, y))) {
+                    empty.add(pos);
+                }
+            }
+        }
+
+        // Now pick random positions until enemy count or empty tile array is exhausted.
+        // This will distribute enemies somewhat randomly (compared to deploying in rows or columns)
+
+        int count = 0;
+
+        while (count <= numberOfEnemies && empty.size() > 0) {
+            int random = mRng.getRandomInt(0, empty.size() - 1);
+            Vector pos = empty.remove(random);
+
             int level = mRng.getRandomInt(1, mMaxEnemyLevel);
-            mEnemies.add(EnemyFactory.getRandomEnemy(x, y, level));
+            mEnemies.add(EnemyFactory.getRandomEnemy(pos.x(), pos.y(), level));
             populateObjectGrid();
+            count++;
         }
     }
 
