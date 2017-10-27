@@ -347,15 +347,23 @@ public class ProceduralGenerator {
     private void calculateGoals() {
         Room startRoom = (Room) mRooms.get(mRng.getRandomInt(0, mRooms.size() - 1));
 
+        int count = 0;
+        int roomCount = mRooms.size();
+
         // Make sure that starting room is accessible
-        while (!startRoom.isAccessible) {
+        while (!startRoom.isAccessible && count < roomCount) {
             startRoom = (Room) mRooms.get(mRng.getRandomInt(0, mRooms.size() - 1));
+            count++;
+        }
+
+        if (!startRoom.isAccessible) {
+            // Todo: to handle this error, we should regenerate the terrain
+            throw new Error("Start room was inaccessible!");
         }
 
         startRoom.setEntrance();
         mStartPosition = startRoom.roundedCentre();
     }
-
 
 /*
     ---------------------------------------------
