@@ -125,6 +125,7 @@ public class GameEngine {
     public void advanceFrame() {
         updatePreCombatData();
         determineEnemyMoves();
+        mGameInterface.passDataToRenderer();
     }
 
     private void updatePreCombatData() {
@@ -595,7 +596,6 @@ public class GameEngine {
                 mTurnQueue.add(turn);
                 takeTurns();
                 advanceFrame();
-                mGameInterface.passDataToRenderer();
 
             } catch (InterruptedException e) {
 

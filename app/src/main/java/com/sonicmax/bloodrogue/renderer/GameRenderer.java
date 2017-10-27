@@ -360,10 +360,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
     }
 
-    private void calculateScroll() {
-        mScrollOffset = calculateScrollOffset();
-    }
-
     private void calculateGridSize() {
         int width = ScreenSizeGetter.getWidth();
         int height = ScreenSizeGetter.getHeight();
@@ -412,22 +408,21 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
             if (mFirstRender) {
                 centreAtPlayerPos();
+                mFirstRender = false;
             }
 
             if (mNewFrame == null) {
-                mScrollOffset = calculateScrollOffset();
                 mLightMap = mFrame.getLightMap();
                 mFov = mFrame.getFov();
 
-                mFirstRender = false;
             } else {
                 // Replace existing frame with new frame
                 mFrame = mNewFrame;
                 mLightMap = mFrame.getLightMap();
                 mFov = mFrame.getFov();
-                calculateScroll();
             }
 
+            mScrollOffset = calculateScrollOffset();
             setGridChunkToRender();
 
             String fps = mFps + " fps";
@@ -798,10 +793,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     public void setFrame(Frame frame) {
-        if (mFirstRender) {
+        if (mFrame == null) {
             mFrame = frame;
-            mLightMap = mFrame.getLightMap();
-            mFov = mFrame.getFov();
         }
         else {
             mNewFrame = frame;
