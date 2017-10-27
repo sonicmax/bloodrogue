@@ -350,53 +350,64 @@ public class ProceduralGenerator {
     ---------------------------------------------
 */
 
-    /*var generateCaverns() {
-        mapData.mapType = MapTypes.CAVERNS;
+    private boolean[][] cellMap;
 
-        var cellMap = initialiseMap(createNewGrid(false));
-        for (var i = 0; i < numberOfSteps; i++) {
-            cellMap = doSimulationStep(cellMap);
+    private void generateCaverns() {
+        cellMap = new boolean[mMapWidth][mMapHeight];
+
+        for (int x = 0; x < mMapWidth; x++) {
+            for (int y = 0; y < mMapHeight; y++) {
+                cellMap[x][y] = false;
+            }
         }
 
-        for (var x = 1; x < mapSize - 1; x++) {
-            for (var y = 1; y < mapSize - 1; y++) {
+        initialiseCellMap();
+
+        for (int i = 0; i < mNumberOfSteps; i++) {
+            cellMap = doSimulationStep();
+        }
+
+        for (int x = 1; x < mMapWidth - 1; x++) {
+            for (int y = 1; y < mMapHeight - 1; y++) {
                 if (cellMap[x][y]) {
-                    carve(new Vector(x, y), Tiles.FLOOR);
+                    carve(new Vector(x, y), Ruins.FLOOR);
                 }
             }
         }
 
         removeHiddenWalls();
-    };
+    }
 
-    var initialiseMap(cellMap) {
-        var width = cellMap.length;
-        var height = cellMap[0].length;
-
-        for (var x = 1; x < width - 1; x++) {
-            for (var y = 1; y < height - 1; y++) {
-                if (getRandomFloat(0, 1) < chanceToStartAlive){
+    private void initialiseCellMap() {
+        for (int x = 1; x < mMapWidth - 1; x++) {
+            for (int y = 1; y < mMapHeight - 1; y++) {
+                if (mRng.getRandomFloat(0F, 1F) < mChanceToStartAlive){
                     cellMap[x][y] = true;
                 }
             }
         }
+    }
 
-        return cellMap;
-    };
+    private boolean[][] doSimulationStep() {
+        boolean[][] newMap = new boolean[mMapWidth][mMapHeight];
 
-    var doSimulationStep(oldMap) {
-        var newMap = createNewGrid(false);
+        for (int x = 0; x < mMapWidth; x++) {
+            for (int y = 0; y < mMapHeight; y++) {
+                newMap[x][y] = false;
+            }
+        }
+
         //Loop over each row and column of the map
-        for (var x = 1; x < oldMap.length - 1; x++) {
-            for (var y = 1; y < oldMap[0].length - 1; y++) {
+        for (int x = 1; x < mMapWidth - 1; x++) {
+            for (int y = 1; y < mMapHeight - 1; y++) {
 
-                var neighbours = countAliveNeighbours(oldMap, x, y);
+                int neighbours = countAliveNeighbours(x, y);
 
                 //The new value is based on our simulation rules
                 //First, if a cell is alive but has too few neighbours, kill it.
 
-                if (oldMap[x][y]) {
-                    if (neighbours < deathLimit) {
+                if (cellMap[x][y]) {
+                    if (neighbours < mDeathLimit) {
                         newMap[x][y] = false;
                     }
                     else {
@@ -406,7 +417,7 @@ public class ProceduralGenerator {
 
                 //Otherwise, if the cell is dead now, check if it has the right number of neighbours to be 'born'
                 else {
-                    if (neighbours > birthLimit) {
+                    if (neighbours > mBirthLimit) {
                         newMap[x][y] = true;
                     }
                     else {
@@ -415,37 +426,37 @@ public class ProceduralGenerator {
                 }
             }
         }
+
         return newMap;
     }
 
-    var countAliveNeighbours(cells, x, y) {
-        var count = 0;
+    private int countAliveNeighbours(int x, int y) {
+        int count = 0;
 
-        for (var i = -1; i < 2; i++) {
-            for (var j = -1; j < 2; j++) {
-                var neighbourX = x + i;
-                var neighbourY = y + j;
+        for (int i = -1; i < 2; i++) {
+            for (int j = -1; j < 2; j++) {
+                int neighbourX = x + i;
+                int neighbourY = y + j;
 
                 // Do nothing if we're looking at the middle point
                 if (i == 0 && j == 0) continue;
 
                     //In case the index we're looking at it off the edge of the map
                 else if (neighbourX < 0 || neighbourY < 0
-                        || neighbourX >= cells.length || neighbourY >= cells[0].length) {
+                        || neighbourX >= mMapWidth || neighbourY >= mMapHeight) {
 
                     count++;
                 }
 
                 // Otherwise, a normal check of the neighbour
-                else if (cells[neighbourX][neighbourY]) {
+                else if (cellMap[neighbourX][neighbourY]) {
                     count++;
                 }
             }
         }
 
         return count;
-    };*/
-
+    }
 
 /*
     ---------------------------------------------
