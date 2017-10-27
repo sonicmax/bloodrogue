@@ -280,7 +280,6 @@ public class MansionDecorator {
         ArrayList<Vector> corners = getCornerTiles(room);
 
         boolean bedAdded = false;
-        boolean deskAdded = false;
         boolean wardrobeAdded = false;
         boolean plantAdded = false;
 
@@ -303,15 +302,6 @@ public class MansionDecorator {
                 }
 
                 bedAdded = true;
-                continue;
-            }
-
-            if (!deskAdded) {
-                if (blocksDoorway(corner)) continue;
-
-                mObjects.add(new Decoration(corner.x(), corner.y(), Mansion.FILING_CABINET));
-
-                deskAdded = true;
                 continue;
             }
 
