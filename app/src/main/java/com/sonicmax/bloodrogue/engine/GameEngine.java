@@ -718,7 +718,7 @@ public class GameEngine {
         }
 
         // Update combat log and display hit animations
-        mGameInterface.displayStatus(defender, damage + "", TextColours.STATUS_RED); // Todo: yuck
+        mGameInterface.displayStatus(defender, Integer.toString(damage), TextColours.STATUS_RED);
 
         // renderer.addAnimation(target.getDamageAnimation());
 
@@ -741,7 +741,7 @@ public class GameEngine {
             // otherwise it will throw ConcurrentModificationException
             mObjectQueue.add(CorpseFactory.getCorpse(x, y, defender.tile()));
 
-            if (defender.tile() == "sprites/dude.png") {
+            if (defender.isPlayerControlled()) {
                 // Stop gamei guess lol
             }
 
