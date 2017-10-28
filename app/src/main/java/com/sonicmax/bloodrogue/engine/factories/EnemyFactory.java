@@ -30,117 +30,122 @@ public class EnemyFactory {
     }
 
     public static GameObject createZombie(int x, int y, int level) {
-        Actor zombie = new Actor(x, y, level);
-        zombie.setTile("sprites/zombie_" + new RandomNumberGenerator().getRandomInt(1, 3) + ".png");
-        zombie.setName("Zombie");
+        Actor enemy = new Actor(x, y, level);
+        enemy.setTile("sprites/zombie_" + new RandomNumberGenerator().getRandomInt(1, 3) + ".png");
+        enemy.setName("Zombie");
+        enemy.setAffinity(Actor.ENEMY);
 
         // Level 3 zombie would have 3 points in each stat + 3 randomly distributed points.
         // They would end up with 19 to 28 HP
 
-        zombie.setStrength(level);
-        zombie.setEndurance(level);
-        zombie.setAgility(level);
-        zombie.distributeStatPoints(level);
+        enemy.setStrength(level);
+        enemy.setEndurance(level);
+        enemy.setAgility(level);
+        enemy.distributeStatPoints(level);
 
-        zombie.setMaxHp(zombie.BASE_HP + (zombie.getEndurance() * level));
+        enemy.setMaxHp(enemy.BASE_HP + (enemy.getEndurance() * level));
 
-        return zombie;
+        return enemy;
     }
 
     public static GameObject createGiantRat(int x, int y, int level) {
-        Actor rat = new Actor(x, y, level);
-        rat.setTile("sprites/giant_rat.png");
-        rat.setName("Giant Rat");
+        Actor enemy = new Actor(x, y, level);
+        enemy.setTile("sprites/giant_rat.png");
+        enemy.setName("Giant Rat");
+        enemy.setAffinity(Actor.ENEMY);
 
         // Level 3 giant rat would have 3 points in each stat + 3 randomly distributed points.
         // Redistribute stats from strength/endurance to agility if rat is level 3 or above
 
-        rat.setStrength(level);
-        rat.setEndurance(level);
-        rat.setAgility(level);
-        rat.distributeStatPoints(level);
+        enemy.setStrength(level);
+        enemy.setEndurance(level);
+        enemy.setAgility(level);
+        enemy.distributeStatPoints(level);
 
         if (level >= 3) {
             int statModifier = Math.round(level / 3);
 
             if (new RandomNumberGenerator().getRandomInt(0, 1) == 0) {
-                if (rat.getStrength() - statModifier > 1) {
-                    rat.setStrength(rat.getStrength() - statModifier);
+                if (enemy.getStrength() - statModifier > 1) {
+                    enemy.setStrength(enemy.getStrength() - statModifier);
                 }
             }
 
             else {
-                if (rat.getEndurance() - statModifier > 1) {
-                    rat.setEndurance(rat.getEndurance() - statModifier);
+                if (enemy.getEndurance() - statModifier > 1) {
+                    enemy.setEndurance(enemy.getEndurance() - statModifier);
                 }
             }
 
-            rat.setAgility(rat.getAgility() + statModifier);
+            enemy.setAgility(enemy.getAgility() + statModifier);
         }
 
-        rat.setMaxHp(rat.BASE_HP + (rat.getEndurance() * level));
+        enemy.setMaxHp(enemy.BASE_HP + (enemy.getEndurance() * level));
 
-        return rat;
+        return enemy;
     }
 
     public static GameObject createOgre(int x, int y, int level) {
-        Actor ogre = new Actor(x, y, level);
-        ogre.setTile("sprites/ogre.png");
-        ogre.setName("Ogre");
+        Actor enemy = new Actor(x, y, level);
+        enemy.setTile("sprites/ogre.png");
+        enemy.setName("Ogre");
+        enemy.setAffinity(Actor.ENEMY);
 
         // Ogres are stronger and more durable than average enemies, but slower
-        ogre.setStrength((int) Math.ceil(level * 1.25));
-        ogre.setEndurance((int) Math.ceil(level * 1.5));
+        enemy.setStrength((int) Math.ceil(level * 1.25));
+        enemy.setEndurance((int) Math.ceil(level * 1.5));
 
         int statModifier = (int) Math.round(level / 1.25);
 
-        if (ogre.getAgility() - statModifier > 1) {
-            ogre.setAgility(ogre.getAgility() - statModifier);
+        if (enemy.getAgility() - statModifier > 1) {
+            enemy.setAgility(enemy.getAgility() - statModifier);
         }
 
-        ogre.distributeStatPoints(level);
+        enemy.distributeStatPoints(level);
 
-        ogre.setMaxHp(ogre.BASE_HP + (ogre.getEndurance() * level));
+        enemy.setMaxHp(enemy.BASE_HP + (enemy.getEndurance() * level));
 
-        return ogre;
+        return enemy;
     }
 
     public static GameObject createGreatOgre(int x, int y, int level) {
-        Actor ogre = new Actor(x, y, level);
-        ogre.setTile("sprites/ogre_2.png");
-        ogre.setName("Great Ogre");
+        Actor enemy = new Actor(x, y, level);
+        enemy.setTile("sprites/ogre_2.png");
+        enemy.setName("Great Ogre");
+        enemy.setAffinity(Actor.ENEMY);
 
         // Great ogres are stronger than ogres, but much slower than average enemy
-        ogre.setStrength((int) Math.ceil(level * 1.5));
-        ogre.setEndurance((int) Math.ceil(level * 1.75));
+        enemy.setStrength((int) Math.ceil(level * 1.5));
+        enemy.setEndurance((int) Math.ceil(level * 1.75));
 
         int statModifier = (int) Math.round(level / 1.75);
 
-        if (ogre.getAgility() - statModifier > 1) {
-            ogre.setAgility(ogre.getAgility() - statModifier);
+        if (enemy.getAgility() - statModifier > 1) {
+            enemy.setAgility(enemy.getAgility() - statModifier);
         }
 
-        ogre.distributeStatPoints(level);
+        enemy.distributeStatPoints(level);
 
-        ogre.setMaxHp(ogre.BASE_HP + (ogre.getEndurance() * level));
+        enemy.setMaxHp(enemy.BASE_HP + (enemy.getEndurance() * level));
 
-        return ogre;
+        return enemy;
     }
 
     public static GameObject createGiantKomodo(int x, int y, int level) {
-        Actor komodo = new Actor(x, y, level);
-        komodo.setTile("sprites/giant_komodo.png");
-        komodo.setName("Giant Komodo");
+        Actor enemy = new Actor(x, y, level);
+        enemy.setTile("sprites/giant_komodo.png");
+        enemy.setName("Giant Komodo");
+        enemy.setAffinity(Actor.ENEMY);
 
         // Giant komodos are marginally superior to normal enemies in each stat
-        komodo.setStrength((int) Math.ceil(level * 1.25));
-        komodo.setEndurance((int) Math.ceil(level * 1.25));
-        komodo.setAgility((int) Math.ceil(level * 1.25));
+        enemy.setStrength((int) Math.ceil(level * 1.25));
+        enemy.setEndurance((int) Math.ceil(level * 1.25));
+        enemy.setAgility((int) Math.ceil(level * 1.25));
 
-        komodo.distributeStatPoints(level);
+        enemy.distributeStatPoints(level);
 
-        komodo.setMaxHp(komodo.BASE_HP + (komodo.getEndurance() * level));
+        enemy.setMaxHp(enemy.BASE_HP + (enemy.getEndurance() * level));
 
-        return komodo;
+        return enemy;
     }
 }

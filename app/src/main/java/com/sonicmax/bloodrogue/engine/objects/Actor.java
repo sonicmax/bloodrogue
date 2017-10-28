@@ -10,6 +10,15 @@ import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 public class Actor extends GameObject {
     public final int BASE_HP = 10;
 
+    /**
+     *  Affinity describes which types of Actor this instance will be friendly to, and which they
+     *  will attack.
+     */
+
+    public static final int PLAYER = 0; // Friendly to player
+    public static final int ENEMY = 1; // Friendly to enemy
+    public static final int NEUTRAL = 2; // Won't attack unless provoked
+
     private int maxHp;
     private int hp;
     private int totalXp;
@@ -21,6 +30,7 @@ public class Actor extends GameObject {
     private int level;
     private int hunger;
     private int energy;
+    private int affinity;
 
     private RandomNumberGenerator rng;
 
@@ -37,7 +47,7 @@ public class Actor extends GameObject {
 
         this.setBlocking(false);
         this.setHasAction(true);
-        this.setPlayerInterest(10);
+        this.setPlayerInterest(15);
         this.setStationary(false);
         this.setMutability(true);
 
@@ -115,6 +125,14 @@ public class Actor extends GameObject {
 
     public int getLevel() {
         return this.level;
+    }
+
+    public int getAffinity() {
+        return this.affinity;
+    }
+
+    public void setAffinity(int affinity) {
+        this.affinity = affinity;
     }
 
     /**

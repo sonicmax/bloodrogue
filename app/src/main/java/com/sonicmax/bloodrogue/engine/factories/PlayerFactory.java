@@ -11,6 +11,7 @@ public class PlayerFactory {
         player.setName("Player");
         player.setInteractive(true);
         player.setPlayerControl(true);
+        player.setAffinity(Actor.PLAYER);
 
         // Todo: more playtesting so we have a formula for stat points
         player.setStrength(6);

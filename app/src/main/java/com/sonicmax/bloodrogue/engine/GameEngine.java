@@ -687,7 +687,11 @@ public class GameEngine {
     private void handlePlayerMetabolism() {}
 
     private void attack(Actor attacker, Actor defender) {
+        // Prevent Actors from attacking themselves. (Todo: may implement this later on)
         if (attacker.getId().equals(defender.getId())) return;
+
+        // Prevent Actors from attacking other Actors with the same affinity. (Todo: this should be implemented in AI, not here)
+        if (attacker.getAffinity() == defender.getAffinity()) return;
 
         int damage = attacker.attack(defender);
 
