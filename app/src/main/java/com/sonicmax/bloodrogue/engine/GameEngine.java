@@ -3,6 +3,7 @@ package com.sonicmax.bloodrogue.engine;
 import android.util.Log;
 
 import com.sonicmax.bloodrogue.GameInterface;
+import com.sonicmax.bloodrogue.engine.ai.AffinityManager;
 import com.sonicmax.bloodrogue.engine.ai.EnemyState;
 import com.sonicmax.bloodrogue.engine.ai.PlayerState;
 import com.sonicmax.bloodrogue.engine.factories.AnimationFactory;
@@ -54,6 +55,7 @@ public class GameEngine {
     private boolean mPlayerMoveLock;
     private boolean mInventoryOpen;
     private FieldOfVisionCalculator mFovCalculator;
+    private AffinityManager mAffinityManager;
 
     private GameInterface mGameInterface;
 
@@ -65,6 +67,7 @@ public class GameEngine {
         this.mMapHeight = 32;
         this.mGameInterface = gameInterface;
         this.mFovCalculator = new FieldOfVisionCalculator();
+        this.mAffinityManager = new AffinityManager();
     }
 
     public void initState() {
@@ -691,7 +694,7 @@ public class GameEngine {
         if (attacker.getId().equals(defender.getId())) return;
 
         // Prevent Actors from attacking other Actors with the same affinity. (Todo: this should be implemented in AI, not here)
-        if (attacker.getAffinity() == defender.getAffinity()) return;
+        if (!mAffinityManager.actorsAreAggressive(attacker, defender)) return;
 
         int damage = attacker.attack(defender);
 
