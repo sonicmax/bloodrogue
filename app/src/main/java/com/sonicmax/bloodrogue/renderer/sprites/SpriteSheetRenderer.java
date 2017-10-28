@@ -27,7 +27,10 @@ public class SpriteSheetRenderer {
     private final float TARGET_WIDTH = 64f; // Upscaled from 16
     private final int SPRITES_PER_ROW = 32;
 
-    private final short[] mIndices = {0, 1, 2, 0, 2, 3};
+    private final short[] mIndices = {
+            0, 1, 2, // top-left, bottom-left, bottom right
+            0, 2, 3  // top-left, bottom-right, top-right
+    };
 
     private float[][][] cachedVecs;
     private float[][] cachedUvs;
@@ -131,7 +134,7 @@ public class SpriteSheetRenderer {
         offsetVec[7] += offsetY;
         // vec[8] = 1f;
         offsetVec[9] += offsetX;
-        offsetVec[10] += offsetY;;
+        offsetVec[10] += offsetY;
         // vec[11] = 1f;
 
         return offsetVec;
@@ -183,15 +186,18 @@ public class SpriteSheetRenderer {
             return;
         }
 
-        if (offsetX == 0 && offsetY == 0) {
-            addRenderInformation(cachedVecs[x][y], colors, cachedUvs[spriteIndex], mIndices);
+        if (offsetX == 0f && offsetY == 0f) {
+            addRenderInformation(cachedVecs[x][y], colors, cachedUvs[spriteIndex]);
         }
         else {
-            addRenderInformation(calculateOffset(cachedVecs[x][y], offsetX, offsetY), colors, cachedUvs[spriteIndex], mIndices);
+            addRenderInformation(calculateOffset(cachedVecs[x][y], offsetX, offsetY), colors, cachedUvs[spriteIndex]);
         }
     }
 
-    private void addRenderInformation(float[] vec, float[] cs, float[] uv, short[] indi) {
+    private void addRenderInformation(float[] vec, float[] cs, float[] uv) {
+        // Translate the indices to align with the location in our array of vectors
+        short base = (short) (index_vecs / 3);
+
         // Add data to be passed into GL buffers
         for (int i = 0; i < vec.length; i++) {
             vecs[index_vecs] = vec[i];
@@ -208,11 +214,8 @@ public class SpriteSheetRenderer {
             index_uvs++;
         }
 
-        // Translate the indices to align with the location in our vecs array of vectors
-        short base = (short) (index_vecs / 3);
-
-        for (int j = 0; j < indi.length; j++) {
-            indices[index_indices] = (short) (base + indi[j]);
+        for (int j = 0; j < mIndices.length; j++) {
+            indices[index_indices] = (short) (base + mIndices[j]);
             index_indices++;
         }
     }
