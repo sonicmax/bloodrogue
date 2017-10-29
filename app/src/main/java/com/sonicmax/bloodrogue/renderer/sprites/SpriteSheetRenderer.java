@@ -251,7 +251,7 @@ public class SpriteSheetRenderer {
         drawListBuffer.position(0);
 
         // get handle to vertex shader's vPosition member
-        int mPositionHandle = GLES20.glGetAttribLocation(mShaderHandle, "v_Position");
+        int mPositionHandle = GLES20.glGetAttribLocation(mShaderHandle, "a_Position");
 
         // Enable a handle to the triangle vertices
         GLES20.glEnableVertexAttribArray(mPositionHandle);
