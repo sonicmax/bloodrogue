@@ -406,14 +406,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
             if (mFirstRender) {
                 centreAtPlayerPos();
+                mLightMap = mFrame.getLightMap();
+                mFov = mFrame.getFov();
                 mFirstRender = false;
             }
 
-            if (mNewFrame == null) {
-                mLightMap = mFrame.getLightMap();
-                mFov = mFrame.getFov();
-
-            } else {
+            if (mNewFrame != null) {
                 // Replace existing frame with new frame
                 mFrame = mNewFrame;
                 mLightMap = mFrame.getLightMap();
