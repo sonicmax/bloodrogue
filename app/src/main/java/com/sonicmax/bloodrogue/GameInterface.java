@@ -2,6 +2,8 @@ package com.sonicmax.bloodrogue;
 
 import android.content.Context;
 import android.content.res.AssetManager;
+import android.os.AsyncTask;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 
@@ -15,7 +17,9 @@ import com.sonicmax.bloodrogue.renderer.text.Status;
 import java.util.ArrayList;
 
 /**
- * Links together the different components of the engine
+ * Class which links together the different parts of the engine and handles user input/other Android events.
+ * GameEngine holds the terrain/object data and handles game logic.
+ * Each time player takes a turn, updated data is passed to GameRenderer to be drawn to GL surface.
  */
 
 public class GameInterface {
@@ -32,8 +36,6 @@ public class GameInterface {
     private float mLastTouchY = 0f;
     private float mScaleFactor = 1f;
     private boolean mPathSelection = false;
-
-    // Todo: MainActivity should be used strictly to handle Android stuff and the game logic should be moved to a new class
 
     public GameInterface(Context context) {
         mContext = context;
@@ -58,7 +60,7 @@ public class GameInterface {
         float x = e.getX();
         float y = e.getY();
 
-        Vector mapTouch = mRenderer.getGridCellForTouchCoords(x, y);
+        final Vector mapTouch = mRenderer.getGridCellForTouchCoords(x, y);
 
         long eventDuration = e.getEventTime() - e.getDownTime();
 
@@ -93,6 +95,7 @@ public class GameInterface {
 
                     mLastTouchX = x;
                     mLastTouchY = y;
+                    mLastMapTouch = null;
                 }
 
                 break;
@@ -120,8 +123,18 @@ public class GameInterface {
                 }
 
                 else {
+                    // Check whether player touched a UI element.
+                    boolean touchCaptured = mRenderer.checkUiTouch(x, y);
+
+                    // If touch event wasn't consumed by renderer, pass to engine
+                    if (!touchCaptured) {
+                        AsyncTask.execute(new Runnable() {
+                            @Override
+                            public void run() {
                     mGameEngine.checkUserInput(mapTouch);
-                    passDataToRenderer();
+                            }
+                        });
+                    }
                 }
 
                 break;
@@ -167,7 +180,6 @@ public class GameInterface {
 
     public void displayStatus(GameObject object, String message, float[] color) {
         float[] coords = mRenderer.getRenderCoordsForObject(object.getVector());
-        Log.v(LOG_TAG, "coords: " + coords[0] + ", " + coords[1]);
         Status status = new Status(message, coords[0], coords[1], color);
         mRenderer.queueNewStatus(status);
     }

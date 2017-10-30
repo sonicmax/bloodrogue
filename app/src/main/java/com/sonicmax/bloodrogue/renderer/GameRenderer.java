@@ -10,6 +10,7 @@ import android.util.Log;
 
 import com.sonicmax.bloodrogue.GameInterface;
 import com.sonicmax.bloodrogue.engine.Frame;
+import com.sonicmax.bloodrogue.renderer.ui.UserInterfaceBuilder;
 import com.sonicmax.bloodrogue.renderer.text.TextColours;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 import com.sonicmax.bloodrogue.engine.objects.Animation;
@@ -54,8 +55,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     // Resources
     private SpriteLoader mSpriteManager;
     private SpriteSheetRenderer mSpriteRenderer;
-    private HashMap<String, Integer> mSpriteIndexes;
-    private HashMap<String, Integer> mSprites;
+    private SpriteSheetRenderer mUiRenderer;
+    private HashMap<String, Integer> mSprites; // Texture handles for loaded textures
+    private HashMap<String, Integer> mSpriteIndexes; // Position on sprite sheet for particular texture
     private TextRenderer mTextRenderer;
 
     // Text
@@ -69,6 +71,11 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private final float[] mMVPMatrix;
     private final float[] mProjMatrix;
     private final float[] mVMatrix;
+    private float[] mUiMatrix;
+
+    // UI
+    private UserInterfaceBuilder mUiBuilder;
+    private boolean mInventoryShowing = false;
 
     /**
      *  Screen size and scaling
@@ -107,6 +114,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     // GL handles
     private int mSpriteShaderProgram;
+    private int mWaveShaderProgram;
     private int mRenderState;
 
     // State handlers
@@ -127,6 +135,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mProjMatrix = new float[16];
         mVMatrix = new float[16];
         mMVPMatrix = new float[16];
+        mUiMatrix = new float[16];
 
         mNarrations = new ArrayList<>();
         mStatuses = new ArrayList<>();
@@ -143,19 +152,25 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     public void onSurfaceCreated(GL10 unused, EGLConfig config) {
         GLShaderLoader loader = new GLShaderLoader();
         mSpriteShaderProgram = loader.compileSpriteShader();
+        mWaveShaderProgram = loader.compileWaveShader();
+
         // For now, we're using the same shader program for all rendering
-        GLES20.glUseProgram(mSpriteShaderProgram);
 
         mSpriteManager = new SpriteLoader();
         prepareGLSurface();
-        calculateGridSize();
 
         mRenderState = SPLASH;
         loadImages();
-        setupMatrixes();
         scaleScreen();
+        setupMatrixes();
+        calculateGridSize();
+        setupUiBuilder();
+        setupUiMatrixes();
         prepareTextRenderer();
         prepareSpriteRenderer();
+        prepareWaveRenderer();
+        prepareUiRenderer();
+        prepareUiTextRenderer();
         mRenderState = GAME;
 
         // Post new runnable to GLSurfaceView which allows us to load textures/etc in background
@@ -186,6 +201,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
             long dt = mEndTime - mStartTime;
 
+            if (dt > 10000) {
+                dt = FRAME_TIME;
+            }
+
             if (dt < FRAME_TIME) {
                 try {
                     Thread.sleep(FRAME_TIME - dt);
@@ -197,7 +216,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             mStartTime = mEndTime;
 
             checkElapsedTime(dt);
-            renderScreen();
+            renderScreen(dt);
         }
     }
 
@@ -208,8 +227,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mWidth = width;
         mHeight = height;
 
-        setupMatrixes();
         scaleScreen();
+        setupMatrixes();
         calculateGridSize();
     }
 
@@ -222,10 +241,20 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private void prepareGLSurface() {
         GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         GLES20.glEnable(GL10.GL_TEXTURE_2D);
+
+        // Enable alpha blending
         GLES20.glEnable(GLES20.GL_BLEND);
         GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+
+        // We can cull the back faces as we wouldn't be able to see them in the first palce
         GLES20.glEnable(GL10.GL_CULL_FACE);
         GLES20.glCullFace(GL10.GL_BACK);
+
+        // GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
+        // GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
+
+        // GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
+        // GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST);
     }
 
     private void loadImages() {
@@ -285,11 +314,23 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     private void prepareSpriteRenderer() {
         mSpriteRenderer = new SpriteSheetRenderer();
-        mSpriteRenderer.setShaderProgramHandle(mSpriteShaderProgram);
+        mSpriteRenderer.setBasicShader(mSpriteShaderProgram);
         mSpriteRenderer.setSpriteSheetHandle(mSprites.get("sprite_sheets/sheet.png"));
         mSpriteRenderer.setUniformScale(ssu);
         mSpriteRenderer.precalculatePositions(mMapWidth, mMapHeight);
         mSpriteRenderer.precalculateUv(mSpriteIndexes.size());
+    }
+
+    private SpriteSheetRenderer mWaveRenderer;
+
+    private void prepareWaveRenderer() {
+        mWaveRenderer = new SpriteSheetRenderer();
+        mWaveRenderer.setBasicShader(mSpriteShaderProgram);
+        mWaveRenderer.setWaveShader(mWaveShaderProgram);
+        mWaveRenderer.setSpriteSheetHandle(mSprites.get("sprite_sheets/sheet.png"));
+        mWaveRenderer.setUniformScale(ssu);
+        mWaveRenderer.precalculatePositions(mMapWidth, mMapHeight);
+        mWaveRenderer.precalculateUv(mSpriteIndexes.size());
     }
 
     private void prepareTextRenderer() {
@@ -301,6 +342,33 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mTextRenderer.precalculateUv();
         mTextRenderer.precalculateOffsets();
         mTextRowHeight = mTextRenderer.precalculateRows(mHeight);
+    }
+
+    private void prepareUiRenderer() {
+        mUiRenderer = new SpriteSheetRenderer();
+        mUiRenderer.setBasicShader(mSpriteShaderProgram);
+        mUiRenderer.setSpriteSheetHandle(mSprites.get("sprite_sheets/sheet.png"));
+        mUiRenderer.setUniformScale(ssu);
+        mUiRenderer.precalculatePositions(mVisibleGridWidth, mVisibleGridHeight);
+        mUiRenderer.precalculateUv(mSpriteIndexes.size());
+    }
+
+    private TextRenderer mUiTextRenderer;
+
+    private void prepareUiTextRenderer() {
+        // Create our text manager
+        mUiTextRenderer = new TextRenderer();
+        mUiTextRenderer.setShaderProgramHandle(mSpriteShaderProgram);
+        mUiTextRenderer.setTextureHandle(mSprites.get("fonts/ccra_font.png"));
+        mUiTextRenderer.setUniformscale(ssu);
+        mUiTextRenderer.setTextSize(32f);
+        mUiTextRenderer.precalculateUv();
+        mUiTextRenderer.precalculateOffsets();
+        mUiTextRenderer.precalculateRows(mHeight);
+    }
+
+    private void setupUiBuilder() {
+        mUiBuilder = new UserInterfaceBuilder(mSpriteIndexes, mVisibleGridWidth, mVisibleGridHeight);
     }
 
     /*
@@ -326,6 +394,19 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         // Calculate the projection and view transformation
         Matrix.multiplyMM(mMVPMatrix, 0, mProjMatrix, 0, mVMatrix, 0);
+    }
+
+    private void setupUiMatrixes() {
+        mUiMatrix = mMVPMatrix.clone();
+
+        /*float[] coords = getRenderCoordsForObject(new Vector(mVisibleGridWidth, 0));
+        float differenceX = (float) mWidth - coords[0];
+        differenceX *= 1.45f;
+
+        Log.v(LOG_TAG, "" + coords[0]);
+        Log.v(LOG_TAG, "" + differenceX);
+
+        Matrix.translateM(mUiMatrix, 0, differenceX, 0f, 0f);*/
     }
 
     private void centreAtPlayerPos() {
@@ -399,7 +480,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     ---------------------------------------------
     */
 
-    private void renderScreen() {
+    private void renderScreen(float dt) {
         if (!isRendering) {
 
             isRendering = true;
@@ -422,14 +503,17 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             setGridChunkToRender();
 
             String fps = mFps + " fps";
-            // Get total sprite count and pass to renderer so we can init float and short arrays used
-            // to store rendering data
-            mSpriteRenderer.initArrays(countSprites());
+            // Get total sprite count and pass to renderer so we can init arrays used to store rendering data
+            int spriteCount = countSprites();
+
+            mSpriteRenderer.initArrays(spriteCount);
+            mWaveRenderer.initArrays(spriteCount);
             mTextRenderer.initArrays(countTextObjects() + fps.length());
+            mUiRenderer.initArrays(countUiSprites());
+            mUiTextRenderer.initArrays("Testing".length());
 
             // Iterate over game data and send to renderer
-            addBackgroundLayer();
-            addForegroundLayer();
+            addSprites();
             addUiLayer();
             addTextLayer();
             mTextRenderer.addTextData(mTextRowHeight - 1, fps, TextColours.WHITE, 0f);
@@ -442,7 +526,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             }
 
             mSpriteRenderer.renderSprites(renderMatrix);
+            mWaveRenderer.renderWaveEffect(renderMatrix, dt);
             mTextRenderer.renderText(mMVPMatrix);
+            mUiRenderer.renderSprites(mUiMatrix);
 
             isRendering = false;
 
@@ -474,6 +560,16 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     /**
+     *  Counts number of sprites used to render UI and returns total as int.
+     */
+
+    private int countUiSprites() {
+        int windowSize = mVisibleGridWidth * mVisibleGridHeight;
+        int iconCount = 1;
+        return windowSize + iconCount;
+    }
+
+    /**
      * Counts number of characters in each TextObject and returns combined total.
      * We count individual latters as they are rendered 1 sprite per letter
      */
@@ -493,10 +589,11 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         return narrationSize + statusSize;
     }
 
-    private void addBackgroundLayer() {
+    private void addSprites() {
         GameObject[][] mapGrid = mFrame.getTerrain();
         ArrayList<GameObject>[][] objectGrid = mFrame.getObjects();
-
+        ArrayList<GameObject>[][] animations = mFrame.getAnimations();
+        ArrayList<GameObject> movingObjects = new ArrayList<>();
 
         for (int y = mChunkOriginY; y < mChunkHeight; y++) {
             for (int x = mChunkOriginX; x < mChunkWidth; x++) {
@@ -511,8 +608,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                         x, y,
                         index,
                         lighting,
-                        DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y
-                );
+                        DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
 
                 ArrayList<GameObject> objectsInCell = objectGrid[x][y];
 
@@ -530,8 +626,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                                     x, y,
                                     mSpriteIndexes.get(object.tile()),
                                     lighting,
-                                    DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y
-                            );
+                                    DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
                         }
 
                     }
@@ -541,51 +636,34 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                                 x, y,
                                 mSpriteIndexes.get(object.tile()),
                                 lighting,
-                                DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y
-                        );
+                                DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
                     }
-                }
-            }
-        }
-    }
 
-    private void addForegroundLayer() {
-        ArrayList<GameObject>[][] objectGrid = mFrame.getObjects();
-        ArrayList<GameObject>[][] animations = mFrame.getAnimations();
-        ArrayList<GameObject> movingObjects = new ArrayList<>();
-
-        for (int y = mChunkOriginY; y < mChunkHeight; y++) {
-            for (int x = mChunkOriginX; x < mChunkWidth; x++) {
-
-                if (!inBounds(x, y)) continue;
-
-                float lighting = (float) getLightingForGrid(x, y);
-
-                // Todo: maybe we could draw objects outside FOV using low lighting + alpha
-
-                if (mFov[x][y] > 0.1) {
-                    int objectsSize = objectGrid[x][y].size();
-                    // It's possible that object stack will change during rendering. Todo: this is bad
-                    for (int i = 0; i < objectsSize; i++) {
-                        GameObject object = objectGrid[x][y].get(i);
-                        if (!object.isProjected() && (!object.isStationary() || !object.isImmutable())) {
-                            if (object.getlastMove() != null) {
-                                // Wait until after we've finished iterating before adding to renderer
-                                // to make sure they aren't drawn underneath other sprites
-                                movingObjects.add(object);
-                            }
-                            else {
-                                mSpriteRenderer.addSpriteData(x, y, mSpriteIndexes.get(object.tile()), lighting, 0f, 0f);
-                            }
+                    else {
+                        if (object.getlastMove() != null) {
+                            // Wait until after we've finished iterating before adding to renderer
+                            // to make sure they aren't drawn underneath other sprites
+                            movingObjects.add(object);
+                        }
+                        else {
+                            mSpriteRenderer.addSpriteData(
+                                    x, y,
+                                    mSpriteIndexes.get(object.tile()),
+                                    lighting,
+                                    DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
                         }
                     }
+                }
 
-                    int animationsSize = animations[x][y].size();
-                    for (int i = 0; i < animationsSize; i++) {
-                        Animation animation = (Animation) animations[x][y].get(i);
-                        int frameIndex = processAnimation(animation);
-                        mSpriteRenderer.addSpriteData(x, y, frameIndex, lighting, 0f, 0f);
-                    }
+                int animationsSize = animations[x][y].size();
+                for (int i = 0; i < animationsSize; i++) {
+                    Animation animation = (Animation) animations[x][y].get(i);
+                    int frameIndex = processAnimation(animation);
+                    mSpriteRenderer.addSpriteData(
+                            x, y,
+                            frameIndex,
+                            lighting,
+                            DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
                 }
 
                 handleFinishedAnimations(animations[x][y]);
@@ -631,6 +709,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 mSpriteRenderer.addSpriteData(x, y, index, 1f, 0f, 0f);
             }
         }
+
+        if (mInventoryShowing) {
+            mUiBuilder.addWindow(mUiRenderer);
+        }
+
+        mUiBuilder.buildUi(mUiRenderer);
     }
 
     private int processAnimation(Animation animation) {
@@ -727,11 +811,14 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         currentFrameTime += dt;
         frameCount++;
 
+        // We periodically want to check narrations to see if we need to remove any of them.
+        // Narrations are only updated once a second, so it's pointless checking every single frame
         if (currentFrameTime >= 500) {
             mGameInterface.checkNarrations();
             mHalfSec = true;
         }
 
+        // Update FPS count
         if (currentFrameTime >= 1000) {
             mFps = frameCount;
             currentFrameTime = 0;
@@ -785,8 +872,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         // Render slightly larger chunk of grid than is actually visible
         mChunkOriginX = originX - 1;
         mChunkOriginY = originY - 1;
-        mChunkWidth = originX + mVisibleGridWidth + 1;
-        mChunkHeight = originY + mVisibleGridHeight + 1;
+        mChunkWidth = originX + mVisibleGridWidth + 2;
+        mChunkHeight = originY + mVisibleGridHeight + 2;
     }
 
     public float[] getRenderCoordsForObject(Vector objectPos) {
@@ -851,6 +938,33 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private void addQueuedTextUpdates() {
         this.mNarrations = mQueuedNarrations; // Narrations need to be replaced
         this.mStatuses.addAll(mQueuedStatuses); // Statuses should be added
+    }
+
+    public boolean checkUiTouch(float x, float y) {
+        // NOTE: Origin for touch events is top-left, origin for game area is bottom-left.
+        x *= mZoom;
+        y *= mZoom;
+        float height = ScreenSizeGetter.getHeight();
+        float correctedY = height - y;
+
+        float spriteSize = SPRITE_SIZE * mZoom * ssu;
+
+        int gridX = (int) (x / spriteSize);
+        int gridY = (int) (correctedY / spriteSize);
+
+        if (gridX == mVisibleGridWidth - 1 && gridY == 0) {
+            if (!mInventoryShowing) {
+                mInventoryShowing = true;
+                mUiBuilder.animateIcon(UserInterfaceBuilder.INVENTORY_OPEN);
+            }
+            else {
+                mInventoryShowing = false;
+                mUiBuilder.animateIcon(UserInterfaceBuilder.INVENTORY_CLOSED);
+            }
+            return true;
+        }
+
+        return false;
     }
 
 }
