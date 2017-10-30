@@ -424,15 +424,25 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     private void scaleScreen() {
         // Desired resolution is 320x480 (or 480x320 in landscape)
+        // Setup our screen width and height for normal sprite translation.
+        if (mWidth == 0 || mHeight == 0) {
+            mWidth = ScreenSizeGetter.getWidth();
+            mHeight = ScreenSizeGetter.getHeight();
+        }
 
-        if (mWidth > mHeight) {
-            resX = mWidth / mResTargetHeight;
-            resY = mHeight / mResTargetWidth;
+        resX = (float) mWidth / mResTargetWidth;
+        resY = (float) mHeight / mResTargetHeight;
+
+        /*if (mWidth > mHeight) {
+            resX = (float) mWidth / mResTargetHeight;
+            resY = (float) mHeight / mResTargetWidth;
         }
         else {
-            resX = mWidth / mResTargetHeight;
-            resY = mHeight / mResTargetWidth;
-        }
+            resX = (float) mWidth / mResTargetHeight;
+            resY = (float) mHeight / mResTargetWidth;
+        }*/
+
+        Log.i(LOG_TAG, "" + resX + ", " + resY);
 
         if (resX > resY) {
             ssu = resY;
@@ -444,8 +454,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     private void calculateGridSize() {
-        int width = ScreenSizeGetter.getWidth();
-        int height = ScreenSizeGetter.getHeight();
+        float width = ScreenSizeGetter.getWidth() * mZoom;
+        float height = ScreenSizeGetter.getHeight() * mZoom;
 
         float spriteSize = SPRITE_SIZE * mZoom * ssu;
 
