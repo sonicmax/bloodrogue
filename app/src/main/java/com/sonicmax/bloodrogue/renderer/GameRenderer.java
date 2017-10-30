@@ -546,8 +546,13 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
     }
 
+    /**
+     *  Counts total number of sprites displayed in current chunk & returns total as int.
+     *  This includes terrain, objects, animations, and any other effects
+     */
+
     private int countSprites() {
-        int terrainCount = mMapWidth * mMapHeight;
+        int terrainCount = mChunkWidth * mChunkHeight;
         int objectCount = 0;
         int animationCount = 0;
         int uiCount = 0;
@@ -555,8 +560,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         ArrayList<GameObject>[][] objects = mFrame.getObjects();
         ArrayList<GameObject>[][] animations = mFrame.getAnimations();
 
-        for (int x = 0; x < mMapWidth; x++) {
-            for (int y = 0; y < mMapHeight; y++) {
+        for (int x = mChunkOriginX; x < mChunkWidth; x++) {
+            for (int y = mChunkOriginY; y < mChunkHeight; y++) {
                 objectCount += objects[x][y].size();
                 animationCount += animations[x][y].size();
             }
