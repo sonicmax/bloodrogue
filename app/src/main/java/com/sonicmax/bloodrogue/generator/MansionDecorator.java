@@ -21,7 +21,6 @@ import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Iterator;
 
 public class MansionDecorator {
@@ -797,12 +796,16 @@ public class MansionDecorator {
     }
 
     private void addEnemiesToRoom(Room room) {
+        // First, decide whether we should place enemies at all
+        if (mRng.getRandomInt(0, 2) == 0) return;
+
         // Divide room size by 9 to find how many enemies would reasonably fit in room.
         // (eg. 1 enemy for 3x3, 2 for 5x5, etc)
-        // Compare this value to mMaxEnemies and use smallest value
+        // Compare this value to mMaxEnemies and use smallest value.
+        // Then choose random number between minimum enemy count + this value
 
         int enemyFit = (room.width() * room.height()) / 9;
-        int numberOfEnemies = Math.min(enemyFit, mMaxEnemies);
+        int numberOfEnemies = mRng.getRandomInt(mMinEnemies, Math.min(enemyFit, mMaxEnemies));
 
         // We don't want player to be mobbed by several enemies when starting a new floor.
         if (room.isEntrance() && numberOfEnemies > 1) {
