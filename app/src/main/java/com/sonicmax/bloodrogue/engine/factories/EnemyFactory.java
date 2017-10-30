@@ -11,7 +11,8 @@ import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 public class EnemyFactory {
 
     public static GameObject getRandomEnemy(int x, int y, int level) {
-        int random = new RandomNumberGenerator().getRandomInt(0, 4);
+        int random = new RandomNumberGenerator().getRandomInt(0, 6);
+
         switch(random) {
             case 0:
                 return createZombie(x, y, level);
@@ -23,6 +24,10 @@ public class EnemyFactory {
                 return createGreatOgre(x, y, level);
             case 4:
                 return createGiantKomodo(x, y, level);
+            case 5:
+                return createGreenSlime(x, y, level);
+            case 6:
+                return createPurpleSlime(x, y, level);
 
             default:
                 return createZombie(x, y, level);
@@ -142,6 +147,48 @@ public class EnemyFactory {
         enemy.setEndurance((int) Math.ceil(level * 1.25));
         enemy.setAgility((int) Math.ceil(level * 1.25));
 
+        enemy.distributeStatPoints(level);
+
+        enemy.setMaxHp(enemy.BASE_HP + (enemy.getEndurance() * level));
+
+        return enemy;
+    }
+
+    public static GameObject createGreenSlime(int x, int y, int level) {
+        Actor enemy = new Actor(x, y, level);
+        enemy.setTile("sprites/green_slime.png");
+        enemy.setName("Green Slime");
+        enemy.setAffinity(Actor.ENEMY);
+
+        // Slime enemies have a chance to self-replicate on each turn
+        enemy.setSelfReplicationChance(0.025f);
+
+        // Same stat distribution as zombie
+
+        enemy.setStrength(level);
+        enemy.setEndurance(level);
+        enemy.setAgility(level);
+        enemy.distributeStatPoints(level);
+
+        enemy.setMaxHp(enemy.BASE_HP + (enemy.getEndurance() * level));
+
+        return enemy;
+    }
+
+    public static GameObject createPurpleSlime(int x, int y, int level) {
+        Actor enemy = new Actor(x, y, level);
+        enemy.setTile("sprites/purple_slime.png");
+        enemy.setName("Purple Slime");
+        enemy.setAffinity(Actor.ENEMY);
+
+        // Slime enemies have a chance to self-replicate on each turn
+        enemy.setSelfReplicationChance(0.025f);
+
+        // Same stat distribution as zombie
+
+        enemy.setStrength(level);
+        enemy.setEndurance(level);
+        enemy.setAgility(level);
         enemy.distributeStatPoints(level);
 
         enemy.setMaxHp(enemy.BASE_HP + (enemy.getEndurance() * level));

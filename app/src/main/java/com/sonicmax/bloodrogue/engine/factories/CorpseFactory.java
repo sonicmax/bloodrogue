@@ -29,6 +29,14 @@ public class CorpseFactory {
                 corpse.setTile("sprites/giant_komodo_corpse.png");
                 break;
 
+            case "sprites/green_slime.png":
+                corpse.setTile("sprites/green_slime_corpse.png");
+                break;
+
+            case "sprites/purple_slime.png":
+                corpse.setTile("sprites/purple_slime_corpse.png");
+                break;
+
             default:
                 corpse.setTile("sprites/transparent.png");
                 break;

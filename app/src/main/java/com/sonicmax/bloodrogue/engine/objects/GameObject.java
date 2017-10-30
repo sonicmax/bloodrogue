@@ -32,6 +32,8 @@ public class GameObject {
     private boolean isImmutable = true;
     private Vector lastMove = null;
     private boolean isPlayerControlled = false;
+    private boolean canSelfReplicate = false;
+    private float chanceToSelfReplicate = 0f;
 
     private int movementStep;
 
@@ -41,6 +43,38 @@ public class GameObject {
         this.id = UUID.randomUUID().toString();
         this.path = null;
         this.name = this.getClass().getSimpleName();
+    }
+
+    /**
+     *  Creates clone of original object at specified x,y coords.
+     */
+
+    public GameObject(int x, int y, GameObject original) {
+        this.x = x;
+        this.y = y;
+        this.id = UUID.randomUUID().toString(); // Still want unique id for cloned object
+        this.path = original.path;
+        this.name = original.name;
+        this.dijkstra = original.dijkstra;
+        this.isBlocking = original.isBlocking;
+        this.isTraversable = original.isTraversable;
+        this.canInteract = original.canInteract;
+        this.isProjected = original.isProjected;
+        this.tile = original.tile;
+        this.playerInterest = original.playerInterest;
+        this.state = original.state;
+        this.hasAction = original.hasAction;
+        this.hasAnimation = original.hasAnimation;
+        this.animation = original.animation;
+        this.isStationary = original.isStationary;
+        this.isImmutable = original.isImmutable;
+        this.canSelfReplicate = original.canSelfReplicate;
+        this.chanceToSelfReplicate = original.chanceToSelfReplicate;
+
+        // These fields should only be copied when needed (eg after creating clone)
+        this.path = null;
+        this.lastMove = null;
+        this.isPlayerControlled = false;
     }
 
     public String getId() {
@@ -275,5 +309,13 @@ public class GameObject {
 
     public void setPlayerControl(boolean value) {
         this.isPlayerControlled = value;
+    }
+
+    public float getSelfReplicateChance() {
+        return this.chanceToSelfReplicate;
+    }
+
+    public void setSelfReplicationChance(float chance) {
+        this.chanceToSelfReplicate = chance;
     }
 }

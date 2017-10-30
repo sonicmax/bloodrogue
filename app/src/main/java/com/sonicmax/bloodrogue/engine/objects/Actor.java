@@ -36,8 +36,8 @@ public class Actor extends GameObject {
 
     public Actor(int x, int y, int level) {
         super(x, y);
-        this.maxHp = hp;
         this.hp = BASE_HP;
+        this.maxHp = hp;
         this.xp = 0;
         this.level = level;
         this.xpToNextLevel = this.calculateXpForLevel(this.level + 1);
@@ -52,6 +52,28 @@ public class Actor extends GameObject {
         this.setMutability(true);
 
         this.rng = new RandomNumberGenerator();
+    }
+
+    /**
+     * Creates clone of Actor at new coords
+     */
+
+    public Actor(int x, int y, Actor original) {
+        super(x, y, original);
+        this.hp = original.maxHp;
+        this.maxHp = original.maxHp;
+        this.xp = 0;
+        this.level = original.level;
+        this.xpToNextLevel = this.calculateXpForLevel(this.level + 1);
+        this.hunger = 100;
+        this.energy = 100;
+        this.rng = new RandomNumberGenerator();
+        this.affinity = original.affinity;
+
+        // Todo: for now just copy original object states. In future we may want to change this
+        this.strength = original.strength;
+        this.endurance = original.endurance;
+        this.agility = original.agility;
     }
 
     /**

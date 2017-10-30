@@ -14,6 +14,7 @@ import com.sonicmax.bloodrogue.utils.maths.Calculator;
 import com.sonicmax.bloodrogue.engine.objects.Actor;
 import com.sonicmax.bloodrogue.engine.factories.CorpseFactory;
 import com.sonicmax.bloodrogue.engine.objects.LightSource;
+import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 import com.sonicmax.bloodrogue.engine.objects.GameObject;
 import com.sonicmax.bloodrogue.engine.factories.PlayerFactory;
@@ -22,6 +23,7 @@ import com.sonicmax.bloodrogue.engine.objects.Wall;
 import com.sonicmax.bloodrogue.renderer.text.TextColours;
 import com.sonicmax.bloodrogue.utils.Array2DHelper;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -147,29 +149,83 @@ public class GameEngine {
 
         int enemySize = mEnemies.size();
 
+        ArrayList<GameObject> newObjects = new ArrayList<>();
+
         for (int i = 0; i < enemySize; i++) {
             GameObject enemy = mEnemies.get(i);
             switch (enemy.getState()) {
 
                 case EnemyState.IDLE:
-                    seekPlayer(enemy);
+                    takeComputerTurn(enemy);
                     break;
 
                 case EnemyState.SEEKING:
-                    seekPlayer(enemy);
+                    takeComputerTurn(enemy);
                     break;
 
                 case EnemyState.PATHFINDING:
-                    seekPlayerWhilePathBlocked(enemy);
+                    seekActorWhilePathBlocked(enemy, mPlayer);
                     break;
 
                 default:
-                    seekPlayer(enemy);
+                    takeComputerTurn(enemy);
                     break;
+            }
+
+            if (enemy.getSelfReplicateChance() > 0f) {
+                GameObject clone = handleSelfReplication(enemy);
+                if (clone != null) {
+                    newObjects.add(clone);
+                }
             }
         }
 
+        mEnemies.addAll(newObjects);
+
         mPlayerMoveLock = false;
+    }
+
+    private GameObject handleSelfReplication(GameObject object) {
+        float random = new RandomNumberGenerator().getRandomFloat(0f, 1f);
+        if (random < object.getSelfReplicateChance()) {
+
+            // Find nearest adjacent free square
+            Vector pos = object.getVector();
+            Vector newPos = null;
+            for (Vector direction : Directions.All.values()) {
+                Vector test = pos.add(direction);
+                if (!detectCollisions(test)) {
+                    newPos = test;
+                    break;
+                }
+            }
+
+            // Return null if we couldn't find an empty space for clone
+            if (newPos == null) return null;
+
+
+            // Make sure we clone right type of object.
+            if (object instanceof Actor) {
+                // Make sure Actor is in field of vision before cloning.
+                // (this is to prevent the map from filling up with cloned Actors)
+                if (mFOV[object.x()][object.y()] > 0) {
+                    Actor actor = (Actor) object;
+                    Actor clone = new Actor(newPos.x(), newPos.y(), actor);
+                    // Set last move as original position, so renderer will animate creation of new clone
+                    clone.setLastMove(actor.getVector());
+                    addObjectToStack(clone.x(), clone.y(), clone);
+                    return clone;
+                }
+            }
+
+            else {
+                GameObject clone = new GameObject(newPos.x(), newPos.y(), object);
+                addObjectToStack(clone.x(), clone.y(), clone);
+                return clone;
+            }
+        }
+
+        return null;
     }
 
     /*
@@ -187,9 +243,11 @@ public class GameEngine {
             mTurnQueue.add(turn);
 
         } else {
-            // ArrayList<Vector> path = findShortestPath(mPlayer.getVector(), destination);
-            // path.add(destination);
-            // queueAndFollowPath(path);
+            /*if (mFOV[destination.x()][destination.y()] > 0) {
+                ArrayList<Vector> path = findShortestPath(mPlayer.getVector(), destination);
+                path.add(destination);
+                queueAndFollowPath(path);
+            }*/
         }
 
         takeTurns();
@@ -373,8 +431,8 @@ public class GameEngine {
     ---------------------------------------------
     */
 
-    private void seekPlayer(GameObject enemy) {
-        Vector position = new Vector(enemy.x(), enemy.y());
+    private void takeComputerTurn(GameObject actor) {
+        Vector position = new Vector(actor.x(), actor.y());
         Vector playerPos = new Vector(mPlayer.x(), mPlayer.y());
 
         int bestDesire = DIJKSTRA_MAX + 1;
@@ -388,20 +446,20 @@ public class GameEngine {
             }
         }
 
-        if (enemy.getState() == EnemyState.IDLE) {
-            if (bestDesire > enemy.getPlayerInterest()) {
+        if (actor.getState() == EnemyState.IDLE) {
+            if (bestDesire > actor.getPlayerInterest()) {
                 // Ignore until player is closer
                 return;
             } else {
-                mGameInterface.addNarration(enemy.getName() + " is looking for blood!", TextColours.RED);
-                enemy.setState(EnemyState.SEEKING);
+                mGameInterface.addNarration(actor.getName() + " is looking for blood!", TextColours.RED);
+                actor.setState(EnemyState.SEEKING);
             }
         }
 
 
-        // Check whether enemy is directly adjacent to player & queue attack for next turn
+        // Check whether actor is directly adjacent to player & queue attack for next turn
         if (bestDesire == 0) {
-            ActorTurn turn = new ActorTurn(enemy);
+            ActorTurn turn = new ActorTurn(actor);
             turn.setMove(mPlayer.getVector());
             mTurnQueue.add(turn);
             return;
@@ -450,26 +508,28 @@ public class GameEngine {
         }
 
         if (blocked) {
-            enemy.setState(EnemyState.PATHFINDING);
+            actor.setState(EnemyState.PATHFINDING);
             return;
         }
 
         else if (closestTile != null) {
-            ActorTurn turn = new ActorTurn(enemy);
+            ActorTurn turn = new ActorTurn(actor);
             turn.setMove(closestTile);
             mTurnQueue.add(turn);
         }
     }
 
-    private void seekPlayerWhilePathBlocked(GameObject enemy) {
+    private void seekActorWhilePathBlocked(GameObject enemy, GameObject target) {
         Vector position = new Vector(enemy.x(), enemy.y());
         ArrayList<Vector> path = enemy.getPath();
 
         if (path == null) {
-            enemy.setPath(findShortestPath(enemy, mPlayer));
+            enemy.setPath(findShortestPath(enemy, target));
         }
 
         else if (path.size() > 0) {
+
+            // Todo: generate desire map for target here
 
             Vector nextCell = path.get(0);
             int nextDesire = mPlayerDesireMap[nextCell.x()][nextCell.y()];
@@ -488,7 +548,7 @@ public class GameEngine {
                 // We should stop following this path & go back to following dijkstra map
                 enemy.setPath(null);
                 enemy.setState(EnemyState.SEEKING);
-                seekPlayer(enemy);
+                takeComputerTurn(enemy);
             }
 
             else {
@@ -502,7 +562,7 @@ public class GameEngine {
 
         else {
             enemy.setState(EnemyState.SEEKING);
-            seekPlayer(enemy);
+            takeComputerTurn(enemy);
         }
     }
 
@@ -662,7 +722,6 @@ public class GameEngine {
                 mAnimations[target.x()][target.y()].add(target.getAnimation());
             }
 
-            // Todo: eventually would like to move attack() method into Actor class
             if (target instanceof Actor) {
                 Actor targetActor = (Actor) target;
                 attack(actor, targetActor);
@@ -699,6 +758,7 @@ public class GameEngine {
         int damage = attacker.attack(defender);
 
         if (damage == 0) {
+            // Todo: figure out why this happens
             Log.v(LOG_TAG, attacker.tile() + " attacked " + defender.tile() + " but caused no damage");
             Log.v(LOG_TAG, "attacker strength: " + attacker.getStrength() + ", defender endurance: " + defender.getEndurance());
         }
