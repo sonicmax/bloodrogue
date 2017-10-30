@@ -14,12 +14,20 @@ public class Animation extends GameObject {
     private int length;
     private boolean finished;
     private int renderCount;
+    private boolean repeating;
 
     public Animation(int x, int y) {
         super(x, y);
         this.frames = new ArrayList<>();
         this.frames.add(TRANSPARENT);
         this.finished = false;
+        this.currentFrame = 0;
+        this.length = 0;
+        this.repeating = false;
+    }
+
+    public void setRepeating(boolean value) {
+        this.repeating = value;
     }
 
     public void setFrames(ArrayList<String> frames) {
@@ -35,16 +43,25 @@ public class Animation extends GameObject {
     public String getNextFrame() {
         if (this.renderCount < 4) {
             this.renderCount++;
-            return this.frames.get(0);
+            return this.frames.get(currentFrame);
         }
-        else if (this.renderCount >= 3 && this.frames.size() > 1) {
+        else if (this.renderCount >= 3 && currentFrame < length - 1) {
             this.renderCount = 0;
-            this.frames.remove(0);
-            return this.frames.get(0);
+            currentFrame++;
+            return this.frames.get(currentFrame);
         }
         else {
-            this.finished = true;
-            return TRANSPARENT;
+            if (this.repeating) {
+                // Reset frame index
+                currentFrame = 0;
+                this.renderCount = 0;
+                return this.frames.get(currentFrame);
+
+            } else {
+                // Set finished flag to true so engine can remove animation
+                this.finished = true;
+                return TRANSPARENT;
+            }
         }
     }
 }
