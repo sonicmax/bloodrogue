@@ -657,15 +657,29 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                     else {
                         if (object.getlastMove() != null) {
                             // Wait until after we've finished iterating before adding to renderer
-                            // to make sure they aren't drawn underneath other sprites
+                            // to make sure they aren't drawn underneath other sprites.
+
+                            // Also note: moving objects will break wave shader, so these objects
+                            // should always be rendered using basic shader
+                            
                             movingObjects.add(object);
                         }
                         else {
-                            mSpriteRenderer.addSpriteData(
-                                    x, y,
-                                    mSpriteIndexes.get(object.tile()),
-                                    lighting,
-                                    DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                            if (object.isGasOrLiquid()) {
+                                mWaveRenderer.addSpriteData(
+                                        x, y,
+                                        mSpriteIndexes.get(object.tile()),
+                                        lighting,
+                                        DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+
+                            }
+                            else {
+                                mSpriteRenderer.addSpriteData(
+                                        x, y,
+                                        mSpriteIndexes.get(object.tile()),
+                                        lighting,
+                                        DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                            }
                         }
                     }
                 }

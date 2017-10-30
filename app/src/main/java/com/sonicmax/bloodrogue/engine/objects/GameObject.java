@@ -34,6 +34,7 @@ public class GameObject {
     private boolean isPlayerControlled = false;
     private boolean canSelfReplicate = false;
     private float chanceToSelfReplicate = 0f;
+    private boolean isGasOrLiquid = false;
 
     private int movementStep;
 
@@ -317,5 +318,13 @@ public class GameObject {
 
     public void setSelfReplicationChance(float chance) {
         this.chanceToSelfReplicate = chance;
+    }
+
+    public void setGasOrLiquid(boolean value) {
+        this.isGasOrLiquid = value;
+    }
+
+    public boolean isGasOrLiquid() {
+        return this.isGasOrLiquid;
     }
 }

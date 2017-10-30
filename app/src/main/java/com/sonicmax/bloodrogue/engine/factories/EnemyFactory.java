@@ -11,7 +11,7 @@ import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 public class EnemyFactory {
 
     public static GameObject getRandomEnemy(int x, int y, int level) {
-        int random = new RandomNumberGenerator().getRandomInt(0, 6);
+        int random = new RandomNumberGenerator().getRandomInt(0, 7);
 
         switch(random) {
             case 0:
@@ -28,6 +28,8 @@ public class EnemyFactory {
                 return createGreenSlime(x, y, level);
             case 6:
                 return createPurpleSlime(x, y, level);
+            case 7:
+                return createOgreSpirit(x, y, level);
 
             default:
                 return createZombie(x, y, level);
@@ -106,6 +108,27 @@ public class EnemyFactory {
             enemy.setAgility(enemy.getAgility() - statModifier);
         }
 
+        enemy.distributeStatPoints(level);
+
+        enemy.setMaxHp(enemy.BASE_HP + (enemy.getEndurance() * level));
+
+        return enemy;
+    }
+
+    public static GameObject createOgreSpirit(int x, int y, int level) {
+        Actor enemy = new Actor(x, y, level);
+        enemy.setTile("sprites/ogre_spirit.png");
+        enemy.setName("Spirit");
+        enemy.setAffinity(Actor.ENEMY);
+
+        // Spirits are gaseous (kinda)
+        enemy.setGasOrLiquid(true);
+
+        // Same stat distribution as zombie
+
+        enemy.setStrength(level);
+        enemy.setEndurance(level);
+        enemy.setAgility(level);
         enemy.distributeStatPoints(level);
 
         enemy.setMaxHp(enemy.BASE_HP + (enemy.getEndurance() * level));
