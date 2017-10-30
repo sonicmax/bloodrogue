@@ -16,7 +16,7 @@ public class TextRenderer {
 
     private final float UV_BOX_WIDTH = 0.0625f;
     private final float ORIGINAL_WIDTH = 32f;
-    private final float TEXT_WIDTH = 24f;
+    private float TEXT_WIDTH = 24f;
     private final float TEXT_SPACESIZE = 13.3f;
     private final int SPRITES_PER_ROW = 16;
     private final int NUMBER_OF_CHARS = 94;
@@ -62,6 +62,10 @@ public class TextRenderer {
 
     public void setUniformscale(float uniformscale) {
         this.mUniformScale = uniformscale;
+    }
+
+    public void setTextSize(float size) {
+        this.TEXT_WIDTH = size;
     }
 
     public void initArrays(int size) {
@@ -193,20 +197,27 @@ public class TextRenderer {
      */
 
     public void addTextData(int row, String text, float[] color, float alphaModifier) {
-        float x = 0f;
+        addTextData(row, 0f, text, color, alphaModifier);
+    }
 
+    /**
+     *  Tells renderer to display a given string at coordinates provided where (0, 0) = bottom left
+     *  Also takes a Y offset to support scrolling effect
+     */
+
+    public void addTextData(int row, float offset, String text, float[] color, float alphaModifier) {
         for (int j = 0; j < text.length(); j++) {
             char c = text.charAt(j);
             int charIndex = convertCharValueToUvIndex((int) c);
 
             if (charIndex == -1) {
                 // Space or unknown character
-                x += ((TEXT_SPACESIZE) * mUniformScale);
+                offset += ((TEXT_SPACESIZE) * mUniformScale);
                 continue;
             }
 
             // Creating the triangle information
-            float[] vec = getRowVector(row, x);
+            float[] vec = getRowVector(row, offset);
 
             float[] colors = new float[] {
                     color[0], color[1], color[2], color[3] - alphaModifier,
@@ -219,14 +230,9 @@ public class TextRenderer {
             addCharRenderInformation(vec, colors, cachedUvs[charIndex], mIndices);
 
             // Calculate the new position
-            x += cachedOffsets[charIndex];
+            offset += cachedOffsets[charIndex];
         }
     }
-
-    /**
-     *  Tells renderer to display a given string at coordinates provided where (0, 0) = bottom left
-     *  Also takes a Y offset to support scrolling effect
-     */
 
     public void addTextData(float x, float y, float offsetY, float scale, String text, float[] color, float alphaModifier) {
         for (int j = 0; j < text.length(); j++) {
@@ -293,6 +299,8 @@ public class TextRenderer {
     }
 
     public void renderText(float[] matrix) {
+        GLES20.glUseProgram(mShaderHandle);
+
         FloatBuffer vertexBuffer;
         FloatBuffer textureBuffer;
         FloatBuffer colorBuffer;
