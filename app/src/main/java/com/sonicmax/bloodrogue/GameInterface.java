@@ -40,7 +40,7 @@ public class GameInterface {
     public GameInterface(Context context) {
         mContext = context;
         mGameEngine = new GameEngine(this);
-        mRenderer = new GameRenderer(this);
+        mRenderer = new GameRenderer(context, this);
         mNarrationManager = new NarrationManager();
         mRenderer.setMapSize(mGameEngine.getMapSize());
         mLastMapTouch = null;

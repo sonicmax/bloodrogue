@@ -1,5 +1,6 @@
 package com.sonicmax.bloodrogue.renderer;
 
+import android.content.Context;
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -122,8 +123,11 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private boolean isRendering;
     private boolean mFirstRender;
 
-    public GameRenderer(GameInterface gameInterface) {
+    private Context mContext;
+
+    public GameRenderer(Context context, GameInterface gameInterface) {
         super();
+        mContext = context;
         mGameInterface = gameInterface;
 
         mFrame = null;
@@ -150,7 +154,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     @Override
     public void onSurfaceCreated(GL10 unused, EGLConfig config) {
-        GLShaderLoader loader = new GLShaderLoader();
+        GLShaderLoader loader = new GLShaderLoader(mContext);
         mSpriteShaderProgram = loader.compileSpriteShader();
         mWaveShaderProgram = loader.compileWaveShader();
 

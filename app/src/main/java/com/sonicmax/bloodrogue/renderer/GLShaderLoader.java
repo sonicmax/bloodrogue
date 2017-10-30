@@ -1,91 +1,78 @@
 package com.sonicmax.bloodrogue.renderer;
 
+import android.content.Context;
 import android.opengl.GLES20;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 
 /**
  * Compiles shader code and provides reference to program object stored
  */
 
 public class GLShaderLoader {
-    private final String vertexShaderCode =
-            "uniform mat4 u_MVPMatrix;" +
+    private final String BASIC_VERT_PATH = "shaders/basic.vert";
+    private final String BASIC_FRAG_PATH = "shaders/basic.frag";
+    private final String WAVE_VERT_PATH = "shaders/wave.vert";
 
-            "attribute vec4 a_Position;" +
-            "attribute vec4 a_Color;" +
-            "attribute vec2 a_texCoord;" +
+    private Context mContext;
 
-            "varying vec2 v_texCoord;" +
-            "varying vec4 v_Color;" +
-
-            "void main() {" +
-                "gl_Position = u_MVPMatrix * a_Position;" +
-                "v_texCoord = a_texCoord;" +
-                "v_Color = a_Color;" +
-            "}";
-
-    /**
-     *  Transforms vertexes using sin/cos functions to produce a wave effect
-     */
-
-    private final String vertexWaveShaderCode =
-            "uniform mat4 u_MVPMatrix;" +
-            "uniform vec2 u_waveData;" +
-            "attribute vec4 a_Position;" +
-            "attribute vec4 a_Color;" +
-            "attribute vec2 a_texCoord;" +
-            "varying vec4 v_Color;" +
-            "varying vec2 v_texCoord;" +
-
-            "void main() {" +
-                "v_texCoord = a_texCoord;" +
-                "v_Color = a_Color;" +
-                "vec4 newPos = vec4(" +
-                    "a_Position.x + u_waveData.y * sin(u_waveData.x + a_Position.x + a_Position.y), " +
-                    "a_Position.y + u_waveData.y * sin(u_waveData.x + a_Position.x + a_Position.y), " +
-                    "a_Position.z, " +
-                    "a_Position.w);" +
-                "gl_Position = u_MVPMatrix * newPos;" +
-            "}";
-
-    private final String fragmentShaderCode =
-            "precision mediump float;" +
-
-            "varying vec4 v_Color;" +
-            "varying vec2 v_texCoord;" +
-
-            "uniform sampler2D s_texture;" +
-
-            "void main() {" +
-                "vec4 diffuse = texture2D(s_texture, v_texCoord);" +
-                "gl_FragColor = diffuse * v_Color;" +
-            "}";
-
-    public GLShaderLoader() {}
+    public GLShaderLoader(Context context) {
+        this.mContext = context;
+    }
 
     public int compileSpriteShader() {
-        int vertexShader = loadShader(GLES20.GL_VERTEX_SHADER, vertexShaderCode);
-        int fragmentShader = loadShader(GLES20.GL_FRAGMENT_SHADER, fragmentShaderCode);
+        try {
+            InputStream inputStream = mContext.getAssets().open(BASIC_VERT_PATH);
+            String vertCode = readStringFromStream(inputStream);
+            inputStream = mContext.getAssets().open(BASIC_FRAG_PATH);
+            String fragCode = readStringFromStream(inputStream);
+            inputStream.close();
 
-        int spriteShaderHandle = GLES20.glCreateProgram();
-        GLES20.glAttachShader(spriteShaderHandle, vertexShader);
-        GLES20.glAttachShader(spriteShaderHandle, fragmentShader);
+            int vertexShader = loadShader(GLES20.GL_VERTEX_SHADER, vertCode);
+            int fragmentShader = loadShader(GLES20.GL_FRAGMENT_SHADER, fragCode);
 
-        GLES20.glLinkProgram(spriteShaderHandle);
+            int spriteShaderHandle = GLES20.glCreateProgram();
+            GLES20.glAttachShader(spriteShaderHandle, vertexShader);
+            GLES20.glAttachShader(spriteShaderHandle, fragmentShader);
 
-        return spriteShaderHandle;
+            GLES20.glLinkProgram(spriteShaderHandle);
+
+            return spriteShaderHandle;
+
+
+        } catch (IOException e) {
+            // Todo: static string fallback?
+            return 0;
+        }
     }
 
     public int compileWaveShader() {
-        int vertexShader = loadShader(GLES20.GL_VERTEX_SHADER, vertexWaveShaderCode);
-        int fragmentShader = loadShader(GLES20.GL_FRAGMENT_SHADER, fragmentShaderCode);
+        try {
+            InputStream inputStream = mContext.getAssets().open(WAVE_VERT_PATH);
+            String vertCode = readStringFromStream(inputStream);
+            inputStream = mContext.getAssets().open(BASIC_FRAG_PATH);
+            String fragCode = readStringFromStream(inputStream);
+            inputStream.close();
 
-        int textShader = GLES20.glCreateProgram();
-        GLES20.glAttachShader(textShader, vertexShader);
-        GLES20.glAttachShader(textShader, fragmentShader);
+            int vertexShader = loadShader(GLES20.GL_VERTEX_SHADER, vertCode);
+            int fragmentShader = loadShader(GLES20.GL_FRAGMENT_SHADER, fragCode);
 
-        GLES20.glLinkProgram(textShader);
+            int spriteShaderHandle = GLES20.glCreateProgram();
+            GLES20.glAttachShader(spriteShaderHandle, vertexShader);
+            GLES20.glAttachShader(spriteShaderHandle, fragmentShader);
 
-        return textShader;
+            GLES20.glLinkProgram(spriteShaderHandle);
+
+            return spriteShaderHandle;
+
+
+        } catch (IOException e) {
+            // Todo: static string fallback?
+            return 0;
+        }
     }
 
 
@@ -103,5 +90,16 @@ public class GLShaderLoader {
         GLES20.glCompileShader(shader);
 
         return shader;
+    }
+
+    public String readStringFromStream(InputStream is) throws IOException {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+        StringBuilder sb = new StringBuilder();
+        String line;
+        while ((line = reader.readLine()) != null) {
+            sb.append(line);
+        }
+        reader.close();
+        return sb.toString();
     }
 }
