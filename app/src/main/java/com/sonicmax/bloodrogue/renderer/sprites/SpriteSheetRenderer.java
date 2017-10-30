@@ -387,7 +387,7 @@ public class SpriteSheetRenderer {
         // Apply the projection and view transformation
         GLES20.glUniformMatrix4fv(mtrxhandle, 1, false, matrix, 0);
 
-        int textureLocation = GLES20.glGetUniformLocation (mWaveShaderHandle, "s_texture");
+        int textureLocation = GLES20.glGetUniformLocation (mWaveShaderHandle, "u_Texture");
 
         int mWaveDataHandle = GLES20.glGetUniformLocation(mWaveShaderHandle, "u_waveData");
         GLES20.glUniform2f(mWaveDataHandle, angleWave, amplitudeWave);

@@ -364,7 +364,7 @@ public class TextRenderer {
         // Apply the projection and view transformation
         GLES20.glUniformMatrix4fv(mtrxhandle, 1, false, matrix, 0);
 
-        int textureLocation = GLES20.glGetUniformLocation (mShaderHandle, "s_texture");
+        int textureLocation = GLES20.glGetUniformLocation (mShaderHandle, "u_Texture");
 
         //Set the active texture unit to texture unit 0.
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
