@@ -29,7 +29,7 @@ public class DecalFactory {
         splat.setMutability(true);
 
         if (!(mapGrid[x][y] instanceof Wall)) {
-            splat.setTile(All.BLOOD_DROPS[bloodIndex]);
+            splat.setSprite(All.BLOOD_DROPS[bloodIndex]);
             return splat;
         } else {
             // Don't add splatter to south walls - they are effectively invisible
@@ -37,7 +37,7 @@ public class DecalFactory {
                     && !direction.equals(Directions.All.get("SE"))
                     && !direction.equals(Directions.All.get("SW"))) {
 
-                splat.setTile(All.BLOOD_DROPS_WALL[bloodIndex]);
+                splat.setSprite(All.BLOOD_DROPS_WALL[bloodIndex]);
                 return splat;
             } else {
                 return null;

@@ -31,6 +31,7 @@ public class EnemyFactory {
             case 7:
                 return createOgreSpirit(x, y, level);
 
+
             default:
                 return createZombie(x, y, level);
         }
@@ -38,7 +39,7 @@ public class EnemyFactory {
 
     public static GameObject createZombie(int x, int y, int level) {
         Actor enemy = new Actor(x, y, level);
-        enemy.setTile("sprites/zombie_" + new RandomNumberGenerator().getRandomInt(1, 3) + ".png");
+        enemy.setSprite("sprites/zombie_" + new RandomNumberGenerator().getRandomInt(1, 3) + ".png");
         enemy.setName("Zombie");
         enemy.setAffinity(Actor.ENEMY);
 
@@ -57,7 +58,7 @@ public class EnemyFactory {
 
     public static GameObject createGiantRat(int x, int y, int level) {
         Actor enemy = new Actor(x, y, level);
-        enemy.setTile("sprites/giant_rat.png");
+        enemy.setSprite("sprites/giant_rat.png");
         enemy.setName("Giant Rat");
         enemy.setAffinity(Actor.ENEMY);
 
@@ -94,7 +95,7 @@ public class EnemyFactory {
 
     public static GameObject createOgre(int x, int y, int level) {
         Actor enemy = new Actor(x, y, level);
-        enemy.setTile("sprites/ogre.png");
+        enemy.setSprite("sprites/ogre.png");
         enemy.setName("Ogre");
         enemy.setAffinity(Actor.ENEMY);
 
@@ -117,7 +118,7 @@ public class EnemyFactory {
 
     public static GameObject createOgreSpirit(int x, int y, int level) {
         Actor enemy = new Actor(x, y, level);
-        enemy.setTile("sprites/ogre_spirit.png");
+        enemy.setSprite("sprites/ogre_spirit.png");
         enemy.setName("Spirit");
         enemy.setAffinity(Actor.ENEMY);
 
@@ -138,7 +139,7 @@ public class EnemyFactory {
 
     public static GameObject createGreatOgre(int x, int y, int level) {
         Actor enemy = new Actor(x, y, level);
-        enemy.setTile("sprites/ogre_2.png");
+        enemy.setSprite("sprites/ogre_2.png");
         enemy.setName("Great Ogre");
         enemy.setAffinity(Actor.ENEMY);
 
@@ -161,7 +162,7 @@ public class EnemyFactory {
 
     public static GameObject createGiantKomodo(int x, int y, int level) {
         Actor enemy = new Actor(x, y, level);
-        enemy.setTile("sprites/giant_komodo.png");
+        enemy.setSprite("sprites/giant_komodo.png");
         enemy.setName("Giant Komodo");
         enemy.setAffinity(Actor.ENEMY);
 
@@ -179,7 +180,7 @@ public class EnemyFactory {
 
     public static GameObject createGreenSlime(int x, int y, int level) {
         Actor enemy = new Actor(x, y, level);
-        enemy.setTile("sprites/green_slime.png");
+        enemy.setSprite("sprites/green_slime.png");
         enemy.setName("Green Slime");
         enemy.setAffinity(Actor.ENEMY);
 
@@ -200,7 +201,7 @@ public class EnemyFactory {
 
     public static GameObject createPurpleSlime(int x, int y, int level) {
         Actor enemy = new Actor(x, y, level);
-        enemy.setTile("sprites/purple_slime.png");
+        enemy.setSprite("sprites/purple_slime.png");
         enemy.setName("Purple Slime");
         enemy.setAffinity(Actor.ENEMY);
 

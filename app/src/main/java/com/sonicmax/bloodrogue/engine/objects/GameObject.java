@@ -12,38 +12,77 @@ public class GameObject {
 
     private int x;
     private int y;
+
+    private String sprite;
+    private ArrayList<String> sprites;
+    private int animationLength;
+    private int currentFrame;
+    private int renderCount;
+    private int movementStep;
+
+    private boolean hasDeathAnimation;
+    private GameObject deathAnimation;
+
+    private boolean isProjected;
     private int fovX;
     private int fovY;
 
-    // Default values
-    private int dijkstra = 0;
-    private boolean isBlocking = true;
-    private boolean isTraversable = false;
-    private boolean canInteract = false;
-    private boolean isProjected = false;
-    private String tile = "sprites/transparent.png";
-    private int playerInterest = 0;
-    private int state = 0;
-    private boolean hasAction = false;
-    private boolean hasAnimation = false;
-    private GameObject animation;
-    private ArrayList<Vector> path;
-    private boolean isStationary = true;
-    private boolean isImmutable = true;
-    private Vector lastMove = null;
-    private boolean isPlayerControlled = false;
-    private boolean canSelfReplicate = false;
-    private float chanceToSelfReplicate = 0f;
-    private boolean isGasOrLiquid = false;
+    private boolean isBlocking;
+    private boolean isTraversable;
+    private boolean canInteract;
+    private boolean hasAction;
+    private boolean isStationary;
+    private boolean isImmutable;
+    private boolean isPlayerControlled;
+    private boolean canSelfReplicate;
+    private float chanceToSelfReplicate;
+    private boolean isGasOrLiquid;
 
-    private int movementStep;
+    private int dijkstra;
+    private int playerInterest;
+    private int state;
+    private ArrayList<Vector> path;
+    private Vector lastMove;
 
     public GameObject(int x, int y) {
         this.x = x;
         this.y = y;
+
         this.id = UUID.randomUUID().toString();
-        this.path = null;
         this.name = this.getClass().getSimpleName();
+
+        // Set default values for object fields
+        this.sprite = "sprites/transparent.png";
+        this.sprites = new ArrayList<>();
+        this.animationLength = 0;
+        this.currentFrame = 0;
+        this.renderCount = 0;
+        this.movementStep = 0;
+
+        this.hasDeathAnimation = false;
+        this.deathAnimation = null;
+
+        this.isProjected = false;
+        this.fovX = 0;
+        this.fovY = 0;
+
+        this.isBlocking = true;
+        this.isTraversable = false;
+        this.canInteract = false;
+        this.hasAction = false;
+        this.isStationary = true;
+        this.isImmutable = true;
+        this.isPlayerControlled = false;
+        this.canSelfReplicate = false;
+        this.chanceToSelfReplicate = 0f;
+        this.isGasOrLiquid = false;
+
+        this.dijkstra = 0;
+        this.playerInterest = 0;
+        this.state = 0;
+        this.path = null;
+        this.lastMove = null;
+
     }
 
     /**
@@ -54,41 +93,89 @@ public class GameObject {
         this.x = x;
         this.y = y;
         this.id = UUID.randomUUID().toString(); // Still want unique id for cloned object
-        this.path = original.path;
-        this.name = original.name;
-        this.dijkstra = original.dijkstra;
+
+        this.sprite = original.sprite;
+        this.sprites = original.sprites;
+        this.animationLength = original.sprites.size();
+        this.currentFrame = 0;
+        this.renderCount = 0;
+        this.movementStep = 0;
+
+        this.hasDeathAnimation = original.hasDeathAnimation;
+        this.deathAnimation = original.deathAnimation;
+
+        this.isProjected = false;
+        this.fovX = 0;
+        this.fovY = 0;
+
         this.isBlocking = original.isBlocking;
         this.isTraversable = original.isTraversable;
         this.canInteract = original.canInteract;
-        this.isProjected = original.isProjected;
-        this.tile = original.tile;
-        this.playerInterest = original.playerInterest;
-        this.state = original.state;
         this.hasAction = original.hasAction;
-        this.hasAnimation = original.hasAnimation;
-        this.animation = original.animation;
         this.isStationary = original.isStationary;
         this.isImmutable = original.isImmutable;
+        this.isPlayerControlled = false;
         this.canSelfReplicate = original.canSelfReplicate;
-        this.chanceToSelfReplicate = original.chanceToSelfReplicate;
+        this.chanceToSelfReplicate = original.chanceToSelfReplicate; // todo: maybe lower this for clones?
+        this.isGasOrLiquid = original.isGasOrLiquid;
 
-        // These fields should only be copied when needed (eg after creating clone)
+        this.dijkstra = original.dijkstra;
+        this.playerInterest = original.playerInterest;
+        this.state = original.state;
         this.path = null;
         this.lastMove = null;
-        this.isPlayerControlled = false;
     }
+
+
+    /**
+     *  Returns unique ID created in object constructor.
+     */
 
     public String getId() {
         return this.id;
     }
 
-    public String tile() {
-        return this.tile;
+
+    /**
+     *  Retrieves sprite used to render object.
+     *  Most objects will only have a single sprite, while others will be animated
+     */
+
+    public String getSprite() {
+        return this.sprite;
     }
 
-    public void setTile(String tile) {
-        this.tile = tile;
+    public boolean hasAnimation() {
+        return this.animationLength > 0;
     }
+
+    public String getSprite(float dt) {
+        if (this.renderCount < 4) {
+            this.renderCount++;
+            return this.sprites.get(currentFrame);
+        }
+        else if (this.renderCount >= 3 && currentFrame < animationLength - 1) {
+            this.renderCount = 0;
+            currentFrame++;
+            return this.sprites.get(currentFrame);
+        }
+        else {
+            // Reset frame index
+            currentFrame = 0;
+            this.renderCount = 0;
+            return this.sprites.get(currentFrame);
+        }
+    }
+
+    public void setSprite(String sprite) {
+        this.sprite = sprite;
+    }
+
+    public void setSprites(ArrayList<String> sprites) {
+        this.sprites = sprites;
+        this.animationLength = sprites.size();
+    }
+
 
     /**
      *  Returns name to be used for in-game text references (eg. status text)
@@ -103,22 +190,26 @@ public class GameObject {
         this.name = name;
     }
 
-    public boolean hasAnimation() {
-        return this.hasAnimation;
-    }
-
-    public void setAnimation(GameObject animation) {
-        this.animation = animation;
-        this.hasAnimation = true;
-    }
-
-    public GameObject getAnimation() {
-        return this.animation;
-    }
-
 
     /**
-     Position and movement. */
+     *  Allows us to display specific animation after object has been destroyed
+     */
+
+    public boolean hasDeathAnimation() {
+        return this.hasDeathAnimation;
+    }
+
+    public void setDeathAnimation(GameObject animation) {
+        this.deathAnimation = animation;
+        this.hasDeathAnimation = true;
+    }
+
+    public GameObject getDeathAnimation() {
+        return this.deathAnimation;
+    }
+
+
+    /** Position and movement. */
 
     public int x() {
         return this.x;
@@ -137,10 +228,8 @@ public class GameObject {
         return new Vector(this.x, this.y);
     }
 
-    /**
-     Some objects have two sets of grid references - fovX/fovY are used to determine
-     whether object should be displayed or not (eg. to make sure LightSources embedded in Wall tiles
-     don't shine on both sides of wall). */
+
+    /** Objects with isProjected flag should only be rendered when [fovX, fovY] is in player field of vision */
 
     public int getFovX() {
         return this.fovX;
@@ -167,8 +256,7 @@ public class GameObject {
     }
 
 
-    /**
-     Entities can only move across traversable objects.
+    /** Entities can only move across traversable objects.
      Non-traversable objects prevent movement, but do not block sight. */
 
     public void setTraversable(boolean value) {
@@ -180,8 +268,7 @@ public class GameObject {
     }
 
 
-    /**
-     Blocking objects will block field of vision, but may allow movement. */
+    /** Blocking objects will block field of vision, but may still allow movement. */
 
     public void setBlocking(boolean value) {
         this.isBlocking = value;
@@ -192,8 +279,7 @@ public class GameObject {
     }
 
 
-    /**
-     Interactive objects can interact with certain types of object (doors, chests, etc). */
+    /** Interactive objects can interact with certain types of object (doors, chests, etc). */
 
     public void setInteractive(boolean value) {
         this.canInteract = value;
@@ -204,8 +290,7 @@ public class GameObject {
     }
 
 
-    /**
-     Dijkstra value is default value used when generating desire maps. */
+    /** Dijkstra value is default value used when generating desire maps. */
 
     public void setDijkstra(int dijkstra) {
         this.dijkstra = dijkstra;
@@ -226,8 +311,9 @@ public class GameObject {
     public void collide(GameObject object) {}
 
 
-    /**
-     Methods for path-finding and storing object state */
+    /** Methods for path-finding and storing object state */
+
+    // todo: this is a real mess
 
     public void setHasAction(boolean value) {
         this.hasAction = value;

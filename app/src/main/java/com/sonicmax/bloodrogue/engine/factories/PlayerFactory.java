@@ -7,7 +7,7 @@ public class PlayerFactory {
 
     public static GameObject getPlayer(int x, int y) {
         Actor player = new Actor(x, y, 1);
-        player.setTile("sprites/dude.png");
+        player.setSprite("sprites/dude.png");
         player.setName("Player");
         player.setInteractive(true);
         player.setPlayerControl(true);

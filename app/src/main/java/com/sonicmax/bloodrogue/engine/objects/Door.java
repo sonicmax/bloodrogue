@@ -16,12 +16,12 @@ public class Door extends GameObject {
         this.setMutability(true);
 
         if (isOpen) {
-            this.setTile(this.openTile);
+            this.setSprite(this.openTile);
             this.setTraversable(true);
             this.setBlocking(false);
         }
         else {
-            this.setTile(this.closedTile);
+            this.setSprite(this.closedTile);
             this.setTraversable(false);
             this.setBlocking(true);
         }
@@ -35,12 +35,12 @@ public class Door extends GameObject {
         this.setHasAction(true);
 
         if (isOpen) {
-            this.setTile(this.openTile);
+            this.setSprite(this.openTile);
             this.setTraversable(true);
             this.setBlocking(false);
         }
         else {
-            this.setTile(this.closedTile);
+            this.setSprite(this.closedTile);
             this.setTraversable(false);
             this.setBlocking(true);
         }
@@ -49,14 +49,14 @@ public class Door extends GameObject {
     public void collide(GameObject object) {
         if (object.canInteract()) {
             if (!isOpen) {
-                this.setTile(this.openTile);
+                this.setSprite(this.openTile);
                 this.setTraversable(true);
                 this.setBlocking(false);
                 this.isOpen = true;
                 this.setHasAction(false);
             }
             /*else {
-                this.setTile(this.closedTile);
+                this.setSprite(this.closedTile);
                 this.setTraversable(false);
                 this.setBlocking(true);
                 this.isOpen = false;

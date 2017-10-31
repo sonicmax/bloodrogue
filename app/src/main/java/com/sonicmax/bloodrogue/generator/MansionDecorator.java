@@ -405,7 +405,7 @@ public class MansionDecorator {
             GameObject object = getMapObjectForCell(cell);
 
             if (object instanceof Wall && adjacentCellsAreCarvable(cell)) {
-                object.setTile(Mansion.WALLPAPER_1);
+                object.setSprite(Mansion.WALLPAPER_1);
             }
         }*/
     }
@@ -935,12 +935,12 @@ public class MansionDecorator {
         GameObject mapTile = mMapGrid[x][y];
 
         if (mapTile.isBlocking()) {
-            // Log.v("log", "map tile " + mapTile.tile() + " was blocking");
+            // Log.v("log", "map getSprite " + mapTile.getSprite() + " was blocking");
             return true;
         }
 
         else if (!mapTile.isTraversable()) {
-            // Log.v("log", "map tile " + mapTile.tile() + " was not traversable");
+            // Log.v("log", "map getSprite " + mapTile.getSprite() + " was not traversable");
             return true;
         }
 
@@ -951,12 +951,12 @@ public class MansionDecorator {
         for (GameObject object : objectStack) {
 
             if (object.isBlocking()) {
-                // Log.v("log", "object tile " + object.tile() + " was blocking");
+                // Log.v("log", "object getSprite " + object.getSprite() + " was blocking");
                 return true;
             }
 
             else if (!object.isTraversable()) {
-                // Log.v("log", "object tile " + object.tile() + " was not traversable");
+                // Log.v("log", "object getSprite " + object.getSprite() + " was not traversable");
                 return true;
             }
         }

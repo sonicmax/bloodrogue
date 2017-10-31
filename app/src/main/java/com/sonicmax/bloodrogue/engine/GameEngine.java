@@ -279,7 +279,7 @@ public class GameEngine {
             newStack.add(object);
         }
         else {
-            Log.e(LOG_TAG, "Object " + object.tile() + " not present in stack");
+            Log.e(LOG_TAG, "Object " + object.getSprite() + " not present in stack");
             newStack.add(object);
         }
 
@@ -304,7 +304,7 @@ public class GameEngine {
         ArrayList<GameObject> enemies = mMapData.getEnemies();
 
         for (GameObject enemy : enemies) {
-            Log.v(LOG_TAG, "adding " + enemy.tile());
+            Log.v(LOG_TAG, "adding " + enemy.getSprite());
             addObjectToStack(enemy.x(), enemy.y(), enemy);
         }
 
@@ -718,8 +718,8 @@ public class GameEngine {
             GameObject target = it.next();
             target.collide(actor);
 
-            if (target.hasAnimation()) {
-                mAnimations[target.x()][target.y()].add(target.getAnimation());
+            if (target.hasDeathAnimation()) {
+                mAnimations[target.x()][target.y()].add(target.getDeathAnimation());
             }
 
             if (target instanceof Actor) {
@@ -759,11 +759,11 @@ public class GameEngine {
 
         if (damage == 0) {
             // Todo: figure out why this happens
-            Log.v(LOG_TAG, attacker.tile() + " attacked " + defender.tile() + " but caused no damage");
+            Log.v(LOG_TAG, attacker.getSprite() + " attacked " + defender.getSprite() + " but caused no damage");
             Log.v(LOG_TAG, "attacker strength: " + attacker.getStrength() + ", defender endurance: " + defender.getEndurance());
         }
 
-        if (defender.tile().equals("sprites/dude.png")) {
+        if (defender.getSprite().equals("sprites/dude.png")) {
             mTotalDefence += damage;
         }
 
@@ -799,7 +799,7 @@ public class GameEngine {
 
             // We have to add object to stack after we've finished iterating in handleInteractions()
             // otherwise it will throw ConcurrentModificationException
-            mObjectQueue.add(CorpseFactory.getCorpse(x, y, defender.tile()));
+            mObjectQueue.add(CorpseFactory.getCorpse(x, y, defender.getSprite()));
 
             if (defender.isPlayerControlled()) {
                 // Stop gamei guess lol

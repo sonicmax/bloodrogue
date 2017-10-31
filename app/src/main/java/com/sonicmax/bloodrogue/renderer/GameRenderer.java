@@ -621,7 +621,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 float lighting = (float) getLightingForGrid(x, y);
 
                 GameObject terrain = mapGrid[x][y];
-                int index = mSpriteIndexes.get(terrain.tile());
+                int index = mSpriteIndexes.get(terrain.getSprite());
 
                 mSpriteRenderer.addSpriteData(
                         x, y,
@@ -643,7 +643,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                         if (mFov[fovX][fovY] > 0.1) {
                             mSpriteRenderer.addSpriteData(
                                     x, y,
-                                    mSpriteIndexes.get(object.tile()),
+                                    mSpriteIndexes.get(object.getSprite()),
                                     lighting,
                                     DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
                         }
@@ -653,7 +653,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                     else if (object.isImmutable() && (object.isStationary())) {
                         mSpriteRenderer.addSpriteData(
                                 x, y,
-                                mSpriteIndexes.get(object.tile()),
+                                mSpriteIndexes.get(object.getSprite()),
                                 lighting,
                                 DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
                     }
@@ -672,15 +672,23 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                             if (object.isGasOrLiquid()) {
                                 mWaveRenderer.addSpriteData(
                                         x, y,
-                                        mSpriteIndexes.get(object.tile()),
+                                        mSpriteIndexes.get(object.getSprite()),
                                         lighting,
                                         DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
 
                             }
                             else {
+                                int sprite;
+                                if (object.hasAnimation()) {
+                                    sprite = mSpriteIndexes.get(object.getSprite(1f));
+                                }
+                                else {
+                                    sprite = mSpriteIndexes.get(object.getSprite());
+                                }
+
                                 mSpriteRenderer.addSpriteData(
                                         x, y,
-                                        mSpriteIndexes.get(object.tile()),
+                                        sprite,
                                         lighting,
                                         DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
                             }
@@ -716,9 +724,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             float lighting = (float) getLightingForGrid(x, y);
             if (fraction == 1) {
                 object.setLastMove(null);
-                mSpriteRenderer.addSpriteData(x, y, mSpriteIndexes.get(object.tile()), lighting, 0f, 0f);
+                mSpriteRenderer.addSpriteData(x, y, mSpriteIndexes.get(object.getSprite()), lighting, 0f, 0f);
             } else {
-                mSpriteRenderer.addSpriteData(object.getlastMove().x(), object.getlastMove().y(), mSpriteIndexes.get(object.tile()), lighting, offsetX, offsetY);
+                mSpriteRenderer.addSpriteData(object.getlastMove().x(), object.getlastMove().y(), mSpriteIndexes.get(object.getSprite()), lighting, offsetX, offsetY);
 
                 if (object.isPlayerControlled()) {
                     /*scrollDx -= offsetX * (SPRITE_SIZE / 2);

@@ -13,32 +13,32 @@ public class CorpseFactory {
             case "sprites/zombie_1.png":
             case "sprites/zombie_2.png":
             case "sprites/zombie_3.png":
-                corpse.setTile("sprites/zombie_corpse.png");
+                corpse.setSprite("sprites/zombie_corpse.png");
                 break;
 
             case "sprites/giant_rat.png":
-                corpse.setTile("sprites/giant_rat_corpse.png");
+                corpse.setSprite("sprites/giant_rat_corpse.png");
                 break;
 
             case "sprites/ogre.png":
             case "sprites/ogre_2.png":
-                corpse.setTile("sprites/ogre_corpse.png");
+                corpse.setSprite("sprites/ogre_corpse.png");
                 break;
 
             case "sprites/giant_komodo.png":
-                corpse.setTile("sprites/giant_komodo_corpse.png");
+                corpse.setSprite("sprites/giant_komodo_corpse.png");
                 break;
 
             case "sprites/green_slime.png":
-                corpse.setTile("sprites/green_slime_corpse.png");
+                corpse.setSprite("sprites/green_slime_corpse.png");
                 break;
 
             case "sprites/purple_slime.png":
-                corpse.setTile("sprites/purple_slime_corpse.png");
+                corpse.setSprite("sprites/purple_slime_corpse.png");
                 break;
 
             default:
-                corpse.setTile("sprites/transparent.png");
+                corpse.setSprite("sprites/transparent.png");
                 break;
         }
 

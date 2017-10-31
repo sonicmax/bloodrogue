@@ -16,12 +16,12 @@ public class Chest extends GameObject {
 
     public Chest(int x, int y) {
         super(x, y);
-        this.setTile(CLOSED);
+        this.setSprite(CLOSED);
         this.setDijkstra(1);
         this.setBlocking(false);
         this.setTraversable(false);
         this.setHasAction(true);
-        this.setAnimation(AnimationFactory.getChestItemRevealAnimation(x, y));
+        this.setDeathAnimation(AnimationFactory.getChestItemRevealAnimation(x, y));
         this.setStationary(true);
         this.setMutability(true);
 
@@ -37,10 +37,10 @@ public class Chest extends GameObject {
     public void collide(GameObject object) {
         if (object.canInteract()) {
             if (!this.open) {
-                this.setTile(OPEN);
+                this.setSprite(OPEN);
                 this.open = true;
             } else if (this.open && !this.empty) {
-                this.setTile(EMPTY);
+                this.setSprite(EMPTY);
                 this.empty = true;
             }
         }

@@ -9,14 +9,14 @@ public class Floor extends GameObject {
         super(x, y);
         this.setBlocking(false);
         this.setTraversable(true);
-        this.setTile(tile);
+        this.setSprite(tile);
     }
 
     public Floor(int x, int y, String tile, boolean isDoorway) {
         super(x, y);
         this.setBlocking(false);
         this.setTraversable(true);
-        this.setTile(tile);
+        this.setSprite(tile);
         this.isDoorway = isDoorway;
     }
 
