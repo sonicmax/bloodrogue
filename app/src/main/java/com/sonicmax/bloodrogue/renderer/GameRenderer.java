@@ -566,6 +566,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         for (int x = mChunkOriginX; x < mChunkWidth; x++) {
             for (int y = mChunkOriginY; y < mChunkHeight; y++) {
+                if (!inBounds(x, y)) continue;
                 objectCount += objects[x][y].size();
                 animationCount += animations[x][y].size();
             }
@@ -631,9 +632,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
                 ArrayList<GameObject> objectsInCell = objectGrid[x][y];
 
-                int objectsSize = objectsInCell.size();
-
-                for (int i = 0; i < objectsSize; i++) {
+                for (int i = 0; i < objectsInCell.size(); i++) {
                     GameObject object = objectsInCell.get(i);
 
                     if (object.isProjected()) {
