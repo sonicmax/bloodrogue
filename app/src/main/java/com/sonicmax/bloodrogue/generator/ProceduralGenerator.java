@@ -4,7 +4,7 @@ import android.util.Log;
 import android.util.SparseIntArray;
 
 import com.sonicmax.bloodrogue.engine.collisions.AxisAlignedBoxTester;
-import com.sonicmax.bloodrogue.generator.tilesets.Ruins;
+import com.sonicmax.bloodrogue.tilesets.Ruins;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 import com.sonicmax.bloodrogue.engine.objects.Border;
 import com.sonicmax.bloodrogue.engine.objects.Decoration;
@@ -13,8 +13,8 @@ import com.sonicmax.bloodrogue.engine.objects.Floor;
 import com.sonicmax.bloodrogue.engine.objects.GameObject;
 import com.sonicmax.bloodrogue.engine.objects.Room;
 import com.sonicmax.bloodrogue.engine.objects.Wall;
-import com.sonicmax.bloodrogue.generator.tilesets.All;
-import com.sonicmax.bloodrogue.generator.tilesets.Mansion;
+import com.sonicmax.bloodrogue.tilesets.All;
+import com.sonicmax.bloodrogue.tilesets.Mansion;
 import com.sonicmax.bloodrogue.utils.Array2DHelper;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 

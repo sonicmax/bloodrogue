@@ -5,7 +5,7 @@ import com.sonicmax.bloodrogue.engine.objects.Actor;
 import com.sonicmax.bloodrogue.engine.objects.GameObject;
 import com.sonicmax.bloodrogue.engine.objects.Wall;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
-import com.sonicmax.bloodrogue.generator.tilesets.All;
+import com.sonicmax.bloodrogue.tilesets.All;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 
 import java.util.ArrayList;

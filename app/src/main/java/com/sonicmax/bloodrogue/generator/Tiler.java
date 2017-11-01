@@ -2,9 +2,9 @@ package com.sonicmax.bloodrogue.generator;
 
 import com.sonicmax.bloodrogue.engine.objects.Floor;
 import com.sonicmax.bloodrogue.engine.objects.Wall;
-import com.sonicmax.bloodrogue.generator.tilesets.All;
-import com.sonicmax.bloodrogue.generator.tilesets.Mansion;
-import com.sonicmax.bloodrogue.generator.tilesets.Ruins;
+import com.sonicmax.bloodrogue.tilesets.All;
+import com.sonicmax.bloodrogue.tilesets.Mansion;
+import com.sonicmax.bloodrogue.tilesets.Ruins;
 
 /**
  *  Class which decides which types of tiles to use depending on theme selected in ProceduralGenerator.

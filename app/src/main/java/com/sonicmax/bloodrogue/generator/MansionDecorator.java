@@ -14,8 +14,8 @@ import com.sonicmax.bloodrogue.engine.objects.Floor;
 import com.sonicmax.bloodrogue.engine.objects.GameObject;
 import com.sonicmax.bloodrogue.engine.objects.Room;
 import com.sonicmax.bloodrogue.engine.objects.Wall;
-import com.sonicmax.bloodrogue.generator.tilesets.All;
-import com.sonicmax.bloodrogue.generator.tilesets.Mansion;
+import com.sonicmax.bloodrogue.tilesets.All;
+import com.sonicmax.bloodrogue.tilesets.Mansion;
 import com.sonicmax.bloodrogue.utils.Array2DHelper;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 

@@ -1,4 +1,4 @@
-package com.sonicmax.bloodrogue.generator.tilesets;
+package com.sonicmax.bloodrogue.tilesets;
 
 /**
  *  Contains image paths for various types of tile associated with the mansion theme
@@ -14,6 +14,8 @@ public class Mansion extends All {
     public final static String[] DECORATIONS = {"sprites/mans_wallpaper_tear_1.png", "sprites/mans_wallpaper_tear_2.png",
             "sprites/mans_wallpaper_tear_3.png", "sprites/mould_top.png"};
 
+    public final static String ENTRANCE = "sprites/mansion_stairs_entrance.png";
+    public final static String EXIT = "sprites/mansion_stairs_exit.png";
     public final static String PEDESTAL = "sprites/mansion_pedestal.png";
     public final static String MARBLE_FLOOR_1 = "sprites/mansion_marble_floor.png";
     public final static String MARBLE_FLOOR_2 = "sprites/mansion_marble_floor_2.png";

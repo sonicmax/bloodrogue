@@ -1,4 +1,4 @@
-package com.sonicmax.bloodrogue.generator.tilesets;
+package com.sonicmax.bloodrogue.tilesets;
 
 public class All {
     public final static String KEY = "All";
