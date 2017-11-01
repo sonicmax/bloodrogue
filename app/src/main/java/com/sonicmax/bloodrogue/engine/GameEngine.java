@@ -771,7 +771,7 @@ public class GameEngine {
            mTotalAttack += damage;
         }
 
-        GameObject splat = DecalFactory.createBloodSplat(defender.getVector(), mMapGrid);
+        GameObject splat = DecalFactory.createBloodSplat(defender, mMapGrid);
 
         if (splat != null) {
             addObjectToStack(splat.x(), splat.y(), splat);
@@ -786,8 +786,8 @@ public class GameEngine {
         int y = defender.y();
 
         if (defender.getHp() <= 0) {
-            mAnimations[x][y].add(AnimationFactory.getDeathAnimation(x, y));
-            DecalFactory.createBloodSpray(defender.getVector(), mMapGrid, mObjectGrid);
+            mAnimations[x][y].add(AnimationFactory.getDeathAnimation(defender, x, y));
+            DecalFactory.createBloodSpray(defender, mMapGrid, mObjectGrid);
 
             mGameInterface.addNarration(attacker.getName() + " killed " + defender.getName() + "!", TextColours.RED);
 
@@ -811,7 +811,7 @@ public class GameEngine {
         }
 
         else {
-            mAnimations[x][y].add(AnimationFactory.getHitAnimation(x, y));
+            mAnimations[x][y].add(AnimationFactory.getHitAnimation(defender, x, y));
         }
     }
 

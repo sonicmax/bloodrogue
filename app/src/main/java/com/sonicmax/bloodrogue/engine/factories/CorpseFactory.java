@@ -37,6 +37,14 @@ public class CorpseFactory {
                 corpse.setSprite("sprites/purple_slime_corpse.png");
                 break;
 
+            case "sprites/cockroach.png":
+                corpse.setSprite("sprites/cockroach_corpse.png");
+                break;
+
+            case "sprites/ogre_spirit.png":
+                corpse.setSprite("sprites/ogre_spirit_corpse.png");
+                break;
+
             default:
                 corpse.setSprite("sprites/transparent.png");
                 break;

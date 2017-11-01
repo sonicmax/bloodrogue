@@ -1,5 +1,6 @@
 package com.sonicmax.bloodrogue.engine.factories;
 
+import com.sonicmax.bloodrogue.engine.objects.Actor;
 import com.sonicmax.bloodrogue.engine.objects.Animation;
 import com.sonicmax.bloodrogue.engine.objects.GameObject;
 
@@ -8,27 +9,76 @@ import java.util.Arrays;
 import java.util.Collections;
 
 public class AnimationFactory {
-    public static GameObject getHitAnimation(int x, int y) {
+    public static GameObject getHitAnimation(Actor actor, int x, int y) {
         Animation hit = new Animation(x, y);
         ArrayList<String> frames = new ArrayList<>();
-        frames.add("sprites/blood_splat_a_1.png");
-        frames.add("sprites/blood_splat_a_2.png");
-        frames.add("sprites/blood_splat_a_3.png");
-        frames.add("sprites/blood_splat_a_4.png");
+
+        // Todo: this sucks. It would be better to separate this from the code
+        switch (actor.getBloodColour()) {
+            case Actor.GREEN_BLOOD:
+                frames.add("sprites/blood_splat_a_green_1.png");
+                frames.add("sprites/blood_splat_a_green_2.png");
+                frames.add("sprites/blood_splat_a_green_3.png");
+                frames.add("sprites/blood_splat_a_green_4.png");
+                break;
+
+            case Actor.ECTOPLASM:
+                frames.add("sprites/ecto_hit_1.png");
+                frames.add("sprites/ecto_hit_2.png");
+                frames.add("sprites/ecto_hit_3.png");
+                frames.add("sprites/ecto_hit_4.png");
+                frames.add("sprites/ecto_hit_5.png");
+                hit.setGasOrLiquid(true);
+                break;
+
+            case Actor.RED_BLOOD:
+            default:
+                frames.add("sprites/blood_splat_a_1.png");
+                frames.add("sprites/blood_splat_a_2.png");
+                frames.add("sprites/blood_splat_a_3.png");
+                frames.add("sprites/blood_splat_a_4.png");
+                break;
+        }
+
         hit.setFrames(frames);
 
         return hit;
     }
 
-    public static GameObject getDeathAnimation(int x, int y) {
+    public static GameObject getDeathAnimation(Actor actor, int x, int y) {
         Animation death = new Animation(x, y);
         ArrayList<String> frames = new ArrayList<>();
-        frames.add("sprites/blood_splat_b_1.png");
-        frames.add("sprites/blood_splat_b_2.png");
-        frames.add("sprites/blood_splat_b_3.png");
-        frames.add("sprites/blood_splat_b_4.png");
-        frames.add("sprites/blood_splat_b_5.png");
-        frames.add("sprites/blood_splat_b_6.png");
+        // Todo: this also sucks
+        switch (actor.getBloodColour()) {
+            case Actor.GREEN_BLOOD:
+                frames.add("sprites/blood_splat_b_green_1.png");
+                frames.add("sprites/blood_splat_b_green_2.png");
+                frames.add("sprites/blood_splat_b_green_3.png");
+                frames.add("sprites/blood_splat_b_green_4.png");
+                frames.add("sprites/blood_splat_b_green_5.png");
+                frames.add("sprites/blood_splat_b_green_6.png");
+                break;
+
+            case Actor.ECTOPLASM:
+                frames.add("sprites/ecto_hit_1.png");
+                frames.add("sprites/ecto_hit_2.png");
+                frames.add("sprites/ecto_hit_3.png");
+                frames.add("sprites/ecto_hit_4.png");
+                frames.add("sprites/ecto_hit_5.png");
+                death.setGasOrLiquid(true);
+                break;
+
+            case Actor.RED_BLOOD:
+            default:
+                frames.add("sprites/blood_splat_b_1.png");
+                frames.add("sprites/blood_splat_b_2.png");
+                frames.add("sprites/blood_splat_b_3.png");
+                frames.add("sprites/blood_splat_b_4.png");
+                frames.add("sprites/blood_splat_b_5.png");
+                frames.add("sprites/blood_splat_b_6.png");
+                break;
+        }
+
         death.setFrames(frames);
 
         return death;

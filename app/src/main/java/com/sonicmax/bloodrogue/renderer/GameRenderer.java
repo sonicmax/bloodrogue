@@ -699,6 +699,16 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 for (int i = 0; i < animationsSize; i++) {
                     Animation animation = (Animation) animations[x][y].get(i);
                     int frameIndex = processAnimation(animation);
+
+                    if (animation.isGasOrLiquid()) {
+                        mWaveRenderer.addSpriteData(
+                                x, y,
+                                frameIndex,
+                                lighting,
+                                DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                    }
+
+                    else {
                     mSpriteRenderer.addSpriteData(
                             x, y,
                             frameIndex,

@@ -19,6 +19,14 @@ public class Actor extends GameObject {
     public static final int ENEMY = 1; // Friendly to enemy
     public static final int NEUTRAL = 2; // Won't attack unless provoked
 
+    /**
+     *  Blood type - currently just cosmetic but will have gameplay features eventually
+     */
+
+    public static final int RED_BLOOD = 0;
+    public static final int GREEN_BLOOD = 1;
+    public static final int ECTOPLASM = 2;
+
     private int maxHp;
     private int hp;
     private int totalXp;
@@ -31,6 +39,8 @@ public class Actor extends GameObject {
     private int hunger;
     private int energy;
     private int affinity;
+
+    private int bloodColour;
 
     private RandomNumberGenerator rng;
 
@@ -52,6 +62,8 @@ public class Actor extends GameObject {
         this.setMutability(true);
 
         this.rng = new RandomNumberGenerator();
+
+        this.bloodColour = RED_BLOOD;
     }
 
     /**
@@ -155,6 +167,14 @@ public class Actor extends GameObject {
 
     public void setAffinity(int affinity) {
         this.affinity = affinity;
+    }
+
+    public int getBloodColour() {
+        return this.bloodColour;
+    }
+
+    public void setBloodColour(int colour) {
+        this.bloodColour = colour;
     }
 
     /**

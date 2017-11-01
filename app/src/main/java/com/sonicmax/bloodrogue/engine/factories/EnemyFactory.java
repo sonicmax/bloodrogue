@@ -11,7 +11,7 @@ import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 public class EnemyFactory {
 
     public static GameObject getRandomEnemy(int x, int y, int level) {
-        int random = new RandomNumberGenerator().getRandomInt(0, 7);
+        int random = new RandomNumberGenerator().getRandomInt(0, 8);
 
         switch(random) {
             case 0:
@@ -30,7 +30,8 @@ public class EnemyFactory {
                 return createPurpleSlime(x, y, level);
             case 7:
                 return createOgreSpirit(x, y, level);
-
+            case 8:
+                return createCockroach(x, y, level);
 
             default:
                 return createZombie(x, y, level);
@@ -116,11 +117,50 @@ public class EnemyFactory {
         return enemy;
     }
 
+    public static GameObject createCockroach(int x, int y, int level) {
+        Actor enemy = new Actor(x, y, level);
+        enemy.setSprite("sprites/cockroach.png");
+        enemy.setName("Giant Bug");
+        enemy.setAffinity(Actor.ENEMY);
+        enemy.setBloodColour(Actor.GREEN_BLOOD);
+
+        // Same stat distribution as giant rat, but will multiply when not in player's field of vision
+        // and will retreat when injured
+
+        enemy.setStrength(level);
+        enemy.setEndurance(level);
+        enemy.setAgility(level);
+        enemy.distributeStatPoints(level);
+
+        if (level >= 3) {
+            int statModifier = Math.round(level / 3);
+
+            if (new RandomNumberGenerator().getRandomInt(0, 1) == 0) {
+                if (enemy.getStrength() - statModifier > 1) {
+                    enemy.setStrength(enemy.getStrength() - statModifier);
+                }
+            }
+
+            else {
+                if (enemy.getEndurance() - statModifier > 1) {
+                    enemy.setEndurance(enemy.getEndurance() - statModifier);
+                }
+            }
+
+            enemy.setAgility(enemy.getAgility() + statModifier);
+        }
+
+        enemy.setMaxHp(enemy.BASE_HP + (enemy.getEndurance() * level));
+
+        return enemy;
+    }
+
     public static GameObject createOgreSpirit(int x, int y, int level) {
         Actor enemy = new Actor(x, y, level);
         enemy.setSprite("sprites/ogre_spirit.png");
         enemy.setName("Spirit");
         enemy.setAffinity(Actor.ENEMY);
+        enemy.setBloodColour(Actor.ECTOPLASM);
 
         // Spirits are gaseous (kinda)
         enemy.setGasOrLiquid(true);
@@ -183,6 +223,7 @@ public class EnemyFactory {
         enemy.setSprite("sprites/green_slime.png");
         enemy.setName("Green Slime");
         enemy.setAffinity(Actor.ENEMY);
+        enemy.setBloodColour(Actor.GREEN_BLOOD);
 
         // Slime enemies have a chance to self-replicate on each turn
         enemy.setSelfReplicationChance(0.025f);
@@ -204,6 +245,7 @@ public class EnemyFactory {
         enemy.setSprite("sprites/purple_slime.png");
         enemy.setName("Purple Slime");
         enemy.setAffinity(Actor.ENEMY);
+        enemy.setBloodColour(Actor.GREEN_BLOOD);
 
         // Slime enemies have a chance to self-replicate on each turn
         enemy.setSelfReplicationChance(0.025f);
