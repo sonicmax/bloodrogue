@@ -919,23 +919,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         int originX = (int) (x / spriteSize);
         int originY = (int) (y / spriteSize);
 
-        // Render slightly larger chunk of grid than is actually visible
-        if (originX > 0) {
-        mChunkOriginX = originX - 1;
-        }
-        else {
-            mChunkOriginX = 0;
-        }
-
-        if (originY > 0) {
-        mChunkOriginY = originY - 1;
-        }
-        else {
-            mChunkOriginY = 0;
-        }
-
-        mChunkWidth = originX + mVisibleGridWidth + 2;
-        mChunkHeight = originY + mVisibleGridHeight + 2;
+        // Render slightly larger chunk of grid than is actually visible.
+        // Don't exceed bounds of map
+        mChunkOriginX = Math.max(originX - 1, 0);
+        mChunkOriginY = Math.max(originY - 1, 0);
+        mChunkWidth = Math.max(originX + mVisibleGridWidth + 2, mMapWidth);
+        mChunkHeight = Math.max(originY + mVisibleGridHeight + 2, mMapHeight);
     }
 
     public float[] getRenderCoordsForObject(Vector objectPos) {
