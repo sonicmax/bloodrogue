@@ -10,7 +10,7 @@ public class RandomNumberGenerator {
     }
 
     public int getRandomInt(int min, int max) {
-        return new Random(System.currentTimeMillis()).nextInt((max - min) + 1) + min;
+        return new Random().nextInt((max - min) + 1) + min;
     }
 
     public float getRandomFloat(float min, float max) {
