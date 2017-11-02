@@ -23,7 +23,6 @@ import com.sonicmax.bloodrogue.engine.objects.Wall;
 import com.sonicmax.bloodrogue.renderer.text.TextColours;
 import com.sonicmax.bloodrogue.utils.Array2DHelper;
 
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -43,7 +42,10 @@ public class GameEngine {
     private double[][] mFOV;
     private ArrayList<GameObject> mLightSources;
     private GameObject mPlayer;
+
     private ArrayList<ActorTurn> mTurnQueue;
+    private ArrayList<GameObject> mObjectQueue;
+
 
     private int mScore;
     private int mTotalKilled;
@@ -53,6 +55,7 @@ public class GameEngine {
     private int mMapWidth;
     private int mMapHeight;
     private int mSightRadius;
+    private int mCurrentFloor;
 
     private boolean mPlayerMoveLock;
     private boolean mInventoryOpen;
@@ -67,13 +70,17 @@ public class GameEngine {
         this.mSightRadius = 10;
         this.mMapWidth = 32;
         this.mMapHeight = 32;
+        this.mCurrentFloor = 1;
         this.mGameInterface = gameInterface;
         this.mFovCalculator = new FieldOfVisionCalculator();
         this.mAffinityManager = new AffinityManager();
+        this.mTurnQueue = new ArrayList<>();
+        this.mObjectQueue = new ArrayList<>();
     }
 
     public void initState() {
         ProceduralGenerator generator = new ProceduralGenerator(mMapWidth, mMapHeight);
+        generator.setFloor(mCurrentFloor);
         generator.generate(ProceduralGenerator.MANSION);
 
         mMapGrid = generator.getMapGrid();
@@ -287,8 +294,6 @@ public class GameEngine {
     }
 
     private void populateObjectGrid() {
-        addObjectToStack(mPlayer.x(), mPlayer.y(), mPlayer);
-
         ArrayList<GameObject> objects = mMapData.getObjects();
 
         for (GameObject object : objects) {
@@ -304,9 +309,10 @@ public class GameEngine {
         ArrayList<GameObject> enemies = mMapData.getEnemies();
 
         for (GameObject enemy : enemies) {
-            Log.v(LOG_TAG, "adding " + enemy.getSprite());
             addObjectToStack(enemy.x(), enemy.y(), enemy);
         }
+
+        addObjectToStack(mPlayer.x(), mPlayer.y(), mPlayer);
 
         mLightSources = new ArrayList<>();
         addRoomObjects(mMapData.getRooms());
@@ -498,7 +504,7 @@ public class GameEngine {
             int distance = (int) Calculator.getDistance(tile, playerPos);
             int heuristic = newDesire + distance;
 
-            // If any of these blocked tiles are closer than the closest empty tile, we should
+            // If any of these blocked tiles are closer than the closest empty getSprite, we should
             // probably look for a way around.
 
             if (closestTile == null || heuristic < bestHeuristic) {
@@ -696,10 +702,11 @@ public class GameEngine {
                 if (!detectCollisions(destination)) {
                     moveObjectToNewStack(actor, actor.getVector(), destination);
                     actor.move(destination);
+                    handleMovementInteractions(actor, destination);
                 }
 
                 else {
-                    handleInteractions(actor, destination);
+                    handleCollisionInteractions(actor, destination);
                 }
             }
 
@@ -709,32 +716,86 @@ public class GameEngine {
         addQueuedObjects();
     }
 
-    private void handleInteractions(Actor actor, Vector position) {
+    /**
+     * Called after player moves to a new tile. Checks whether any of the objects occupying
+     * this position have a movement action that needs to be performed (eg. moving to new floor,
+     * traps, environment damage, etc)
+     */
+
+    private void handleMovementInteractions(Actor actor, Vector position) {
         ArrayList<GameObject> objectStack = mObjectGrid[position.x()][position.y()];
 
         Iterator<GameObject> it = objectStack.iterator();
 
         while (it.hasNext()) {
             GameObject target = it.next();
-            target.collide(actor);
-
-            if (target.hasDeathAnimation()) {
-                mAnimations[target.x()][target.y()].add(target.getDeathAnimation());
+            if (target.activateOnMove()) {
+                int result = target.collide(actor);
+                performActorAction(actor, target, result);
             }
+        }
+    }
 
-            if (target instanceof Actor) {
-                Actor targetActor = (Actor) target;
-                attack(actor, targetActor);
+    /**
+     * Called after player collides with an object in a tile. Checks whether any of the objects
+     * occupying this position have a collision action that needs to be performed (eg opening doors,
+     * opening chests, attacking enemies).
+     */
 
-                if (targetActor.getHp() <= 0) {
-                    it.remove();
-                    mEnemies.remove(target);
+    private void handleCollisionInteractions(Actor actor, Vector position) {
+        ArrayList<GameObject> objectStack = mObjectGrid[position.x()][position.y()];
+
+        Iterator<GameObject> it = objectStack.iterator();
+
+        while (it.hasNext()) {
+            GameObject target = it.next();
+            if (target.activateOnCollide()) {
+                int result = target.collide(actor);
+                performActorAction(actor, target, result);
+
+                // Todo: why did i do this
+                if (target.hasDeathAnimation()) {
+                    mAnimations[target.x()][target.y()].add(target.getDeathAnimation());
+                }
+
+                if (target instanceof Actor) {
+                    Actor targetActor = (Actor) target;
+                    attack(actor, targetActor);
+
+                    if (targetActor.getHp() <= 0) {
+                        it.remove();
+                        mEnemies.remove(target);
+                    }
                 }
             }
         }
     }
 
-    private ArrayList<GameObject> mObjectQueue = new ArrayList<>();
+    /**
+     *  Checks result of GameObject.collide() method to see if we need to perform any extra actions.
+     *  Most are handled within the GameObject, but some require a higher scope to work.
+     */
+
+    private void performActorAction(Actor actor, GameObject target, int code) {
+        switch (code) {
+
+            case Actions.EXIT_FLOOR:
+                // Tell renderer to fade out content and display loading screen, generate
+                // terrain for new floor and fade in with new content
+                mCurrentFloor++;
+                mGameInterface.initFloorChange();
+                initState();
+                mGameInterface.startNewFloor();
+                break;
+
+            case Actions.EXIT_PREVIOUS_FLOOR:
+                break;
+
+            case Actions.NONE:
+            default:
+                break;
+        }
+    }
 
     private void addQueuedObjects() {
         Iterator<GameObject> iterator = mObjectQueue.iterator();

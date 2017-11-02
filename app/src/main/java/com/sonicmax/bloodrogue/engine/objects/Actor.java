@@ -60,6 +60,7 @@ public class Actor extends GameObject {
         this.setPlayerInterest(15);
         this.setStationary(false);
         this.setMutability(true);
+        this.setActivateOnCollide(true);
 
         this.rng = new RandomNumberGenerator();
 

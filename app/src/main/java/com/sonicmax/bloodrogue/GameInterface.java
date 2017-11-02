@@ -183,4 +183,13 @@ public class GameInterface {
         Status status = new Status(message, coords[0], coords[1], color);
         mRenderer.queueNewStatus(status);
     }
+
+    public void initFloorChange() {
+        mRenderer.fadeOutAndDisplaySplash();
+    }
+
+    public void startNewFloor() {
+        mRenderer.startNewFloor();
+    }
+
 }

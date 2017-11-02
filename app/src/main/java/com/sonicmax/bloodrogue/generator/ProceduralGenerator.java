@@ -3,8 +3,11 @@ package com.sonicmax.bloodrogue.generator;
 import android.util.Log;
 import android.util.SparseIntArray;
 
+import com.sonicmax.bloodrogue.engine.Directions;
 import com.sonicmax.bloodrogue.engine.collisions.AxisAlignedBoxTester;
+import com.sonicmax.bloodrogue.engine.factories.WidgetFactory;
 import com.sonicmax.bloodrogue.tilesets.Ruins;
+import com.sonicmax.bloodrogue.utils.maths.Calculator;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 import com.sonicmax.bloodrogue.engine.objects.Border;
 import com.sonicmax.bloodrogue.engine.objects.Decoration;
@@ -59,8 +62,8 @@ public class ProceduralGenerator {
     private Set mRegions;
 
     // Configuration for maze generator
-    private int mExtraConnectorChance = 20;
-    private int mWindingPercent = 50;
+    private int mExtraConnectorChance = 40;
+    private int mWindingPercent = 35;
 
     // Configuration for cavern generator
     private int mBirthLimit = 4;
@@ -79,6 +82,7 @@ public class ProceduralGenerator {
     private int mTheme;
     private String mThemeKey;
     private int mCurrentRoomTheme;
+    private int mCurrentFloor;
 
     private MansionDecorator mDecorator;
     private Tiler mTiler;
@@ -118,6 +122,10 @@ public class ProceduralGenerator {
 
         mMapRegions = Array2DHelper.fillIntArray(mMapWidth, mMapHeight, -1);
         mObjectGrid = Array2DHelper.create(mMapWidth, mMapHeight);
+    }
+
+    public void setFloor(int floor) {
+        this.mCurrentFloor = floor;
     }
 
     public MapData getMapData() {
@@ -180,8 +188,8 @@ public class ProceduralGenerator {
         mMaxRoomWidth = 7;
         mMinRoomHeight = 3;
         mMaxRoomHeight = 7;
-        mRoomDensity = 2000;
-        mWindingPercent = 20;
+        mRoomDensity = 4000;
+        mWindingPercent = 30;
     }
 
     private void setThemeAsRuins() {
@@ -206,6 +214,8 @@ public class ProceduralGenerator {
         checkForBrokenDoors();
         mGeneratingCorridors = false;
 
+        calculateGoals();
+
         mDecorator = new MansionDecorator(mMapWidth, mMapHeight, mTheme, mThemeKey);
         mDecorator.setGeneratorData(mMapGrid, mObjects, mObjectGrid, mEnemies);
         mDecorator.decorateRooms(mRooms);
@@ -216,7 +226,6 @@ public class ProceduralGenerator {
 
         removeHiddenWalls();
         removeInaccessibleCells();
-        calculateGoals();
     }
 
     private void generateRuins() {
@@ -363,6 +372,114 @@ public class ProceduralGenerator {
 
         startRoom.setEntrance();
         mStartPosition = startRoom.roundedCentre();
+        GameObject entrance = WidgetFactory.createEntrance(mStartPosition.x() + 1, mStartPosition.y());
+        mObjects.add(entrance);
+
+        int furthest = 0;
+        Vector furthestRoom = null;
+
+        for (GameObject object : mRooms) {
+            Room room = (Room) object;
+            Vector centre = room.roundedCentre();
+            ArrayList<Vector> path = findShortestPath(mStartPosition, centre);
+            int distance = path.size();
+            if (distance > furthest) {
+                furthestRoom = centre;
+                furthest = distance;
+            }
+        }
+
+        if (furthestRoom != null) {
+            GameObject exit = WidgetFactory.createExit(furthestRoom.x(), furthestRoom.y());
+            mObjects.add(exit);
+            Log.v(LOG_TAG, "path from start to finish was " + furthest + " moves");
+        }
+
+        else {
+            Log.e(LOG_TAG, "Couldn't find room to place exit");
+        }
+    }
+
+    private ArrayList<Vector> findShortestPath(Vector startNode, Vector goalNode) {
+        ArrayList<Vector> optimalPath = new ArrayList<>();
+        ArrayList<Vector> openNodes = new ArrayList<>();
+        ArrayList<String> checkedNodes = new ArrayList<>();
+
+        if (startNode.equals(goalNode)) {
+            return optimalPath;
+        }
+
+        openNodes.add(startNode);
+
+        Vector lastNode = null;
+
+        while (openNodes.size() > 0) {
+            Vector currentNode = openNodes.remove(openNodes.size() - 1);
+
+            if (lastNode != null && lastNode.equals(currentNode)) {
+                ;       // This probably shouldn't happen
+                Log.w(LOG_TAG, "Duplicate node in findShortestPath at " + lastNode.toString());
+                break;
+            }
+
+            Vector closestNode = null;
+            double bestDistance = Double.MAX_VALUE;
+
+            // Find adjacent node which is closest to goal
+            for (Vector direction : Directions.All.values()) {
+                Vector adjacentNode = currentNode.add(direction);
+
+                if (!inBounds(adjacentNode)) continue;
+
+                if (checkedNodes.contains(adjacentNode.toString())) continue;
+
+                if (detectCollisions(adjacentNode)) continue;
+
+                double distanceToGoal = Calculator.getDistance(adjacentNode, goalNode);
+
+                if (distanceToGoal < bestDistance) {
+                    bestDistance = distanceToGoal;
+                    closestNode = adjacentNode;
+                }
+            }
+
+            if (closestNode == null || closestNode.equals(goalNode)) {
+                return optimalPath;
+            }
+
+            else {
+                checkedNodes.add(currentNode.toString());
+                lastNode = currentNode;
+                optimalPath.add(closestNode);
+                openNodes.add(closestNode);
+            }
+        }
+
+        return optimalPath;
+    }
+
+    private boolean detectCollisions(Vector position) {
+        int x = position.x();
+        int y = position.y();
+
+        GameObject mapTile = mMapGrid[x][y];
+
+        if (mapTile.isBlocking() || !mapTile.isTraversable()) {
+            return true;
+        }
+
+        ArrayList<GameObject> objectStack = mObjectGrid[x][y];
+
+        if (objectStack == null) return false;
+
+        for (GameObject object : objectStack) {
+
+            if (object.isBlocking() || !object.isTraversable()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
 /*
@@ -810,21 +927,11 @@ public class ProceduralGenerator {
         }
     }
 
-/*
+    /*
     ---------------------------------------------
     Helper methods
     ---------------------------------------------
-*/
-
-    /**
-     * Legacy method to get adjacent cells. Should replace with something using Directions class
-     * Doesn't check whether new cells are in bounds.
-     *
-     * @param coords Vector of start position
-     * @param lookahead Number of cells to move ahead
-     * @param directlyAdjacent Whether to exclude diagonals
-     * @return HashMap containing adjacent cells
-     */
+    */
 
     private HashMap<String, Vector> getAdjacentCells(Vector coords, int lookahead, boolean directlyAdjacent) {
         int x = coords.x();
@@ -875,10 +982,7 @@ public class ProceduralGenerator {
     }
 
     private boolean cellIsInaccessible(Vector cell) {
-        // Note: as player can't move diagonally, we don't need to check these cells.
-        HashMap<String, Vector> directions = getAdjacentCells(cell, 1, false);
-
-        for (Vector direction : directions.values()) {
+        for (Vector direction : Directions.All.values()) {
             if (!inBounds(direction)) {
                 return false;
             }
@@ -891,7 +995,7 @@ public class ProceduralGenerator {
         }
 
         return true;
-    };
+    }
 
     private Vector getVectorForDirection(String direction) {
         switch (direction) {

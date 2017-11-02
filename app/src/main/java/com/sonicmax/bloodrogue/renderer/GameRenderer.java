@@ -40,12 +40,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private final int GAME = 2;
     private final float DEFAULT_OFFSET_X = 0f;
     private final float DEFAULT_OFFSET_Y = 0f;
+    private final long FRAME_TIME = 16L;
 
-    private final long FRAME_TIME = 17L;
-
+    private Context mContext;
     private GameInterface mGameInterface;
 
-    // Game/renderer state
+    // Game state
     private Frame mFrame;
     private Frame mNewFrame;
     private ArrayList<Vector> mCurrentPath;
@@ -53,13 +53,18 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private double[][] mLightMap = null;
     private double[][] mFov = null;
 
-    // Resources
-    private SpriteLoader mSpriteManager;
+    // Renderers
     private SpriteSheetRenderer mSpriteRenderer;
     private SpriteSheetRenderer mUiRenderer;
+    private SpriteSheetRenderer mWaveRenderer;
+    private TextRenderer mTextRenderer;
+    private SpriteSheetRenderer mScreenTransitionRenderer;
+
+    // Resources
+    private SpriteLoader mSpriteManager;
     private HashMap<String, Integer> mSprites; // Texture handles for loaded textures
     private HashMap<String, Integer> mSpriteIndexes; // Position on sprite sheet for particular texture
-    private TextRenderer mTextRenderer;
+    private int mObjectCount;
 
     // Text
     private ArrayList<TextObject> mNarrations;
@@ -114,6 +119,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private int mFps;
 
     // GL handles
+    private int mSolidColourProgram;
     private int mSpriteShaderProgram;
     private int mWaveShaderProgram;
     private int mRenderState;
@@ -122,8 +128,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private boolean hasResources;
     private boolean isRendering;
     private boolean mFirstRender;
-
-    private Context mContext;
+    private boolean mTransitionIn;
+    private boolean mTransitionOut;
 
     public GameRenderer(Context context, GameInterface gameInterface) {
         super();
@@ -150,11 +156,14 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mZoom = 1f;
 
         mFirstRender = true;
+        mTransitionIn = true;
+        mTransitionOut = false;
     }
 
     @Override
     public void onSurfaceCreated(GL10 unused, EGLConfig config) {
         GLShaderLoader loader = new GLShaderLoader(mContext);
+        mSolidColourProgram = loader.compileSolidColourShader();
         mSpriteShaderProgram = loader.compileSpriteShader();
         mWaveShaderProgram = loader.compileWaveShader();
 
@@ -164,17 +173,23 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         prepareGLSurface();
 
         mRenderState = SPLASH;
+
         loadImages();
+
         scaleScreen();
         setupMatrixes();
         calculateGridSize();
+
         setupUiBuilder();
         setupUiMatrixes();
+
         prepareTextRenderer();
         prepareSpriteRenderer();
         prepareWaveRenderer();
         prepareUiRenderer();
         prepareUiTextRenderer();
+        prepareScreenTransitionRenderer();
+
         mRenderState = GAME;
 
         // Post new runnable to GLSurfaceView which allows us to load textures/etc in background
@@ -192,15 +207,19 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
 
         if (mRenderState == NONE) {
-            Log.v(LOG_TAG, "Render state = none");
+            mScreenTransitionRenderer.initArrays(mVisibleGridWidth * mVisibleGridHeight);
+            fillScreen();
+            mScreenTransitionRenderer.renderSolidColours(mMVPMatrix);
         }
 
         else if (mRenderState == SPLASH) {
             // Show loading screen
+            mScreenTransitionRenderer.initArrays(mVisibleGridWidth * mVisibleGridHeight);
+            fillScreen();
+            mScreenTransitionRenderer.renderSolidColours(mMVPMatrix);
         }
 
         else if (hasResources && mRenderState == GAME) {
-
             mEndTime = System.currentTimeMillis();
 
             long dt = mEndTime - mStartTime;
@@ -209,13 +228,13 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 dt = FRAME_TIME;
             }
 
-            if (dt < FRAME_TIME) {
+            /*if (dt < FRAME_TIME) {
                 try {
                     Thread.sleep(FRAME_TIME - dt);
                 } catch (InterruptedException e) {
                     Log.e(LOG_TAG, "Error in onDrawFrame", e);
                 }
-            }
+            }*/
 
             mStartTime = mEndTime;
 
@@ -325,8 +344,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mSpriteRenderer.precalculateUv(mSpriteIndexes.size());
     }
 
-    private SpriteSheetRenderer mWaveRenderer;
-
     private void prepareWaveRenderer() {
         mWaveRenderer = new SpriteSheetRenderer();
         mWaveRenderer.setBasicShader(mSpriteShaderProgram);
@@ -346,6 +363,13 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mTextRenderer.precalculateUv();
         mTextRenderer.precalculateOffsets();
         mTextRowHeight = mTextRenderer.precalculateRows(mHeight);
+    }
+
+    private void prepareScreenTransitionRenderer() {
+        mScreenTransitionRenderer = new SpriteSheetRenderer();
+        mScreenTransitionRenderer.setBasicShader(mSolidColourProgram);
+        mScreenTransitionRenderer.setUniformScale(ssu);
+        mScreenTransitionRenderer.precalculatePositions(mVisibleGridWidth, mVisibleGridHeight);
     }
 
     private void prepareUiRenderer() {
@@ -414,7 +438,13 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     private void centreAtPlayerPos() {
-        Vector pos = mFrame.getPlayer().getVector();
+        Vector pos;
+        if (mNewFrame != null) {
+            pos = mNewFrame.getPlayer().getVector();
+        }
+        else {
+            pos = mFrame.getPlayer().getVector();
+        }
         float gridSize = SPRITE_SIZE * mZoom * ssu;
 
         // TODO: align better to centre by checking if odd/even number of grid squares in visible width
@@ -494,6 +524,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     ---------------------------------------------
     */
 
+    /**
+     * Main rendering loop. Iterates over any content we have to display and renders to GL surface.
+     *
+     * @param dt deltatime
+     */
+
     private void renderScreen(float dt) {
         if (!isRendering) {
 
@@ -521,7 +557,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             int spriteCount = countSprites();
 
             mSpriteRenderer.initArrays(spriteCount);
-            mWaveRenderer.initArrays(spriteCount);
+            mWaveRenderer.initArrays(mObjectCount); // Todo: we should explicitly count objects that need this renderer
             mTextRenderer.initArrays(countTextObjects() + fps.length());
             mUiRenderer.initArrays(countUiSprites());
             mUiTextRenderer.initArrays("Testing".length());
@@ -544,10 +580,78 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             mTextRenderer.renderText(mMVPMatrix);
             mUiRenderer.renderSprites(mUiMatrix);
 
-            isRendering = false;
-
             addQueuedTextUpdates();
+
+            if (mTransitionIn && !mTransitionOut) {
+                fadeTransitionIn(dt);
+            }
+            else if (mTransitionOut) {
+                fadeTransitionOut(dt);
+            }
+
+            isRendering = false;
         }
+    }
+
+    /**
+     * Creates fade-in effect for content rendered from game engine.
+     * Called when we have new game data to display (eg. when entering a new floor)
+     *
+     * @param dt deltatime
+     */
+
+    private void fadeTransitionIn(float dt) {
+        if (currentTransitionAlpha >= 0f) {
+            float fraction = 1 / dt;
+            currentTransitionAlpha -= fraction;
+        }
+        else {
+            mTransitionIn = false;
+            currentTransitionAlpha = 0f;
+            // Game data will already be present and rendered, so we don't need to do anything here
+        }
+
+        mScreenTransitionRenderer.initArrays(mVisibleGridWidth * mVisibleGridHeight);
+        fillScreen();
+        mScreenTransitionRenderer.renderSolidColours(mMVPMatrix);
+    }
+
+    /**
+     * Fades out current screen contents and sets game state to SPLASH.
+     * Called when we want to switch to a new floor.
+     *
+     * @param dt deltatime
+     */
+
+    private void fadeTransitionOut(float dt) {
+        if (currentTransitionAlpha < 1f) {
+            float fraction = 1 / dt;
+            currentTransitionAlpha += fraction;
+        }
+        else {
+            mTransitionOut = false;
+            currentTransitionAlpha = 1f;
+
+            // Display splash screen and wait for signal to render new data.
+            // We can also use this opportunity to make sure everything is in its default state
+            mRenderState = SPLASH;
+        }
+
+        mScreenTransitionRenderer.initArrays(mVisibleGridWidth * mVisibleGridHeight);
+        fillScreen();
+        mScreenTransitionRenderer.renderSolidColours(mMVPMatrix);
+    }
+
+    /**
+     *  Called when renderer is in SPLASH state and we have new game content to display.
+     */
+
+    public void startNewFloor() {
+        mTransitionIn = true;
+        mTransitionOut = false;
+        mFirstRender = true;
+        mRenderState = GAME;
+        centreAtPlayerPos();
     }
 
     /**
@@ -557,7 +661,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     private int countSprites() {
         int terrainCount = mChunkWidth * mChunkHeight;
-        int objectCount = 0;
+        mObjectCount = 0;
         int animationCount = 0;
         int uiCount = 0;
 
@@ -567,7 +671,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         for (int x = mChunkOriginX; x < mChunkWidth; x++) {
             for (int y = mChunkOriginY; y < mChunkHeight; y++) {
                 if (!inBounds(x, y)) continue;
-                objectCount += objects[x][y].size();
+
+                // Note: to get true object count, we would have to iterate over objects
+                // and separate solid objects from gas/liquid (which use a different renderer).
+                // However, we can safely use the total count without breaking anything.
+
+                mObjectCount += objects[x][y].size();
                 animationCount += animations[x][y].size();
             }
         }
@@ -576,7 +685,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             uiCount += mCurrentPath.size();
         }
 
-        return terrainCount + objectCount + animationCount + uiCount;
+        return terrainCount + mObjectCount + animationCount + uiCount;
     }
 
     /**
@@ -608,6 +717,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         return narrationSize + statusSize;
     }
+
+    /**
+     *  Iterates over visible objects in current frame and passes data to SpriteSheetRenderer.
+     */
 
     private void addSprites() {
         GameObject[][] mapGrid = mFrame.getTerrain();
@@ -649,7 +762,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
                     }
 
-                    else if (object.isImmutable() && (object.isStationary())) {
+                    else if (object.isImmutable() && object.isStationary()) {
                         mSpriteRenderer.addSpriteData(
                                 x, y,
                                 mSpriteIndexes.get(object.getSprite()),
@@ -709,11 +822,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                     }
 
                     else {
-                    mSpriteRenderer.addSpriteData(
-                            x, y,
-                            frameIndex,
-                            lighting,
-                            DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                        mSpriteRenderer.addSpriteData(
+                                x, y,
+                                frameIndex,
+                                lighting,
+                                DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                    }
                 }
 
                 handleFinishedAnimations(animations[x][y]);
@@ -723,8 +837,34 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         handleMovingObjects(movingObjects);
     }
 
+    /**
+     *  Covers screen with transparent black squares which slowly fade into view.
+     *  Used to handle screen transitions/etc
+     */
+
+    private float currentTransitionAlpha = 1f;
+
+    private void fillScreen() {
+        float[] colour = new float[] {
+                0f, 0f, 0f, currentTransitionAlpha,
+                0f, 0f, 0f, currentTransitionAlpha,
+                0f, 0f, 0f, currentTransitionAlpha,
+                0f, 0f, 0f, currentTransitionAlpha
+        };
+
+        for (int y = 0; y < mVisibleGridHeight; y++) {
+            for (int x = 0; x < mVisibleGridWidth; x++) {
+                mScreenTransitionRenderer.addSolidTile(
+                        x, y,
+                        colour,
+                        DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+            }
+        }
+    }
+
     private void handleMovingObjects(ArrayList<GameObject> objects) {
         for (GameObject object : objects) {
+            if (object.getlastMove() == null) continue;
             int x = object.x();
             int y = object.y();
             float fraction = object.advanceMovement();
@@ -1016,6 +1156,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
 
         return false;
+    }
+
+    public void fadeOutAndDisplaySplash() {
+        this.mTransitionOut = true;
     }
 
 }

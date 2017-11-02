@@ -1,5 +1,6 @@
 package com.sonicmax.bloodrogue.engine.objects;
 
+import com.sonicmax.bloodrogue.engine.Actions;
 import com.sonicmax.bloodrogue.engine.factories.AnimationFactory;
 
 import java.util.ArrayList;
@@ -24,6 +25,7 @@ public class Chest extends GameObject {
         this.setDeathAnimation(AnimationFactory.getChestItemRevealAnimation(x, y));
         this.setStationary(true);
         this.setMutability(true);
+        this.setActivateOnCollide(true);
 
         this.open = false;
         this.empty = false;
@@ -34,7 +36,7 @@ public class Chest extends GameObject {
      *  Chest has three states - closed, open and empty.
      */
 
-    public void collide(GameObject object) {
+    public int collide(GameObject object) {
         if (object.canInteract()) {
             if (!this.open) {
                 this.setSprite(OPEN);
@@ -44,5 +46,8 @@ public class Chest extends GameObject {
                 this.empty = true;
             }
         }
+
+        // We don't need to do anything else.
+        return Actions.NONE;
     }
 }

@@ -2,6 +2,8 @@ package com.sonicmax.bloodrogue.engine.objects;
 
 import android.util.Log;
 
+import com.sonicmax.bloodrogue.engine.Actions;
+
 public class Door extends GameObject {
     private String openTile;
     private String closedTile;
@@ -14,6 +16,7 @@ public class Door extends GameObject {
         this.setHasAction(true);
         this.setStationary(true);
         this.setMutability(true);
+        this.setActivateOnCollide(true);
 
         if (isOpen) {
             this.setSprite(this.openTile);
@@ -33,6 +36,7 @@ public class Door extends GameObject {
         this.closedTile = closed;
         this.isOpen = isOpen;
         this.setHasAction(true);
+        this.setActivateOnCollide(true);
 
         if (isOpen) {
             this.setSprite(this.openTile);
@@ -46,7 +50,7 @@ public class Door extends GameObject {
         }
     }
 
-    public void collide(GameObject object) {
+    public int collide(GameObject object) {
         if (object.canInteract()) {
             if (!isOpen) {
                 this.setSprite(this.openTile);
@@ -65,5 +69,7 @@ public class Door extends GameObject {
         else {
             Log.v("Door", object.getClass().getSimpleName() + " not interactive");
         }
+
+        return Actions.NONE;
     }
 }

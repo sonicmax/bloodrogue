@@ -37,6 +37,8 @@ public class GameObject {
     private boolean canSelfReplicate;
     private float chanceToSelfReplicate;
     private boolean isGasOrLiquid;
+    private boolean activateOnCollide;
+    private boolean activateOnMove;
 
     private int dijkstra;
     private int playerInterest;
@@ -76,6 +78,8 @@ public class GameObject {
         this.canSelfReplicate = false;
         this.chanceToSelfReplicate = 0f;
         this.isGasOrLiquid = false;
+        this.activateOnCollide = false;
+        this.activateOnMove = false;
 
         this.dijkstra = 0;
         this.playerInterest = 0;
@@ -118,6 +122,8 @@ public class GameObject {
         this.canSelfReplicate = original.canSelfReplicate;
         this.chanceToSelfReplicate = original.chanceToSelfReplicate; // todo: maybe lower this for clones?
         this.isGasOrLiquid = original.isGasOrLiquid;
+        this.activateOnCollide = original.activateOnCollide;
+        this.activateOnMove = original.activateOnMove;
 
         this.dijkstra = original.dijkstra;
         this.playerInterest = original.playerInterest;
@@ -304,11 +310,12 @@ public class GameObject {
     /**
      * This method is called whenever another object collides with this one.
      * Currently, only non-traversable objects are collidable.
-     *
-     * @param object Colliding object
+     * Returns -1 if nothing happens.
      */
 
-    public void collide(GameObject object) {}
+    public int collide(GameObject object) {
+        return -1;
+    }
 
 
     /** Methods for path-finding and storing object state */
@@ -364,7 +371,7 @@ public class GameObject {
     }
 
     public void setMutability(boolean value) {
-        // Todo: this is stupid. But if object is mutable then we set isImmutable to inverse of value
+        // if object is mutable then we set isImmutable to inverse of value
         this.isImmutable = !value;
     }
 
@@ -390,6 +397,12 @@ public class GameObject {
         return (fraction * fraction);
     }
 
+    /**
+     *  Indicates whether object is currently being controlled by the player.
+     *  Generally this will only apply to the player character, but it will be possible to
+     *  control enemies and other objects using spells/powers
+     */
+
     public boolean isPlayerControlled() {
         return this.isPlayerControlled;
     }
@@ -397,6 +410,12 @@ public class GameObject {
     public void setPlayerControl(boolean value) {
         this.isPlayerControlled = value;
     }
+
+    /**
+     *  Some objects are able to self-replicate. If random float between 0 and 1 is less than
+     *  chance to self-replicate, then we attempt to clone object to a free adjacent space.
+     *  Cloned object will retain the properties of the original.
+     */
 
     public float getSelfReplicateChance() {
         return this.chanceToSelfReplicate;
@@ -406,11 +425,37 @@ public class GameObject {
         this.chanceToSelfReplicate = chance;
     }
 
+    /**
+     *  Objects are presumed solid, unless this flag is set. Gases/liquids are rendered using
+     *  a wave shader and have different properties to solid objects
+     */
+
     public void setGasOrLiquid(boolean value) {
         this.isGasOrLiquid = value;
     }
 
     public boolean isGasOrLiquid() {
         return this.isGasOrLiquid;
+    }
+
+    /**
+     *  Some objects are activated after colliding, while others are activated after moving onto
+     *  their tile. (it's not possible to combine these effects)
+     */
+
+    public boolean activateOnCollide() {
+        return this.activateOnCollide;
+    }
+
+    public void setActivateOnCollide(boolean value) {
+        this.activateOnCollide = value;
+    }
+
+    public boolean activateOnMove() {
+        return this.activateOnMove;
+    }
+
+    public void setActivateOnMove(boolean value) {
+        this.activateOnMove = value;
     }
 }
