@@ -381,18 +381,18 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         uiRenderer.precalculateUv(spriteIndexes.size());
     }
 
-    private TextRenderer mUiTextRenderer;
+    private TextRenderer uiTextRenderer;
 
     private void prepareUiTextRenderer() {
         // Create our text manager
-        mUiTextRenderer = new TextRenderer();
-        mUiTextRenderer.setShaderProgramHandle(spriteShaderProgram);
-        mUiTextRenderer.setTextureHandle(spriteHandles.get("fonts/ccra_font.png"));
-        mUiTextRenderer.setUniformscale(scaleFactor);
-        mUiTextRenderer.setTextSize(32f);
-        mUiTextRenderer.precalculateUv();
-        mUiTextRenderer.precalculateOffsets();
-        mUiTextRenderer.precalculateRows(screenHeight);
+        uiTextRenderer = new TextRenderer();
+        uiTextRenderer.setShaderProgramHandle(spriteShaderProgram);
+        uiTextRenderer.setTextureHandle(spriteHandles.get("fonts/ccra_font.png"));
+        uiTextRenderer.setUniformscale(scaleFactor);
+        uiTextRenderer.setTextSize(32f);
+        uiTextRenderer.precalculateUv();
+        uiTextRenderer.precalculateOffsets();
+        uiTextRenderer.precalculateRows(screenHeight);
     }
 
     private void setupUiBuilder() {
@@ -560,7 +560,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             waveRenderer.initArrays(objectCount); // Todo: we should explicitly count objects that need this renderer
             textRenderer.initArrays(countTextObjects() + fps.length());
             uiRenderer.initArrays(countUiSprites());
-            mUiTextRenderer.initArrays("Testing".length());
+            uiTextRenderer.initArrays("Testing".length());
 
             // Iterate over game data and send to renderer
             addSprites();
