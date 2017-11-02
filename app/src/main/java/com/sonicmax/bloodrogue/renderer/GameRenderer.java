@@ -126,7 +126,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private boolean firstRender;
     private boolean transitionIn;
     private boolean transitionOut;
+    private float currentTransitionAlpha = 1f;
     private int renderState;
+    private boolean halfSecPassed;
 
     public GameRenderer(Context context, GameInterface gameInterface) {
         super();
@@ -155,6 +157,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         firstRender = true;
         transitionIn = true;
         transitionOut = false;
+        halfSecPassed = false;
     }
 
     @Override
@@ -839,8 +842,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
      *  Used to handle screen transitions/etc
      */
 
-    private float currentTransitionAlpha = 1f;
-
     private void fillScreen() {
         float[] colour = new float[] {
                 0f, 0f, 0f, currentTransitionAlpha,
@@ -992,8 +993,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         return (x >= 0 && x < mapGridWidth && y >= 0 && y < mapGridHeight);
     }
 
-    private boolean mHalfSec = false;
-
     public void checkElapsedTime(long dt) {
         currentFrameTime += dt;
         frameCount++;
@@ -1002,7 +1001,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         // Narrations are only updated once a second, so it's pointless checking every single frame
         if (currentFrameTime >= 500) {
             gameInterface.checkNarrations();
-            mHalfSec = true;
+            halfSecPassed = true;
         }
 
         // Update FPS count
@@ -1010,11 +1009,11 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             fpsCount = frameCount;
             currentFrameTime = 0;
             frameCount = 0;
-            if (!mHalfSec) {
+            if (!halfSecPassed) {
                 gameInterface.checkNarrations();
             }
 
-            mHalfSec = false;
+            halfSecPassed = false;
         }
     }
 
