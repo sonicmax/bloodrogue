@@ -3,9 +3,11 @@ package com.sonicmax.bloodrogue;
 import android.content.Context;
 import android.content.res.AssetManager;
 import android.os.AsyncTask;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 
+import com.sonicmax.bloodrogue.engine.Frame;
 import com.sonicmax.bloodrogue.engine.GameEngine;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 import com.sonicmax.bloodrogue.engine.objects.GameObject;
@@ -13,6 +15,12 @@ import com.sonicmax.bloodrogue.renderer.GameRenderer;
 import com.sonicmax.bloodrogue.renderer.text.NarrationManager;
 import com.sonicmax.bloodrogue.renderer.text.Status;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 
 /**
@@ -51,8 +59,17 @@ public class GameInterface {
     }
 
     public void init() {
-        gameEngine.initState();
-        passDataToRenderer();
+        Frame frame = loadState();
+        if (frame == null) {
+            Log.v(LOG_TAG, "Load failed or was first run");
+            gameEngine.initState();
+            passDataToRenderer();
+        }
+        else {
+            Log.v(LOG_TAG, "Load successful");
+            gameEngine.loadState(frame);
+            passDataToRenderer(frame);
+        }
     }
 
     public GameRenderer getRenderer() {
@@ -162,6 +179,11 @@ public class GameInterface {
         gameRenderer.setHasGameData();
     }
 
+    public void passDataToRenderer(Frame frame) {
+        gameRenderer.setFrame(frame);
+        gameRenderer.setHasGameData();
+    }
+
     public void setMoveLock(boolean value) {
         inputLock = value;
     }
@@ -198,4 +220,65 @@ public class GameInterface {
         gameRenderer.startNewFloor();
     }
 
+    public void saveState() {
+        String FILENAME = "save_data";
+        Frame frame = gameEngine.getFrame();
+
+        FileOutputStream fos = null;
+        ObjectOutputStream oos = null;
+
+        try {
+            File file = new File(context.getFilesDir(), FILENAME);
+            file.createNewFile();
+            fos = context.openFileOutput(FILENAME, Context.MODE_PRIVATE);
+            oos = new ObjectOutputStream(fos);
+            oos.writeObject(frame);
+
+        } catch (IOException e) {
+            Log.e(LOG_TAG, "Error while writing to disk", e);
+        } finally {
+            try {
+                if (fos != null) {
+                    fos.close();
+                }
+                if (oos != null) {
+                    oos.close();
+                }
+            } catch (IOException e) {
+                Log.e(LOG_TAG, "Error closing output streams", e);
+            }
+        }
+    }
+
+    public Frame loadState() {
+        Frame frame = null;
+        String FILENAME = "save_data";
+
+        FileInputStream fis = null;
+        ObjectInputStream ois = null;
+
+        try {
+            fis = context.openFileInput(FILENAME);
+            ois = new ObjectInputStream(fis);
+            frame = (Frame) ois.readObject();
+
+        } catch (ClassNotFoundException e1) {
+            Log.e(LOG_TAG, "Error while writing to disk", e1);
+        } catch (IOException e2) {
+            Log.e(LOG_TAG, "Error while writing to disk", e2);
+        } finally {
+            try {
+                if (fis != null) {
+                    fis.close();
+                }
+                if (ois != null) {
+                    ois.close();
+                }
+            } catch (IOException e) {
+                Log.e(LOG_TAG, "Error closing output streams", e);
+            }
+        }
+
+        return frame;
+    }
 }

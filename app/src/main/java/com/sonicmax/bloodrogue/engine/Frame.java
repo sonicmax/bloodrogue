@@ -2,19 +2,25 @@ package com.sonicmax.bloodrogue.engine;
 
 import com.sonicmax.bloodrogue.engine.objects.GameObject;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 
 /**
  * Container for all data required to update renderer
  */
 
-public class Frame {
+public class Frame implements Serializable {
+    private static final long serialVersionUID = 1L;
     private GameObject[][] terrain;
     private ArrayList<GameObject>[][] objects;
     private ArrayList<GameObject>[][] animations;
     private double[][] fov;
     private double[][] lightMap;
     private GameObject player;
+
+    public Frame() {
+
+    }
 
     public Frame(GameObject[][] terrain, ArrayList<GameObject>[][] objects,
                  ArrayList<GameObject>[][] animations, double[][] fov, double[][] lightMap, GameObject player) {

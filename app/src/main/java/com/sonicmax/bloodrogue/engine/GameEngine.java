@@ -109,6 +109,16 @@ public class GameEngine {
         return new Frame(mapGrid, objectGrid, animations, fieldOfVision, lightMap, player);
     }
 
+    public void loadState(Frame frame) {
+        mapGrid = frame.getTerrain();
+        objectGrid = frame.getObjects();
+        animations = frame.getAnimations();
+        fieldOfVision = frame.getFov();
+        lightMap = frame.getLightMap();
+        player = frame.getPlayer();
+        populateObjectGrid();
+    }
+
     public int[] getMapSize() {
         return new int[] {mapWidth, mapHeight};
     }
@@ -293,7 +303,27 @@ public class GameEngine {
     }
 
     private void populateObjectGrid() {
-        ArrayList<GameObject> objects = mMapData.getObjects();
+        enemies = new ArrayList<>();
+        lightSources = new ArrayList<>();
+
+        for (int y = 0; y < mapHeight; y++) {
+            for (int x = 0; x < mapWidth; x++) {
+                ArrayList<GameObject> objects = objectGrid[x][y];
+
+                for (GameObject object : objects) {
+                    if (object instanceof Actor && !object.isPlayerControlled()) {
+                        enemies.add(object);
+                    }
+
+                    else if (object instanceof LightSource) {
+                        lightSources.add(object);
+                    }
+                }
+            }
+        }
+    }
+
+    private void populateObjectGridFromMapData() {
         ArrayList<GameObject> objects = mapData.getObjects();
 
         for (GameObject object : objects) {

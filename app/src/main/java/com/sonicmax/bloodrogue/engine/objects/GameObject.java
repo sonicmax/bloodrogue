@@ -2,11 +2,13 @@ package com.sonicmax.bloodrogue.engine.objects;
 
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.UUID;
 
-public class GameObject {
+public class GameObject implements Serializable {
     private final String LOG_TAG = this.getClass().getSimpleName();
+    private static final long serialVersionUID = 1L;
     private final String id;
     private String name;
 
@@ -45,6 +47,10 @@ public class GameObject {
     private int state;
     private ArrayList<Vector> path;
     private Vector lastMove;
+
+    public GameObject() {
+        this.id = UUID.randomUUID().toString(); // Still want unique id for cloned object
+    }
 
     public GameObject(int x, int y) {
         this.x = x;
