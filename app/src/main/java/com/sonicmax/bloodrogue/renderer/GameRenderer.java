@@ -10,7 +10,7 @@ import android.opengl.Matrix;
 import android.util.Log;
 
 import com.sonicmax.bloodrogue.GameInterface;
-import com.sonicmax.bloodrogue.engine.Frame;
+import com.sonicmax.bloodrogue.engine.FloorData;
 import com.sonicmax.bloodrogue.renderer.ui.UserInterfaceBuilder;
 import com.sonicmax.bloodrogue.renderer.text.TextColours;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
@@ -46,8 +46,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private GameInterface gameInterface;
 
     // Game state
-    private Frame currentFrame;
-    private Frame newFrame;
+    private FloorData currentFloorData;
+    private FloorData updatedFloorData;
     private ArrayList<Vector> currentPathSelection;
     private Vector scrollOffset;
     private double[][] lightMap = null;
@@ -135,8 +135,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         this.context = context;
         this.gameInterface = gameInterface;
 
-        currentFrame = null;
-        newFrame = null;
+        currentFloorData = null;
+        updatedFloorData = null;
         renderState = NONE;
         hasResources = false;
         isRendering = false;
@@ -439,11 +439,11 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     private void centreAtPlayerPos() {
         Vector pos;
-        if (newFrame != null) {
-            pos = newFrame.getPlayer().getVector();
+        if (updatedFloorData != null) {
+            pos = updatedFloorData.getPlayer().getVector();
         }
         else {
-            pos = currentFrame.getPlayer().getVector();
+            pos = currentFloorData.getPlayer().getVector();
         }
         float gridSize = SPRITE_SIZE * zoomLevel * scaleFactor;
 
@@ -509,7 +509,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     private Vector calculateScrollOffset() {
-        GameObject player = currentFrame.getPlayer();
+        GameObject player = currentFloorData.getPlayer();
         return new Vector(player.x() - (visibleGridWidth / 2), player.y() - (visibleGridHeight / 2));
     }
 
@@ -537,16 +537,16 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
             if (firstRender) {
                 centreAtPlayerPos();
-                lightMap = currentFrame.getLightMap();
-                fieldOfVision = currentFrame.getFov();
+                lightMap = currentFloorData.getLightMap();
+                fieldOfVision = currentFloorData.getFov();
                 firstRender = false;
             }
 
-            if (newFrame != null) {
+            if (updatedFloorData != null) {
                 // Replace existing frame with new frame
-                currentFrame = newFrame;
-                lightMap = currentFrame.getLightMap();
-                fieldOfVision = currentFrame.getFov();
+                currentFloorData = updatedFloorData;
+                lightMap = currentFloorData.getLightMap();
+                fieldOfVision = currentFloorData.getFov();
             }
 
             scrollOffset = calculateScrollOffset();
@@ -665,8 +665,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         int animationCount = 0;
         int uiCount = 0;
 
-        ArrayList<GameObject>[][] objects = currentFrame.getObjects();
-        ArrayList<GameObject>[][] animations = currentFrame.getAnimations();
+        ArrayList<GameObject>[][] objects = currentFloorData.getObjects();
+        ArrayList<GameObject>[][] animations = currentFloorData.getAnimations();
 
         for (int x = chunkOriginX; x < chunkWidth; x++) {
             for (int y = chunkOriginY; y < chunkHeight; y++) {
@@ -723,9 +723,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
      */
 
     private void addSprites() {
-        GameObject[][] mapGrid = currentFrame.getTerrain();
-        ArrayList<GameObject>[][] objectGrid = currentFrame.getObjects();
-        ArrayList<GameObject>[][] animations = currentFrame.getAnimations();
+        GameObject[][] mapGrid = currentFloorData.getTerrain();
+        ArrayList<GameObject>[][] objectGrid = currentFloorData.getObjects();
+        ArrayList<GameObject>[][] animations = currentFloorData.getAnimations();
         ArrayList<GameObject> movingObjects = new ArrayList<>();
 
         for (int y = chunkOriginY; y < chunkHeight; y++) {
@@ -1081,12 +1081,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         return new float[] {x, y};
     }
 
-    public void setFrame(Frame frame) {
-        if (currentFrame == null) {
-            currentFrame = frame;
+    public void setFloorData(FloorData floorData) {
+        if (currentFloorData == null) {
+            currentFloorData = floorData;
         }
         else {
-            newFrame = frame;
+            updatedFloorData = floorData;
         }
     }
 

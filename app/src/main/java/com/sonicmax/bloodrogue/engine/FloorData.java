@@ -9,7 +9,7 @@ import java.util.ArrayList;
  * Container for all data required to update renderer
  */
 
-public class Frame implements Serializable {
+public class FloorData implements Serializable {
     private static final long serialVersionUID = 1L;
     private GameObject[][] terrain;
     private ArrayList<GameObject>[][] objects;
@@ -18,12 +18,12 @@ public class Frame implements Serializable {
     private double[][] lightMap;
     private GameObject player;
 
-    public Frame() {
+    public FloorData() {
 
     }
 
-    public Frame(GameObject[][] terrain, ArrayList<GameObject>[][] objects,
-                 ArrayList<GameObject>[][] animations, double[][] fov, double[][] lightMap, GameObject player) {
+    public FloorData(GameObject[][] terrain, ArrayList<GameObject>[][] objects,
+                     ArrayList<GameObject>[][] animations, double[][] fov, double[][] lightMap, GameObject player) {
 
         this.terrain = terrain;
         this.objects = objects;
@@ -31,7 +31,6 @@ public class Frame implements Serializable {
         this.fov = fov;
         this.lightMap = lightMap;
         this.player = player;
-
     }
 
     public GameObject[][] getTerrain() {

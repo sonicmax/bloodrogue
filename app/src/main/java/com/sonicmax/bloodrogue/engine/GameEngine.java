@@ -105,11 +105,11 @@ public class GameEngine {
     ---------------------------------------------
     */
 
-    public Frame getFrame() {
-        return new Frame(mapGrid, objectGrid, animations, fieldOfVision, lightMap, player);
+    public FloorData getCurrentFloorData() {
+        return new FloorData(mapGrid, objectGrid, animations, fieldOfVision, lightMap, player);
     }
 
-    public void loadState(Frame frame) {
+    public void loadState(FloorData frame) {
         mapGrid = frame.getTerrain();
         objectGrid = frame.getObjects();
         animations = frame.getAnimations();

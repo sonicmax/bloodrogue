@@ -7,7 +7,7 @@ import android.util.Log;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 
-import com.sonicmax.bloodrogue.engine.Frame;
+import com.sonicmax.bloodrogue.engine.FloorData;
 import com.sonicmax.bloodrogue.engine.GameEngine;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 import com.sonicmax.bloodrogue.engine.objects.GameObject;
@@ -59,7 +59,7 @@ public class GameInterface {
     }
 
     public void init() {
-        Frame frame = loadState();
+        FloorData frame = loadState();
         if (frame == null) {
             Log.v(LOG_TAG, "Load failed or was first run");
             gameEngine.initState();
@@ -175,12 +175,12 @@ public class GameInterface {
     }
 
     public void passDataToRenderer() {
-        gameRenderer.setFrame(gameEngine.getFrame());
+        gameRenderer.setFloorData(gameEngine.getCurrentFloorData());
         gameRenderer.setHasGameData();
     }
 
-    public void passDataToRenderer(Frame frame) {
-        gameRenderer.setFrame(frame);
+    public void passDataToRenderer(FloorData frame) {
+        gameRenderer.setFloorData(frame);
         gameRenderer.setHasGameData();
     }
 
@@ -222,7 +222,7 @@ public class GameInterface {
 
     public void saveState() {
         String FILENAME = "save_data";
-        Frame frame = gameEngine.getFrame();
+        FloorData frame = gameEngine.getCurrentFloorData();
 
         FileOutputStream fos = null;
         ObjectOutputStream oos = null;
@@ -250,8 +250,8 @@ public class GameInterface {
         }
     }
 
-    public Frame loadState() {
-        Frame frame = null;
+    public FloorData loadState() {
+        FloorData frame = null;
         String FILENAME = "save_data";
 
         FileInputStream fis = null;
@@ -260,7 +260,7 @@ public class GameInterface {
         try {
             fis = context.openFileInput(FILENAME);
             ois = new ObjectInputStream(fis);
-            frame = (Frame) ois.readObject();
+            frame = (FloorData) ois.readObject();
 
         } catch (ClassNotFoundException e1) {
             Log.e(LOG_TAG, "Error while writing to disk", e1);
