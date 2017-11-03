@@ -101,6 +101,18 @@ public class Actor extends GameObject {
         this.xp = points;
     }
 
+    /**
+     *  getHpString() and getXpString() return formatted strings for display in UI / debug purposes
+     */
+
+    public String getHpString() {
+        return this.hp + " / " + this.maxHp;
+    }
+
+    public String getXpString() {
+        return (this.xpToNextLevel - this.xp) + " to next level";
+    }
+
     public void setStrength(int points) {
         this.strength = points;
     }

@@ -869,7 +869,9 @@ public class GameEngine {
         }
 
         // Update combat log and display hit animations
+        if (!defender.isPlayerControlled()) {
         gameInterface.displayStatus(defender, Integer.toString(damage), TextColours.STATUS_RED);
+        }
 
         // renderer.addAnimation(target.getDamageAnimation());
 

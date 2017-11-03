@@ -11,6 +11,7 @@ import android.util.Log;
 
 import com.sonicmax.bloodrogue.GameInterface;
 import com.sonicmax.bloodrogue.engine.FloorData;
+import com.sonicmax.bloodrogue.engine.objects.Actor;
 import com.sonicmax.bloodrogue.renderer.ui.UserInterfaceBuilder;
 import com.sonicmax.bloodrogue.renderer.text.TextColours;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
@@ -552,13 +553,16 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             scrollOffset = calculateScrollOffset();
             setGridChunkToRender();
 
-            String fps = fpsCount + " fps";
+            buildUiTextObjects();
+
+            fps = fpsCount + " fps";
+
             // Get total sprite count and pass to renderer so we can init arrays used to store rendering data
             int spriteCount = countSprites();
 
             spriteRenderer.initArrays(spriteCount);
             waveRenderer.initArrays(objectCount); // Todo: we should explicitly count objects that need this renderer
-            textRenderer.initArrays(countTextObjects() + fps.length());
+            textRenderer.initArrays(countTextObjects());
             uiRenderer.initArrays(countUiSprites());
             uiTextRenderer.initArrays("Testing".length());
 
@@ -566,7 +570,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             addSprites();
             addUiLayer();
             addTextLayer();
-            textRenderer.addTextData(textRowHeight - 1, fps, TextColours.WHITE, 0f);
 
             // Check whether we need to translate matrix to account for touch scrolling
             float[] renderMatrix = new float[16];
@@ -703,9 +706,22 @@ public class GameRenderer implements GLSurfaceView.Renderer {
      * We count individual latters as they are rendered 1 sprite per letter
      */
 
+    private String hp;
+    private String xp;
+    private String fps;
+
+    private void buildUiTextObjects() {
+        Actor player = (Actor) currentFloorData.getPlayer();
+        hp = "HP: " + player.getHpString();
+        xp = "XP: " + player.getXpString();
+    }
+
     private int countTextObjects() {
         int narrationSize = 0;
         int statusSize = 0;
+        int uiText = 0;
+
+        uiText += hp.length() + xp.length() + fps.length();
 
         for (TextObject object : narrations) {
             narrationSize += object.text.length();
@@ -715,7 +731,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             statusSize += object.text.length();
         }
 
-        return narrationSize + statusSize;
+        return narrationSize + statusSize + uiText;
     }
 
     /**
@@ -957,6 +973,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 textRenderer.addTextData(status.x, status.y, status.offsetY, status.scale, status.text, status.color, status.alphaModifier);
             }
         }
+
+        textRenderer.addTextData(textRowHeight - 1, targetWidth, fps, TextColours.WHITE, 0f);
+        textRenderer.addTextData(textRowHeight - 1, hp, TextColours.RED, 0f);
+        textRenderer.addTextData(textRowHeight - 2, xp, TextColours.YELLOW, 0f);
     }
 
     private double getLightingForGrid(int x, int y) {
