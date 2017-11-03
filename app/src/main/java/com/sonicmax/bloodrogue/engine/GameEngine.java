@@ -32,70 +32,69 @@ public class GameEngine {
     private final String LOG_TAG = this.getClass().getSimpleName();
     private final int DIJKSTRA_MAX = 20;
 
-    private MapData mMapData;
-    private ArrayList<GameObject>[][] mObjectGrid;
-    private GameObject[][] mMapGrid;
-    private ArrayList<GameObject> mEnemies;
-    private ArrayList<GameObject>[][] mAnimations;
-    private int[][] mPlayerDesireMap;
-    private double[][] mLightMap;
-    private double[][] mFOV;
-    private ArrayList<GameObject> mLightSources;
-    private GameObject mPlayer;
+    private GameInterface gameInterface;
+    private FieldOfVisionCalculator fovCalculator;
+    private AffinityManager affinityManager;
 
-    private ArrayList<ActorTurn> mTurnQueue;
-    private ArrayList<GameObject> mObjectQueue;
+    private MapData mapData;
+    private ArrayList<GameObject>[][] objectGrid;
+    private GameObject[][] mapGrid;
+    private ArrayList<GameObject> enemies;
+    private ArrayList<GameObject>[][] animations;
+    private int[][] playerDesireMap;
+    private double[][] lightMap;
+    private double[][] fieldOfVision;
+    private ArrayList<GameObject> lightSources;
+    private GameObject player;
 
+    private ArrayList<ActorTurn> turnQueue;
+    private ArrayList<GameObject> objectQueue;
 
-    private int mScore;
-    private int mTotalKilled;
-    private int mTotalAttack;
-    private int mTotalDefence;
+    private int score;
+    private int totalKilled;
+    private int totalAttack;
+    private int totalDefence;
 
-    private int mMapWidth;
-    private int mMapHeight;
-    private int mSightRadius;
-    private int mCurrentFloor;
+    private int mapWidth;
+    private int mapHeight;
+    private int sightRadius;
+    private int currentFloor;
 
-    private boolean mPlayerMoveLock;
-    private boolean mInventoryOpen;
-    private FieldOfVisionCalculator mFovCalculator;
-    private AffinityManager mAffinityManager;
-
-    private GameInterface mGameInterface;
+    private boolean playerMoveLock;
+    private boolean inventoryOpen;
 
     public GameEngine(GameInterface gameInterface) {
-        this.mPlayerMoveLock = false;
-        this.mInventoryOpen = false;
-        this.mSightRadius = 10;
-        this.mMapWidth = 32;
-        this.mMapHeight = 32;
-        this.mCurrentFloor = 1;
-        this.mGameInterface = gameInterface;
-        this.mFovCalculator = new FieldOfVisionCalculator();
-        this.mAffinityManager = new AffinityManager();
-        this.mTurnQueue = new ArrayList<>();
-        this.mObjectQueue = new ArrayList<>();
+        this.playerMoveLock = false;
+        this.inventoryOpen = false;
+        this.sightRadius = 10;
+        this.mapWidth = 32;
+        this.mapHeight = 32;
+        this.currentFloor = 1;
+        this.gameInterface = gameInterface;
+        this.fovCalculator = new FieldOfVisionCalculator();
+        this.affinityManager = new AffinityManager();
+        this.turnQueue = new ArrayList<>();
+        this.objectQueue = new ArrayList<>();
     }
 
     public void initState() {
-        ProceduralGenerator generator = new ProceduralGenerator(mMapWidth, mMapHeight);
-        generator.setFloor(mCurrentFloor);
+        ProceduralGenerator generator = new ProceduralGenerator(mapWidth, mapHeight);
+        generator.setFloor(currentFloor);
         generator.generate(ProceduralGenerator.MANSION);
 
-        mMapGrid = generator.getMapGrid();
-        mMapData = generator.getMapData();
-        mEnemies = mMapData.getEnemies();
+        mapGrid = generator.getMapGrid();
+        mapData = generator.getMapData();
+        enemies = mapData.getEnemies();
 
-        Vector startPosition = mMapData.getStartPosition();
-        mPlayer = PlayerFactory.getPlayer(startPosition.x(), startPosition.y());
+        Vector startPosition = mapData.getStartPosition();
+        player = PlayerFactory.getPlayer(startPosition.x(), startPosition.y());
 
-        mObjectGrid = Array2DHelper.create(mMapWidth, mMapHeight);
-        mAnimations = Array2DHelper.create(mMapWidth, mMapHeight);
-        populateObjectGrid();
+        objectGrid = Array2DHelper.create(mapWidth, mapHeight);
+        animations = Array2DHelper.create(mapWidth, mapHeight);
+        populateObjectGridFromMapData();
 
-        mPlayerDesireMap = Array2DHelper.fillIntArray(mMapWidth, mMapHeight, DIJKSTRA_MAX);
-        mTurnQueue = new ArrayList<>();
+        playerDesireMap = Array2DHelper.fillIntArray(mapWidth, mapHeight, DIJKSTRA_MAX);
+        turnQueue = new ArrayList<>();
 
         advanceFrame();
     }
@@ -107,19 +106,19 @@ public class GameEngine {
     */
 
     public Frame getFrame() {
-        return new Frame(mMapGrid, mObjectGrid, mAnimations, mFOV, mLightMap, mPlayer);
+        return new Frame(mapGrid, objectGrid, animations, fieldOfVision, lightMap, player);
     }
 
     public int[] getMapSize() {
-        return new int[] {mMapWidth, mMapHeight};
+        return new int[] {mapWidth, mapHeight};
     }
 
     public ArrayList<GameObject>[][] getObjects() {
-        return mObjectGrid;
+        return objectGrid;
     }
 
     public GameObject getPlayer() {
-        return mPlayer;
+        return player;
     }
 
     private Vector pathDestination;
@@ -137,29 +136,29 @@ public class GameEngine {
     public void advanceFrame() {
         updatePreCombatData();
         determineEnemyMoves();
-        mGameInterface.passDataToRenderer();
+        gameInterface.passDataToRenderer();
     }
 
     private void updatePreCombatData() {
-        mFovCalculator.setValues(mMapGrid, mObjectGrid, mPlayer.x(), mPlayer.y(), mSightRadius);
-        mFOV = mFovCalculator.calculate();
+        fovCalculator.setValues(mapGrid, objectGrid, player.x(), player.y(), sightRadius);
+        fieldOfVision = fovCalculator.calculate();
         generateDesireMaps();
-        mLightMap = getVisibleLight();
+        lightMap = getVisibleLight();
         generateDesireMaps();
         handlePlayerMetabolism();
     }
 
     private void determineEnemyMoves() {
-        if (mPlayer.getState() == PlayerState.DEAD) {
+        if (player.getState() == PlayerState.DEAD) {
             return;
         }
 
-        int enemySize = mEnemies.size();
+        int enemySize = enemies.size();
 
         ArrayList<GameObject> newObjects = new ArrayList<>();
 
         for (int i = 0; i < enemySize; i++) {
-            GameObject enemy = mEnemies.get(i);
+            GameObject enemy = enemies.get(i);
             switch (enemy.getState()) {
 
                 case EnemyState.IDLE:
@@ -171,7 +170,7 @@ public class GameEngine {
                     break;
 
                 case EnemyState.PATHFINDING:
-                    seekActorWhilePathBlocked(enemy, mPlayer);
+                    seekActorWhilePathBlocked(enemy, player);
                     break;
 
                 default:
@@ -187,9 +186,9 @@ public class GameEngine {
             }
         }
 
-        mEnemies.addAll(newObjects);
+        enemies.addAll(newObjects);
 
-        mPlayerMoveLock = false;
+        playerMoveLock = false;
     }
 
     private GameObject handleSelfReplication(GameObject object) {
@@ -215,7 +214,7 @@ public class GameEngine {
             if (object instanceof Actor) {
                 // Make sure Actor is in field of vision before cloning.
                 // (this is to prevent the map from filling up with cloned Actors)
-                if (mFOV[object.x()][object.y()] > 0) {
+                if (fieldOfVision[object.x()][object.y()] > 0) {
                     Actor actor = (Actor) object;
                     Actor clone = new Actor(newPos.x(), newPos.y(), actor);
                     // Set last move as original position, so renderer will animate creation of new clone
@@ -242,16 +241,16 @@ public class GameEngine {
     */
 
     public void checkUserInput(Vector destination) {
-        boolean adjacent = isAdjacent(destination, mPlayer.getVector());
+        boolean adjacent = isAdjacent(destination, player.getVector());
 
         if (adjacent) {
-            ActorTurn turn = new ActorTurn(mPlayer);
+            ActorTurn turn = new ActorTurn(player);
             turn.setMove(destination);
-            mTurnQueue.add(turn);
+            turnQueue.add(turn);
 
         } else {
-            /*if (mFOV[destination.x()][destination.y()] > 0) {
-                ArrayList<Vector> path = findShortestPath(mPlayer.getVector(), destination);
+            /*if (fieldOfVision[destination.x()][destination.y()] > 0) {
+                ArrayList<Vector> path = findShortestPath(player.getVector(), destination);
                 path.add(destination);
                 queueAndFollowPath(path);
             }*/
@@ -274,12 +273,12 @@ public class GameEngine {
 
     private void addObjectToStack(int x, int y, GameObject object) {
         // Note: we can assume that x and y will be in bounds
-        mObjectGrid[x][y].add(object);
+        objectGrid[x][y].add(object);
     }
 
     private void moveObjectToNewStack(GameObject object, Vector oldPos, Vector newPos) {
-        ArrayList<GameObject> oldStack = mObjectGrid[oldPos.x()][oldPos.y()];
-        ArrayList<GameObject> newStack = mObjectGrid[newPos.x()][newPos.y()];
+        ArrayList<GameObject> oldStack = objectGrid[oldPos.x()][oldPos.y()];
+        ArrayList<GameObject> newStack = objectGrid[newPos.x()][newPos.y()];
 
         if (oldStack.contains(object)) {
             oldStack.remove(object);
@@ -295,32 +294,33 @@ public class GameEngine {
 
     private void populateObjectGrid() {
         ArrayList<GameObject> objects = mMapData.getObjects();
+        ArrayList<GameObject> objects = mapData.getObjects();
 
         for (GameObject object : objects) {
             addObjectToStack(object.x(), object.y(), object);
         }
 
-        ArrayList<GameObject> doors = mMapData.getDoors();
+        ArrayList<GameObject> doors = mapData.getDoors();
 
         for (GameObject door : doors) {
             addObjectToStack(door.x(), door.y(), door);
         }
 
-        ArrayList<GameObject> enemies = mMapData.getEnemies();
+        ArrayList<GameObject> enemies = mapData.getEnemies();
 
         for (GameObject enemy : enemies) {
             addObjectToStack(enemy.x(), enemy.y(), enemy);
         }
 
-        addObjectToStack(mPlayer.x(), mPlayer.y(), mPlayer);
+        addObjectToStack(player.x(), player.y(), player);
 
-        mLightSources = new ArrayList<>();
-        addRoomObjects(mMapData.getRooms());
+        lightSources = new ArrayList<>();
+        addRoomObjects(mapData.getRooms());
     }
 
     private void addRoomObjects(ArrayList<GameObject> rooms) {
-        // int x = Math.round(mPlayer.x() - (mMapWidth / 2));
-        // int y = Math.round(mPlayer.y() - (mMapHeight / 2));
+        // int x = Math.round(player.x() - (mapWidth / 2));
+        // int y = Math.round(player.y() - (mapHeight / 2));
         // Vector scrollOffset = new Vector(x, y);
 
         // Room visibleArea = renderer.getVisibleArea();
@@ -332,7 +332,7 @@ public class GameEngine {
                 // axisAlignedBoxTest(room, visibleArea)
 
                 if (object instanceof LightSource) {
-                    mLightSources.add(object);
+                    lightSources.add(object);
                     addObjectToStack(object.x(), object.y(), object);
                 }
             }
@@ -347,14 +347,14 @@ public class GameEngine {
 
     private void generateDesireMaps() {
         String[] tilesToCheck = {"Wall", "Floor"};
-        int[][] desireGrid = Array2DHelper.fillIntArray(mMapWidth, mMapHeight, DIJKSTRA_MAX);
+        int[][] desireGrid = Array2DHelper.fillIntArray(mapWidth, mapHeight, DIJKSTRA_MAX);
         ArrayList<Vector> desireLocations = new ArrayList<>();
 
-        desireGrid[mPlayer.x()][mPlayer.y()] = mPlayer.getDijkstra();
-        desireLocations.add(new Vector(mPlayer.x(), mPlayer.y()));
+        desireGrid[player.x()][player.y()] = player.getDijkstra();
+        desireLocations.add(new Vector(player.x(), player.y()));
 
         // Player desire is blocked by collision, player radius goes through walls/etc
-        mPlayerDesireMap = populateDijkstraGrid(Directions.All.values(), desireGrid, desireLocations, tilesToCheck, false);
+        playerDesireMap = populateDijkstraGrid(Directions.All.values(), desireGrid, desireLocations, tilesToCheck, false);
     }
 
     private double[][] getVisibleLight() {
@@ -363,19 +363,19 @@ public class GameEngine {
         fov.setDarknessFactor(2);
         double[][] combinedLightMap = null;
 
-        int lightSize = mLightSources.size();
+        int lightSize = lightSources.size();
         for (int i = 0; i < lightSize; i++) {
-            GameObject source = mLightSources.get(i);
+            GameObject source = lightSources.get(i);
 
             // Ignore anything outside of player's FOV
-            if (mFOV[source.x()][source.y()] > 0) {
+            if (fieldOfVision[source.x()][source.y()] > 0) {
 
-                fov.setValues(mMapGrid, mObjectGrid, mPlayer.x(), mPlayer.y(), LIGHT_RADIUS);
+                fov.setValues(mapGrid, objectGrid, player.x(), player.y(), LIGHT_RADIUS);
                 double[][] lightMap = fov.calculate();
 
                 if (combinedLightMap != null) {
-                    for (int x = 0; x < mMapWidth; x++) {
-                        for (int y = 0; y < mMapHeight; y++) {
+                    for (int x = 0; x < mapWidth; x++) {
+                        for (int y = 0; y < mapHeight; y++) {
                             if (lightMap[x][y] > combinedLightMap[x][y]) {
                                 combinedLightMap[x][y] = lightMap[x][y];
                             }
@@ -410,9 +410,9 @@ public class GameEngine {
                     Vector neighbour = cell.add(direction);
 
                     if (!inBounds(neighbour)) continue;
-                    if (mFOV[neighbour.x()][neighbour.y()] == 0) continue;
+                    if (fieldOfVision[neighbour.x()][neighbour.y()] == 0) continue;
 
-                    GameObject tile = mMapGrid[neighbour.x()][neighbour.y()];
+                    GameObject tile = mapGrid[neighbour.x()][neighbour.y()];
                     int value = desireGrid[neighbour.x()][neighbour.y()];
 
                     if (!ignoreCollisions && detectCollisions(neighbour)) continue;
@@ -439,14 +439,14 @@ public class GameEngine {
 
     private void takeComputerTurn(GameObject actor) {
         Vector position = new Vector(actor.x(), actor.y());
-        Vector playerPos = new Vector(mPlayer.x(), mPlayer.y());
+        Vector playerPos = new Vector(player.x(), player.y());
 
         int bestDesire = DIJKSTRA_MAX + 1;
 
         // Check adjacent tiles and find one with best desire score
         for (Vector direction : Directions.All.values()) {
             Vector adjacent = position.add(direction);
-            int desire = mPlayerDesireMap[adjacent.x()][adjacent.y()];
+            int desire = playerDesireMap[adjacent.x()][adjacent.y()];
             if (desire < bestDesire) {
                 bestDesire = desire;
             }
@@ -457,7 +457,7 @@ public class GameEngine {
                 // Ignore until player is closer
                 return;
             } else {
-                mGameInterface.addNarration(actor.getName() + " is looking for blood!", TextColours.RED);
+                gameInterface.addNarration(actor.getName() + " is looking for blood!", TextColours.RED);
                 actor.setState(EnemyState.SEEKING);
             }
         }
@@ -466,8 +466,8 @@ public class GameEngine {
         // Check whether actor is directly adjacent to player & queue attack for next turn
         if (bestDesire == 0) {
             ActorTurn turn = new ActorTurn(actor);
-            turn.setMove(mPlayer.getVector());
-            mTurnQueue.add(turn);
+            turn.setMove(player.getVector());
+            turnQueue.add(turn);
             return;
         }
 
@@ -477,7 +477,7 @@ public class GameEngine {
 
         for (Vector direction : Directions.All.values()) {
             Vector adjacent = position.add(direction);
-            int newDesire = mPlayerDesireMap[adjacent.x()][adjacent.y()];
+            int newDesire = playerDesireMap[adjacent.x()][adjacent.y()];
             int distance = (int) Calculator.getDistance(adjacent, playerPos);
             // Really simple heuristic (that probably needs improving)
             int heuristic = newDesire + distance;
@@ -500,7 +500,7 @@ public class GameEngine {
         int blockedSize = blockedTiles.size();
         for (int i = 0; i < blockedSize; i++) {
             Vector tile = blockedTiles.get(i);
-            int newDesire = mPlayerDesireMap[tile.x()][tile.y()];
+            int newDesire = playerDesireMap[tile.x()][tile.y()];
             int distance = (int) Calculator.getDistance(tile, playerPos);
             int heuristic = newDesire + distance;
 
@@ -521,7 +521,7 @@ public class GameEngine {
         else if (closestTile != null) {
             ActorTurn turn = new ActorTurn(actor);
             turn.setMove(closestTile);
-            mTurnQueue.add(turn);
+            turnQueue.add(turn);
         }
     }
 
@@ -538,13 +538,13 @@ public class GameEngine {
             // Todo: generate desire map for target here
 
             Vector nextCell = path.get(0);
-            int nextDesire = mPlayerDesireMap[nextCell.x()][nextCell.y()];
+            int nextDesire = playerDesireMap[nextCell.x()][nextCell.y()];
             int bestDesire = Integer.MAX_VALUE;
 
             // Check adjacent tiles and find one with lowest desire score
             for (Vector direction : Directions.All.values()) {
                 Vector adjacent = position.add(direction);
-                int desire = mPlayerDesireMap[adjacent.x()][adjacent.y()];
+                int desire = playerDesireMap[adjacent.x()][adjacent.y()];
                 if (desire < bestDesire) {
                     bestDesire = desire;
                 }
@@ -561,7 +561,7 @@ public class GameEngine {
                 nextCell = enemy.removeFromPath(0);
                 ActorTurn turn = new ActorTurn(enemy);
                 turn.setMove(nextCell);
-                mTurnQueue.add(turn);
+                turnQueue.add(turn);
                 generateDesireMaps();
             }
         }
@@ -633,14 +633,14 @@ public class GameEngine {
     }
 
     public ArrayList<Vector> onTouchPathComplete() {
-        if (this.pathDestination == null || !inBounds(this.pathDestination) || mFOV[pathDestination.x()][pathDestination.y()] == 0
+        if (this.pathDestination == null || !inBounds(this.pathDestination) || fieldOfVision[pathDestination.x()][pathDestination.y()] == 0
                 || detectCollisions(this.pathDestination)) {
 
             return new ArrayList<>();
         }
 
         else {
-            return findShortestPath(mPlayer.getVector(), this.pathDestination);
+            return findShortestPath(player.getVector(), this.pathDestination);
         }
     }
 
@@ -649,20 +649,20 @@ public class GameEngine {
         long start = 500L;
 
         for (int i = 0; i < path.size(); i++) {
-            ActorTurn turn = new ActorTurn(mPlayer);
+            ActorTurn turn = new ActorTurn(player);
             Vector vector = path.get(i);
             turn.setMove(vector);
             turn.setStart(start * (long) i);
             queue.put(turn);
         }
 
-        mGameInterface.setMoveLock(true);
+        gameInterface.setMoveLock(true);
 
         while (!queue.isEmpty()) {
 
             try {
                 ActorTurn turn = queue.take();
-                mTurnQueue.add(turn);
+                turnQueue.add(turn);
                 takeTurns();
                 advanceFrame();
 
@@ -673,7 +673,7 @@ public class GameEngine {
             }
         }
 
-        mGameInterface.setMoveLock(false);
+        gameInterface.setMoveLock(false);
     }
 
     /*
@@ -690,7 +690,7 @@ public class GameEngine {
     private void takeTurns() {
         updatePreCombatData();
 
-        Iterator<ActorTurn> iterator = mTurnQueue.iterator();
+        Iterator<ActorTurn> iterator = turnQueue.iterator();
 
         while (iterator.hasNext()) {
             ActorTurn turn = iterator.next();
@@ -723,7 +723,7 @@ public class GameEngine {
      */
 
     private void handleMovementInteractions(Actor actor, Vector position) {
-        ArrayList<GameObject> objectStack = mObjectGrid[position.x()][position.y()];
+        ArrayList<GameObject> objectStack = objectGrid[position.x()][position.y()];
 
         Iterator<GameObject> it = objectStack.iterator();
 
@@ -743,7 +743,7 @@ public class GameEngine {
      */
 
     private void handleCollisionInteractions(Actor actor, Vector position) {
-        ArrayList<GameObject> objectStack = mObjectGrid[position.x()][position.y()];
+        ArrayList<GameObject> objectStack = objectGrid[position.x()][position.y()];
 
         Iterator<GameObject> it = objectStack.iterator();
 
@@ -755,7 +755,7 @@ public class GameEngine {
 
                 // Todo: why did i do this
                 if (target.hasDeathAnimation()) {
-                    mAnimations[target.x()][target.y()].add(target.getDeathAnimation());
+                    animations[target.x()][target.y()].add(target.getDeathAnimation());
                 }
 
                 if (target instanceof Actor) {
@@ -764,7 +764,7 @@ public class GameEngine {
 
                     if (targetActor.getHp() <= 0) {
                         it.remove();
-                        mEnemies.remove(target);
+                        enemies.remove(target);
                     }
                 }
             }
@@ -782,10 +782,10 @@ public class GameEngine {
             case Actions.EXIT_FLOOR:
                 // Tell renderer to fade out content and display loading screen, generate
                 // terrain for new floor and fade in with new content
-                mCurrentFloor++;
-                mGameInterface.initFloorChange();
+                currentFloor++;
+                gameInterface.initFloorChange();
                 initState();
-                mGameInterface.startNewFloor();
+                gameInterface.startNewFloor();
                 break;
 
             case Actions.EXIT_PREVIOUS_FLOOR:
@@ -798,7 +798,7 @@ public class GameEngine {
     }
 
     private void addQueuedObjects() {
-        Iterator<GameObject> iterator = mObjectQueue.iterator();
+        Iterator<GameObject> iterator = objectQueue.iterator();
 
         while (iterator.hasNext()) {
             GameObject object = iterator.next();
@@ -814,7 +814,7 @@ public class GameEngine {
         if (attacker.getId().equals(defender.getId())) return;
 
         // Prevent Actors from attacking other Actors with the same affinity. (Todo: this should be implemented in AI, not here)
-        if (!mAffinityManager.actorsAreAggressive(attacker, defender)) return;
+        if (!affinityManager.actorsAreAggressive(attacker, defender)) return;
 
         int damage = attacker.attack(defender);
 
@@ -825,21 +825,21 @@ public class GameEngine {
         }
 
         if (defender.getSprite().equals("sprites/dude.png")) {
-            mTotalDefence += damage;
+            totalDefence += damage;
         }
 
         else {
-           mTotalAttack += damage;
+           totalAttack += damage;
         }
 
-        GameObject splat = DecalFactory.createBloodSplat(defender, mMapGrid);
+        GameObject splat = DecalFactory.createBloodSplat(defender, mapGrid);
 
         if (splat != null) {
             addObjectToStack(splat.x(), splat.y(), splat);
         }
 
         // Update combat log and display hit animations
-        mGameInterface.displayStatus(defender, Integer.toString(damage), TextColours.STATUS_RED);
+        gameInterface.displayStatus(defender, Integer.toString(damage), TextColours.STATUS_RED);
 
         // renderer.addAnimation(target.getDamageAnimation());
 
@@ -847,10 +847,10 @@ public class GameEngine {
         int y = defender.y();
 
         if (defender.getHp() <= 0) {
-            mAnimations[x][y].add(AnimationFactory.getDeathAnimation(defender, x, y));
-            DecalFactory.createBloodSpray(defender, mMapGrid, mObjectGrid);
+            animations[x][y].add(AnimationFactory.getDeathAnimation(defender, x, y));
+            DecalFactory.createBloodSpray(defender, mapGrid, objectGrid);
 
-            mGameInterface.addNarration(attacker.getName() + " killed " + defender.getName() + "!", TextColours.RED);
+            gameInterface.addNarration(attacker.getName() + " killed " + defender.getName() + "!", TextColours.RED);
 
             int reward = defender.getXpReward(attacker.getLevel());
             int currentXp = attacker.getXp();
@@ -860,29 +860,29 @@ public class GameEngine {
 
             // We have to add object to stack after we've finished iterating in handleInteractions()
             // otherwise it will throw ConcurrentModificationException
-            mObjectQueue.add(CorpseFactory.getCorpse(x, y, defender.getSprite()));
+            objectQueue.add(CorpseFactory.getCorpse(x, y, defender.getSprite()));
 
             if (defender.isPlayerControlled()) {
                 // Stop gamei guess lol
             }
 
             else {
-                mTotalKilled++;
+                totalKilled++;
             }
         }
 
         else {
-            mAnimations[x][y].add(AnimationFactory.getHitAnimation(defender, x, y));
+            animations[x][y].add(AnimationFactory.getHitAnimation(defender, x, y));
         }
     }
 
     private void checkPlayerLevel() {
-        Actor player = (Actor) mPlayer;
+        Actor player = (Actor) this.player;
 
         if (player.getXp() >= player.getXpToNextLevel()) {
             player.levelUp();
             // renderer.addAnimation(new PlayerLevelUp(player.x, player.y));
-            mGameInterface.addNarration("You have now reached level " + player.getLevel() + "!");
+            gameInterface.addNarration("You have now reached level " + player.getLevel() + "!");
         }
     }
 
@@ -895,7 +895,7 @@ public class GameEngine {
     private boolean detectCollisions(Vector position) {
         if (!inBounds(position)) return true;
 
-        GameObject mapTile = mMapGrid[position.x()][position.y()];
+        GameObject mapTile = mapGrid[position.x()][position.y()];
 
         if (mapTile instanceof Wall) {
             return true;
@@ -904,10 +904,10 @@ public class GameEngine {
         int x = position.x();
         int y = position.y();
 
-        int objectSize = mObjectGrid[x][y].size();
+        int objectSize = objectGrid[x][y].size();
 
         for (int i = 0; i < objectSize; i++) {
-            if (!mObjectGrid[x][y].get(i).isTraversable()) {
+            if (!objectGrid[x][y].get(i).isTraversable()) {
                 return true;
             }
         }
@@ -929,6 +929,6 @@ public class GameEngine {
         int x = position.x();
         int y = position.y();
 
-        return (x >= 0 && x < mMapWidth) && (y >= 0 && y < mMapHeight);
+        return (x >= 0 && x < mapWidth) && (y >= 0 && y < mapHeight);
     }
 }
