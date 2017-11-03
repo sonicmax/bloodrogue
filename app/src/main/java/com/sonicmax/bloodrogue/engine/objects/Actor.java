@@ -42,8 +42,6 @@ public class Actor extends GameObject {
 
     private int bloodColour;
 
-    private RandomNumberGenerator rng;
-
     public Actor(int x, int y, int level) {
         super(x, y);
         this.hp = BASE_HP;
@@ -62,8 +60,6 @@ public class Actor extends GameObject {
         this.setMutability(true);
         this.setActivateOnCollide(true);
 
-        this.rng = new RandomNumberGenerator();
-
         this.bloodColour = RED_BLOOD;
     }
 
@@ -80,7 +76,6 @@ public class Actor extends GameObject {
         this.xpToNextLevel = this.calculateXpForLevel(this.level + 1);
         this.hunger = 100;
         this.energy = 100;
-        this.rng = new RandomNumberGenerator();
         this.affinity = original.affinity;
 
         // Todo: for now just copy original object states. In future we may want to change this
@@ -183,7 +178,7 @@ public class Actor extends GameObject {
 
     public void distributeStatPoints(int points) {
         for (int i = 0; i < points; i++) {
-            int target = rng.getRandomInt(0, 2);
+            int target = new RandomNumberGenerator().getRandomInt(0, 2);
             switch(target) {
                 case 0:
                     this.strength++;
