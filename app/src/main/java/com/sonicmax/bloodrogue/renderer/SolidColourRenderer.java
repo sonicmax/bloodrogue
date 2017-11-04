@@ -11,6 +11,7 @@ import java.nio.ShortBuffer;
 
 public class SolidColourRenderer {
     private final String LOG_TAG = this.getClass().getSimpleName();
+    private final String BUFFER_UTILS = "buffer-utils";
 
     /**
      * Sprite sheet is 512x512, containing 16x16 textures.
@@ -41,6 +42,7 @@ public class SolidColourRenderer {
 
     public SolidColourRenderer() {
         mUniformScale = 1f;
+        System.loadLibrary(BUFFER_UTILS);
     }
 
     public void setUniformScale(float uniformScale) {

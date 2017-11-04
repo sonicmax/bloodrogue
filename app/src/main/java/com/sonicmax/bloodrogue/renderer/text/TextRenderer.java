@@ -16,6 +16,7 @@ import java.util.List;
 public class TextRenderer {
     private final String LOG_TAG = this.getClass().getSimpleName();
 
+    private final String BUFFER_UTILS = "buffer-utils";
     private final float UV_BOX_WIDTH = 0.0625f;
     private final float ORIGINAL_WIDTH = 32f;
     private float TEXT_WIDTH = 24f;
@@ -52,7 +53,9 @@ public class TextRenderer {
 
     private float mUniformScale;
 
-    public TextRenderer() {}
+    public TextRenderer() {
+        System.loadLibrary(BUFFER_UTILS);
+    }
 
     public void setTextureHandle(int val) {
         mTextureHandle = val;
