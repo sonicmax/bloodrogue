@@ -2,6 +2,8 @@ package com.sonicmax.bloodrogue.renderer.text;
 
 import android.opengl.GLES20;
 
+import com.sonicmax.bloodrogue.utils.BufferUtils;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -306,33 +308,25 @@ public class TextRenderer {
         FloatBuffer colorBuffer;
         ShortBuffer drawListBuffer;
 
-        // The vertex buffer.
         ByteBuffer bb = ByteBuffer.allocateDirect(vecs.length * 4);
         bb.order(ByteOrder.nativeOrder());
         vertexBuffer = bb.asFloatBuffer();
-        vertexBuffer.put(vecs);
-        vertexBuffer.position(0);
+        BufferUtils.copy(vecs, vertexBuffer, vecs.length, 0);
 
-        // The color buffer.
         ByteBuffer bb3 = ByteBuffer.allocateDirect(colors.length * 4);
         bb3.order(ByteOrder.nativeOrder());
         colorBuffer = bb3.asFloatBuffer();
-        colorBuffer.put(colors);
-        colorBuffer.position(0);
+        BufferUtils.copy(colors, colorBuffer, colors.length, 0);
 
-        // The texture buffer
         ByteBuffer bb2 = ByteBuffer.allocateDirect(uvs.length * 4);
         bb2.order(ByteOrder.nativeOrder());
         textureBuffer = bb2.asFloatBuffer();
-        textureBuffer.put(uvs);
-        textureBuffer.position(0);
+        BufferUtils.copy(uvs, textureBuffer, uvs.length, 0);
 
-        // initialize byte buffer for the draw list
         ByteBuffer dlb = ByteBuffer.allocateDirect(indices.length * 2);
         dlb.order(ByteOrder.nativeOrder());
         drawListBuffer = dlb.asShortBuffer();
-        drawListBuffer.put(indices);
-        drawListBuffer.position(0);
+        BufferUtils.copy(indices, 0, drawListBuffer, indices.length);
 
         // get handle to vertex shader's vPosition member
         int mPositionHandle = GLES20.glGetAttribLocation(mShaderHandle, "a_Position");

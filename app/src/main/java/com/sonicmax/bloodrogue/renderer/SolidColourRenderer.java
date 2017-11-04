@@ -2,6 +2,8 @@ package com.sonicmax.bloodrogue.renderer;
 
 import android.opengl.GLES20;
 
+import com.sonicmax.bloodrogue.utils.BufferUtils;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -154,20 +156,17 @@ public class SolidColourRenderer {
         ByteBuffer bb = ByteBuffer.allocateDirect(vecs.length * 4);
         bb.order(ByteOrder.nativeOrder());
         vertexBuffer = bb.asFloatBuffer();
-        vertexBuffer.put(vecs);
-        vertexBuffer.position(0);
+        BufferUtils.copy(vecs, vertexBuffer, vecs.length, 0);
 
         ByteBuffer bb3 = ByteBuffer.allocateDirect(colors.length * 4);
         bb3.order(ByteOrder.nativeOrder());
         colorBuffer = bb3.asFloatBuffer();
-        colorBuffer.put(colors);
-        colorBuffer.position(0);
+        BufferUtils.copy(colors, colorBuffer, colors.length, 0);
 
         ByteBuffer dlb = ByteBuffer.allocateDirect(indices.length * 2);
         dlb.order(ByteOrder.nativeOrder());
         drawListBuffer = dlb.asShortBuffer();
-        drawListBuffer.put(indices);
-        drawListBuffer.position(0);
+        BufferUtils.copy(indices, 0, drawListBuffer, indices.length);
 
         // Prepare screen coordinate data
         int mPositionHandle = GLES20.glGetAttribLocation(mBasicShaderHandle, "a_Position");

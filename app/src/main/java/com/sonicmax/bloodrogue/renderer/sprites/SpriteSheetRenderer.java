@@ -3,6 +3,8 @@ package com.sonicmax.bloodrogue.renderer.sprites;
 import android.opengl.GLES20;
 import android.util.Log;
 
+import com.sonicmax.bloodrogue.utils.BufferUtils;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -22,6 +24,7 @@ public class SpriteSheetRenderer {
      * These will be upscaled to 64x64 when rendering
      */
 
+    private final String BUFFER_UTILS = "buffer-utils";
     private final float SPRITE_BOX_WIDTH = 0.03125f; // 1f / 32 sprites per row
     private final float SPRITE_BOX_HEIGHT = 0.03125f; // 1f / 32 sprites per column
     private final float TARGET_WIDTH = 64f; // Upscaled from 16
@@ -64,6 +67,7 @@ public class SpriteSheetRenderer {
         mUniformScale = 1f;
         offsetX = 0;
         offsetY = 0;
+        System.loadLibrary(BUFFER_UTILS);
     }
 
     public void setUniformScale(float uniformScale) {
@@ -259,26 +263,22 @@ public class SpriteSheetRenderer {
         ByteBuffer bb = ByteBuffer.allocateDirect(vecs.length * 4);
         bb.order(ByteOrder.nativeOrder());
         vertexBuffer = bb.asFloatBuffer();
-        vertexBuffer.put(vecs);
-        vertexBuffer.position(0);
+        BufferUtils.copy(vecs, vertexBuffer, vecs.length, 0);
 
         ByteBuffer bb3 = ByteBuffer.allocateDirect(colors.length * 4);
         bb3.order(ByteOrder.nativeOrder());
         colorBuffer = bb3.asFloatBuffer();
-        colorBuffer.put(colors);
-        colorBuffer.position(0);
+        BufferUtils.copy(colors, colorBuffer, colors.length, 0);
 
         ByteBuffer bb2 = ByteBuffer.allocateDirect(uvs.length * 4);
         bb2.order(ByteOrder.nativeOrder());
         textureBuffer = bb2.asFloatBuffer();
-        textureBuffer.put(uvs);
-        textureBuffer.position(0);
+        BufferUtils.copy(uvs, textureBuffer, uvs.length, 0);
 
         ByteBuffer dlb = ByteBuffer.allocateDirect(indices.length * 2);
         dlb.order(ByteOrder.nativeOrder());
         drawListBuffer = dlb.asShortBuffer();
-        drawListBuffer.put(indices);
-        drawListBuffer.position(0);
+        BufferUtils.copy(indices, 0, drawListBuffer, indices.length);
 
         // get handle to vertex shader's vPosition member
         int mPositionHandle = GLES20.glGetAttribLocation(mBasicShaderHandle, "a_Position");
