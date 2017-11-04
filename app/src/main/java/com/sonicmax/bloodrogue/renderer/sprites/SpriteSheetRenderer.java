@@ -179,15 +179,6 @@ public class SpriteSheetRenderer {
         }
     }
 
-    public void addSolidTile(int x, int y, float[] colour, float offsetX, float offsetY) {
-        if (offsetX == 0f && offsetY == 0f) {
-            addColourRenderInformation(cachedVecs[x][y], colour);
-        }
-        else {
-            addColourRenderInformation(calculateOffset(cachedVecs[x][y], offsetX, offsetY), colour);
-        }
-    }
-
     private void addColourRenderInformation(float[] vec, float[] cs) {
         // Translate the indices to align with the location in our array of vectors
         short base = (short) (index_vecs / 3);
@@ -255,53 +246,6 @@ public class SpriteSheetRenderer {
             indices[index_indices] = (short) (base + mIndices[j]);
             index_indices++;
         }
-    }
-
-    public void renderSolidColours(float[] matrix) {
-        GLES20.glUseProgram(mBasicShaderHandle);
-
-        FloatBuffer vertexBuffer;
-        FloatBuffer colorBuffer;
-        ShortBuffer drawListBuffer;
-
-        ByteBuffer bb = ByteBuffer.allocateDirect(vecs.length * 4);
-        bb.order(ByteOrder.nativeOrder());
-        vertexBuffer = bb.asFloatBuffer();
-        vertexBuffer.put(vecs);
-        vertexBuffer.position(0);
-
-        ByteBuffer bb3 = ByteBuffer.allocateDirect(colors.length * 4);
-        bb3.order(ByteOrder.nativeOrder());
-        colorBuffer = bb3.asFloatBuffer();
-        colorBuffer.put(colors);
-        colorBuffer.position(0);
-
-        ByteBuffer dlb = ByteBuffer.allocateDirect(indices.length * 2);
-        dlb.order(ByteOrder.nativeOrder());
-        drawListBuffer = dlb.asShortBuffer();
-        drawListBuffer.put(indices);
-        drawListBuffer.position(0);
-
-        // Prepare screen coordinate data
-        int mPositionHandle = GLES20.glGetAttribLocation(mBasicShaderHandle, "a_Position");
-        GLES20.glEnableVertexAttribArray(mPositionHandle);
-        GLES20.glVertexAttribPointer(mPositionHandle, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer);
-
-        // Prepare colours
-        int mColorHandle = GLES20.glGetAttribLocation(mBasicShaderHandle, "a_Color");
-        GLES20.glEnableVertexAttribArray(mColorHandle);
-        GLES20.glVertexAttribPointer(mColorHandle, 4, GLES20.GL_FLOAT, false, 0, colorBuffer);
-
-        // Apply projection and view transformation
-        int mtrxhandle = GLES20.glGetUniformLocation(mBasicShaderHandle, "u_MVPMatrix");
-        GLES20.glUniformMatrix4fv(mtrxhandle, 1, false, matrix, 0);
-
-        // Render the triangles
-        GLES20.glDrawElements(GLES20.GL_TRIANGLES, indices.length, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);
-
-        // Disable vertex arrays
-        GLES20.glDisableVertexAttribArray(mPositionHandle);
-        GLES20.glDisableVertexAttribArray(mColorHandle);
     }
 
     public void renderSprites(float[] matrix) {

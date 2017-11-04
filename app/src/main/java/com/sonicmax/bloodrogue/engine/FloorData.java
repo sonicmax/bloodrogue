@@ -11,6 +11,8 @@ import java.util.ArrayList;
 
 public class FloorData implements Serializable {
     private static final long serialVersionUID = 1L;
+
+    private int index;
     private GameObject[][] terrain;
     private ArrayList<GameObject>[][] objects;
     private ArrayList<GameObject>[][] animations;
@@ -22,9 +24,10 @@ public class FloorData implements Serializable {
 
     }
 
-    public FloorData(GameObject[][] terrain, ArrayList<GameObject>[][] objects,
+    public FloorData(int index, GameObject[][] terrain, ArrayList<GameObject>[][] objects,
                      ArrayList<GameObject>[][] animations, double[][] fov, double[][] lightMap, GameObject player) {
 
+        this.index = index;
         this.terrain = terrain;
         this.objects = objects;
         this.animations = animations;
@@ -55,5 +58,9 @@ public class FloorData implements Serializable {
 
     public GameObject getPlayer() {
         return this.player;
+    }
+
+    public int getIndex() {
+        return this.index;
     }
 }

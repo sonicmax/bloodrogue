@@ -63,12 +63,14 @@ public class GameEngine {
     private boolean playerMoveLock;
     private boolean inventoryOpen;
 
+    private GameState gameState;
+
     public GameEngine(GameInterface gameInterface) {
         this.playerMoveLock = false;
         this.inventoryOpen = false;
         this.sightRadius = 10;
-        this.mapWidth = 32;
-        this.mapHeight = 32;
+        this.mapWidth = 16;
+        this.mapHeight = 16;
         this.currentFloor = 1;
         this.gameInterface = gameInterface;
         this.fovCalculator = new FieldOfVisionCalculator();
@@ -77,7 +79,12 @@ public class GameEngine {
         this.objectQueue = new ArrayList<>();
     }
 
-    public void initState() {
+    /**
+     *  Generates new dungeon floor, updates game state and advances frame.
+     *  This is only called when first starting game.
+     */
+
+    public void startFromScratch() {
         ProceduralGenerator generator = new ProceduralGenerator(mapWidth, mapHeight);
         generator.setFloor(currentFloor);
         generator.generate(ProceduralGenerator.MANSION);
@@ -91,12 +98,78 @@ public class GameEngine {
 
         objectGrid = Array2DHelper.create(mapWidth, mapHeight);
         animations = Array2DHelper.create(mapWidth, mapHeight);
-        populateObjectGridFromMapData();
+        populateUsingNewData();
+
+        // Once we have populated object grid and placed player object, we can save data.
+        gameState = new GameState(player, getCurrentFloorData());
 
         playerDesireMap = Array2DHelper.fillIntArray(mapWidth, mapHeight, DIJKSTRA_MAX);
         turnQueue = new ArrayList<>();
 
         advanceFrame();
+    }
+
+    private void moveToNextFloor() {
+        currentFloor++;
+
+        if (!gameState.hasFloor(currentFloor)) {
+
+            ProceduralGenerator generator = new ProceduralGenerator(mapWidth, mapHeight);
+            generator.setFloor(currentFloor);
+            generator.generate(ProceduralGenerator.MANSION);
+
+            mapGrid = generator.getMapGrid();
+            mapData = generator.getMapData();
+            enemies = mapData.getEnemies();
+
+            Vector startPosition = mapData.getStartPosition();
+            player = PlayerFactory.getPlayer(startPosition.x(), startPosition.y());
+            // moveObjectToNewStack(player, player.getVector(), startPosition);
+
+            objectGrid = Array2DHelper.create(mapWidth, mapHeight);
+            animations = Array2DHelper.create(mapWidth, mapHeight);
+            populateUsingNewData();
+
+            gameState.updateFloorIndex(currentFloor);
+            gameState.addFloor(getCurrentFloorData());
+        }
+
+        else {
+            gameState.updateFloorIndex(currentFloor);
+            FloorData nextFloor = gameState.getCurrentFloor();
+
+            mapGrid = nextFloor.getTerrain();
+            objectGrid = nextFloor.getObjects();
+            animations = nextFloor.getAnimations();
+            fieldOfVision = nextFloor.getFov();
+            lightMap = nextFloor.getLightMap();
+            player = nextFloor.getPlayer();
+
+            populateUsingSaveState();
+        }
+
+        playerDesireMap = Array2DHelper.fillIntArray(mapWidth, mapHeight, DIJKSTRA_MAX);
+        turnQueue = new ArrayList<>();
+    }
+
+    private void moveToPreviousFloor() {
+        currentFloor--;
+
+        // We can assume that game state will have data for previous floor
+        gameState.updateFloorIndex(currentFloor);
+        FloorData previousFloor = gameState.getCurrentFloor();
+
+        mapGrid = previousFloor.getTerrain();
+        objectGrid = previousFloor.getObjects();
+        animations = previousFloor.getAnimations();
+        fieldOfVision = previousFloor.getFov();
+        lightMap = previousFloor.getLightMap();
+        player = previousFloor.getPlayer();
+
+        populateUsingSaveState();
+
+        playerDesireMap = Array2DHelper.fillIntArray(mapWidth, mapHeight, DIJKSTRA_MAX);
+        turnQueue = new ArrayList<>();
     }
 
     /*
@@ -106,17 +179,23 @@ public class GameEngine {
     */
 
     public FloorData getCurrentFloorData() {
-        return new FloorData(mapGrid, objectGrid, animations, fieldOfVision, lightMap, player);
+        return new FloorData(currentFloor, mapGrid, objectGrid, animations, fieldOfVision, lightMap, player);
     }
 
-    public void loadState(FloorData frame) {
-        mapGrid = frame.getTerrain();
-        objectGrid = frame.getObjects();
-        animations = frame.getAnimations();
-        fieldOfVision = frame.getFov();
-        lightMap = frame.getLightMap();
-        player = frame.getPlayer();
-        populateObjectGrid();
+    public GameState getGameState() {
+        return this.gameState;
+    }
+
+    public void loadState(GameState state) {
+        currentFloor = state.getFloorIndex();
+        FloorData floor = state.getCurrentFloor();
+        mapGrid = floor.getTerrain();
+        objectGrid = floor.getObjects();
+        animations = floor.getAnimations();
+        fieldOfVision = floor.getFov();
+        lightMap = floor.getLightMap();
+        player = floor.getPlayer();
+        populateUsingSaveState();
     }
 
     public int[] getMapSize() {
@@ -302,7 +381,7 @@ public class GameEngine {
         object.setLastMove(new Vector(oldPos.x(), oldPos.y()));
     }
 
-    private void populateObjectGrid() {
+    private void populateUsingSaveState() {
         enemies = new ArrayList<>();
         lightSources = new ArrayList<>();
 
@@ -323,7 +402,7 @@ public class GameEngine {
         }
     }
 
-    private void populateObjectGridFromMapData() {
+    private void populateUsingNewData() {
         ArrayList<GameObject> objects = mapData.getObjects();
 
         for (GameObject object : objects) {
@@ -762,6 +841,11 @@ public class GameEngine {
             if (target.activateOnMove()) {
                 int result = target.collide(actor);
                 performActorAction(actor, target, result);
+                if (result == Actions.EXIT_FLOOR || result == Actions.EXIT_PREVIOUS_FLOOR) {
+                    // At this point, continuing iteration will cause exception.
+                    // (and even if we could, we shouldn't)
+                    break;
+                }
             }
         }
     }
@@ -812,17 +896,26 @@ public class GameEngine {
             case Actions.EXIT_FLOOR:
                 // Tell renderer to fade out content and display loading screen, generate
                 // terrain for new floor and fade in with new content
-                currentFloor++;
                 gameInterface.initFloorChange();
-                initState();
-                gameInterface.startNewFloor();
+                moveToNextFloor();
+                Log.v(LOG_TAG, "current floor: " + currentFloor);
+                gameInterface.transitionToNewContent();
                 break;
 
             case Actions.EXIT_PREVIOUS_FLOOR:
+                if (currentFloor > 1) {
+                    gameInterface.initFloorChange();
+                    moveToPreviousFloor();
+                    Log.v(LOG_TAG, "current floor: " + currentFloor);
+                    gameInterface.transitionToNewContent();
+                }
                 break;
 
             case Actions.NONE:
+                break;
+
             default:
+                Log.d(LOG_TAG, "Code " + code + " not present in switch statement");
                 break;
         }
     }
@@ -848,12 +941,6 @@ public class GameEngine {
 
         int damage = attacker.attack(defender);
 
-        if (damage == 0) {
-            // Todo: figure out why this happens
-            Log.v(LOG_TAG, attacker.getSprite() + " attacked " + defender.getSprite() + " but caused no damage");
-            Log.v(LOG_TAG, "attacker strength: " + attacker.getStrength() + ", defender endurance: " + defender.getEndurance());
-        }
-
         if (defender.getSprite().equals("sprites/dude.png")) {
             totalDefence += damage;
         }
@@ -870,7 +957,7 @@ public class GameEngine {
 
         // Update combat log and display hit animations
         if (!defender.isPlayerControlled()) {
-        gameInterface.displayStatus(defender, Integer.toString(damage), TextColours.STATUS_RED);
+            gameInterface.displayStatus(defender, Integer.toString(damage), TextColours.STATUS_RED);
         }
 
         // renderer.addAnimation(target.getDamageAnimation());

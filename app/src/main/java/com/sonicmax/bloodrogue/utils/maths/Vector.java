@@ -1,6 +1,13 @@
 package com.sonicmax.bloodrogue.utils.maths;
 
-public class Vector {
+import java.io.Serializable;
+
+/**
+ *  Stores a pair of points and provides some methods to perform vector maths with.
+ */
+
+public class Vector implements Serializable {
+    private static final long serialVersionUID = 1L;
     private int x;
     private int y;
     private String direction;

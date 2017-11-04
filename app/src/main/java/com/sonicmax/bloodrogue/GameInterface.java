@@ -9,6 +9,7 @@ import android.view.ScaleGestureDetector;
 
 import com.sonicmax.bloodrogue.engine.FloorData;
 import com.sonicmax.bloodrogue.engine.GameEngine;
+import com.sonicmax.bloodrogue.engine.GameState;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 import com.sonicmax.bloodrogue.engine.objects.GameObject;
 import com.sonicmax.bloodrogue.renderer.GameRenderer;
@@ -58,17 +59,19 @@ public class GameInterface {
         this.scaleFactor = 1f;
     }
 
+    private boolean startFresh = true;
+
     public void init() {
-        FloorData frame = loadState();
-        if (frame == null) {
-            Log.v(LOG_TAG, "Load failed or was first run");
-            gameEngine.initState();
+        GameState state = loadState();
+        if (state == null || startFresh) {
+            Log.v(LOG_TAG, "Load failed or no save state exists");
+            gameEngine.startFromScratch();
             passDataToRenderer();
         }
         else {
             Log.v(LOG_TAG, "Load successful");
-            gameEngine.loadState(frame);
-            passDataToRenderer(frame);
+            gameEngine.loadState(state);
+            passDataToRenderer();
         }
     }
 
@@ -179,11 +182,6 @@ public class GameInterface {
         gameRenderer.setHasGameData();
     }
 
-    public void passDataToRenderer(FloorData frame) {
-        gameRenderer.setFloorData(frame);
-        gameRenderer.setHasGameData();
-    }
-
     public void setMoveLock(boolean value) {
         inputLock = value;
     }
@@ -216,13 +214,13 @@ public class GameInterface {
         narrationManager.clearAll();
     }
 
-    public void startNewFloor() {
+    public void transitionToNewContent() {
         gameRenderer.startNewFloor();
     }
 
     public void saveState() {
         String FILENAME = "save_data";
-        FloorData frame = gameEngine.getCurrentFloorData();
+        GameState state = gameEngine.getGameState();
 
         FileOutputStream fos = null;
         ObjectOutputStream oos = null;
@@ -232,7 +230,7 @@ public class GameInterface {
             file.createNewFile();
             fos = context.openFileOutput(FILENAME, Context.MODE_PRIVATE);
             oos = new ObjectOutputStream(fos);
-            oos.writeObject(frame);
+            oos.writeObject(state);
 
         } catch (IOException e) {
             Log.e(LOG_TAG, "Error while writing to disk", e);
@@ -250,8 +248,8 @@ public class GameInterface {
         }
     }
 
-    public FloorData loadState() {
-        FloorData frame = null;
+    public GameState loadState() {
+        GameState state = null;
         String FILENAME = "save_data";
 
         FileInputStream fis = null;
@@ -260,10 +258,13 @@ public class GameInterface {
         try {
             fis = context.openFileInput(FILENAME);
             ois = new ObjectInputStream(fis);
-            frame = (FloorData) ois.readObject();
+            state = (GameState) ois.readObject();
 
         } catch (ClassNotFoundException e1) {
             Log.e(LOG_TAG, "Error while writing to disk", e1);
+            File file = new File(context.getFilesDir(), FILENAME);
+            file.delete();
+
         } catch (IOException e2) {
             Log.e(LOG_TAG, "Error while writing to disk", e2);
         } finally {
@@ -279,6 +280,6 @@ public class GameInterface {
             }
         }
 
-        return frame;
+        return state;
     }
 }
