@@ -219,7 +219,7 @@ public class GameInterface {
     }
 
     public void saveState() {
-        String FILENAME = "save_data";
+        String FILENAME = "save_data.sav";
         GameState state = gameEngine.getGameState();
 
         FileOutputStream fos = null;
@@ -250,7 +250,7 @@ public class GameInterface {
 
     public GameState loadState() {
         GameState state = null;
-        String FILENAME = "save_data";
+        String FILENAME = "save_data.sav";
 
         FileInputStream fis = null;
         ObjectInputStream ois = null;
