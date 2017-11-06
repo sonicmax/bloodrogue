@@ -69,8 +69,8 @@ public class GameEngine {
         this.playerMoveLock = false;
         this.inventoryOpen = false;
         this.sightRadius = 10;
-        this.mapWidth = 16;
-        this.mapHeight = 16;
+        this.mapWidth = 32;
+        this.mapHeight = 32;
         this.currentFloor = 1;
         this.gameInterface = gameInterface;
         this.fovCalculator = new FieldOfVisionCalculator();
