@@ -8,8 +8,8 @@ import java.io.Serializable;
 
 public class Vector implements Serializable {
     private static final long serialVersionUID = 1L;
-    private int x;
-    private int y;
+    public int x;
+    public int y;
     private String direction;
 
     private boolean hasDirection = false;

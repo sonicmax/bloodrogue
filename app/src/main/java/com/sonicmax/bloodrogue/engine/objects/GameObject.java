@@ -1,5 +1,7 @@
 package com.sonicmax.bloodrogue.engine.objects;
 
+import android.util.Log;
+
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 
 import java.io.Serializable;
@@ -9,44 +11,46 @@ import java.util.UUID;
 public class GameObject implements Serializable {
     private final String LOG_TAG = this.getClass().getSimpleName();
     private static final long serialVersionUID = 1L;
-    private final String id;
-    private String name;
 
-    private int x;
-    private int y;
+    public final String id;
+    public String name;
 
-    private String sprite;
-    private ArrayList<String> sprites;
-    private int animationLength;
-    private int currentFrame;
-    private int renderCount;
-    private int movementStep;
+    public int x;
+    public int y;
 
-    private boolean hasDeathAnimation;
-    private GameObject deathAnimation;
+    public String sprite;
+    public int spriteIndex;
+    public ArrayList<String> sprites;
+    public int animationLength;
+    public int currentFrame;
+    public int renderCount;
+    public int movementStep;
 
-    private boolean isProjected;
-    private int fovX;
-    private int fovY;
+    public boolean hasDeathAnimation;
+    public GameObject deathAnimation;
 
-    private boolean isBlocking;
-    private boolean isTraversable;
-    private boolean canInteract;
-    private boolean hasAction;
-    private boolean isStationary;
-    private boolean isImmutable;
-    private boolean isPlayerControlled;
-    private boolean canSelfReplicate;
-    private float chanceToSelfReplicate;
-    private boolean isGasOrLiquid;
-    private boolean activateOnCollide;
-    private boolean activateOnMove;
+    public boolean isProjected;
+    public int fovX;
+    public int fovY;
 
-    private int dijkstra;
-    private int playerInterest;
-    private int state;
-    private ArrayList<Vector> path;
-    private Vector lastMove;
+    public boolean isBlocking;
+    public boolean isTraversable;
+    public boolean canInteract;
+    public boolean hasAction;
+    public boolean isStationary;
+    public boolean isImmutable;
+    public boolean isPlayerControlled;
+    public boolean canSelfReplicate;
+    public float chanceToSelfReplicate;
+    public boolean isGasOrLiquid;
+    public boolean activateOnCollide;
+    public boolean activateOnMove;
+
+    public int dijkstra;
+    public int playerInterest;
+    public int state;
+    public ArrayList<Vector> path;
+    public Vector lastMove;
 
     public GameObject() {
         this.id = UUID.randomUUID().toString(); // Still want unique id for cloned object
@@ -61,6 +65,7 @@ public class GameObject implements Serializable {
 
         // Set default values for object fields
         this.sprite = "sprites/transparent.png";
+        this.spriteIndex = -1;
         this.sprites = new ArrayList<>();
         this.animationLength = 0;
         this.currentFrame = 0;
@@ -105,6 +110,7 @@ public class GameObject implements Serializable {
         this.id = UUID.randomUUID().toString(); // Still want unique id for cloned object
 
         this.sprite = original.sprite;
+        this.spriteIndex = original.spriteIndex;
         this.sprites = original.sprites;
         this.animationLength = original.sprites.size();
         this.currentFrame = 0;

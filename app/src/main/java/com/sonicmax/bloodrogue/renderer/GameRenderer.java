@@ -53,6 +53,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private Vector scrollOffset;
     private double[][] lightMap = null;
     private double[][] fieldOfVision = null;
+    private ArrayList<GameObject> movingObjects;
 
     // Renderers
     private SpriteSheetRenderer spriteRenderer;
@@ -155,6 +156,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         statuses = new ArrayList<>();
         queuedNarrations = new ArrayList<>();
         queuedStatuses = new ArrayList<>();
+        movingObjects = new ArrayList<>();
 
         spriteHandles = new HashMap<>();
         zoomLevel = 1f;
@@ -438,19 +440,14 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     private void centreAtPlayerPos() {
-        Vector pos;
-        if (updatedFloorData != null) {
-            pos = updatedFloorData.getPlayer().getVector();
-        }
-        else {
-            pos = currentFloorData.getPlayer().getVector();
-        }
+        GameObject player = currentFloorData.getPlayer();
+
         float gridSize = SPRITE_SIZE * zoomLevel * scaleFactor;
 
         // TODO: align better to centre by checking if odd/even number of grid squares in visible width
 
-        scrollDx = 0f - (gridSize * pos.x()) + (screenWidth / 2);
-        scrollDy = 0f - (gridSize * pos.y()) + (screenHeight / 2);
+        scrollDx = 0f - (gridSize * player.x) + (screenWidth / 2);
+        scrollDy = 0f - (gridSize * player.y) + (screenHeight / 2);
 
         // We have to make sure MainActivity has same coords as renderer
         // gameInterface.updateScrollPos(scrollDx, scrollDy);
@@ -508,9 +505,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
     }
 
-    private Vector calculateScrollOffset() {
-        GameObject player = currentFloorData.getPlayer();
-        return new Vector(player.x() - (visibleGridWidth / 2), player.y() - (visibleGridHeight / 2));
+    private void calculateScrollOffset(GameObject player) {
+        scrollOffsetX = player.x - (visibleGridWidth / 2);
+        scrollOffsetY = player.y - (visibleGridHeight / 2);
     }
 
     public void setTouchScrollCoords(float dx, float dy) {
@@ -759,7 +756,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         GameObject[][] mapGrid = currentFloorData.getTerrain();
         ArrayList<GameObject>[][] objectGrid = currentFloorData.getObjects();
         ArrayList<GameObject>[][] animations = currentFloorData.getAnimations();
-        ArrayList<GameObject> movingObjects = new ArrayList<>();
 
         for (int y = chunkOriginY; y < chunkHeight; y++) {
             for (int x = chunkOriginX; x < chunkWidth; x++) {
@@ -768,11 +764,14 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 float lighting = (float) getLightingForGrid(x, y);
 
                 GameObject terrain = mapGrid[x][y];
-                int index = spriteIndexes.get(terrain.getSprite());
+
+                if (terrain.spriteIndex == -1) {
+                    terrain.spriteIndex = spriteIndexes.get(terrain.sprite);
+                }
 
                 spriteRenderer.addSpriteData(
                         x, y,
-                        index,
+                        terrain.spriteIndex,
                         lighting,
                         DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
 
@@ -783,32 +782,36 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                         Log.e(LOG_TAG, "object stack length changed during iteration");
                         break;
                     }
+
                     GameObject object = objectsInCell.get(i);
 
-                    if (object.isProjected()) {
-                        int fovX = object.getFovX();
-                        int fovY = object.getFovY();
+                    if (object.spriteIndex == -1) {
+                        object.spriteIndex = spriteIndexes.get(object.sprite);
+                    }
 
-                        if (fieldOfVision[fovX][fovY] > 0.1) {
+                    if (object.isProjected) {
+
+                        if (fieldOfVision[object.fovX][object.fovY] > 0.1) {
+
                             spriteRenderer.addSpriteData(
                                     x, y,
-                                    spriteIndexes.get(object.getSprite()),
+                                    object.spriteIndex,
                                     lighting,
                                     DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
                         }
 
                     }
 
-                    else if (object.isImmutable() && object.isStationary()) {
+                    else if (object.isImmutable && object.isStationary) {
                         spriteRenderer.addSpriteData(
                                 x, y,
-                                spriteIndexes.get(object.getSprite()),
+                                object.spriteIndex,
                                 lighting,
                                 DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
                     }
 
                     else {
-                        if (object.getlastMove() != null) {
+                        if (object.lastMove != null) {
                             // Wait until after we've finished iterating before adding to renderer
                             // to make sure they aren't drawn underneath other spriteHandles.
 
@@ -818,39 +821,42 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                             movingObjects.add(object);
                         }
                         else {
-                            if (object.isGasOrLiquid()) {
+                            if (object.isGasOrLiquid) {
                                 waveRenderer.addSpriteData(
                                         x, y,
-                                        spriteIndexes.get(object.getSprite()),
+                                        object.spriteIndex,
                                         lighting,
                                         DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
 
                             }
                             else {
-                                int sprite;
                                 if (object.hasAnimation()) {
-                                    sprite = spriteIndexes.get(object.getSprite(1f));
+                                    spriteRenderer.addSpriteData(
+                                            x, y,
+                                            spriteIndexes.get(object.getSprite(1f)),
+                                            lighting,
+                                            DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
                                 }
                                 else {
-                                    sprite = spriteIndexes.get(object.getSprite());
-                                }
-
+                                    // Mutable objects may change sprites, so we need to check each render
                                 spriteRenderer.addSpriteData(
                                         x, y,
-                                        sprite,
+                                            spriteIndexes.get(object.sprite),
                                         lighting,
                                         DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
                             }
                         }
                     }
                 }
+                }
 
                 int animationsSize = animations[x][y].size();
                 for (int i = 0; i < animationsSize; i++) {
                     Animation animation = (Animation) animations[x][y].get(i);
+
                     int frameIndex = processAnimation(animation);
 
-                    if (animation.isGasOrLiquid()) {
+                    if (animation.isGasOrLiquid) {
                         waveRenderer.addSpriteData(
                                 x, y,
                                 frameIndex,
@@ -871,7 +877,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             }
         }
 
-        handleMovingObjects(movingObjects);
+        handleMovingObjects();
     }
 
     /**
@@ -902,22 +908,22 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         screenTransitionRenderer.renderSolidColours(mvpMatrix);
     }
 
-    private void handleMovingObjects(ArrayList<GameObject> objects) {
-        for (GameObject object : objects) {
-            if (object.getlastMove() == null) continue;
-            int x = object.x();
-            int y = object.y();
+    private void handleMovingObjects() {
+        for (GameObject object : movingObjects) {
+            if (object.lastMove == null) continue;
+            int x = object.x;
+            int y = object.y;
             float fraction = object.advanceMovement();
-            float offsetX = (x - object.getlastMove().x()) * fraction;
-            float offsetY = (y - object.getlastMove().y()) * fraction;
+            float offsetX = (x - object.lastMove.x) * fraction;
+            float offsetY = (y - object.lastMove.y) * fraction;
             float lighting = (float) getLightingForGrid(x, y);
             if (fraction == 1) {
                 object.setLastMove(null);
-                spriteRenderer.addSpriteData(x, y, spriteIndexes.get(object.getSprite()), lighting, 0f, 0f);
+                spriteRenderer.addSpriteData(x, y, object.spriteIndex, lighting, 0f, 0f);
             } else {
-                spriteRenderer.addSpriteData(object.getlastMove().x(), object.getlastMove().y(), spriteIndexes.get(object.getSprite()), lighting, offsetX, offsetY);
+                spriteRenderer.addSpriteData(object.lastMove.x, object.lastMove.y, object.spriteIndex, lighting, offsetX, offsetY);
 
-                if (object.isPlayerControlled()) {
+                if (object.isPlayerControlled) {
                     /*scrollDx -= offsetX * (SPRITE_SIZE / 2);
                     scrollDy -= offsetY * (SPRITE_SIZE / 2);*/
 
@@ -926,6 +932,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 }
             }
         }
+
+        movingObjects.clear();
     }
 
     private void addUiLayer() {
@@ -952,8 +960,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         int x = animation.x();
         int y = animation.y();
-        int screenPosX = x - scrollOffset.x();
-        int screenPosY = y - scrollOffset.y();
+        int screenPosX = x - scrollOffsetX;
+        int screenPosY = y - scrollOffsetY;
 
         if (!inBounds(x, y)) return TRANSPARENT;
         if (!inVisibleBounds(screenPosX, screenPosY)) return TRANSPARENT;
@@ -975,7 +983,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         Iterator<GameObject> it = animations.iterator();
         while (it.hasNext()) {
             Animation animation = (Animation) it.next();
-            if (animation.isFinished()) {
+            if (animation.finished) {
                 it.remove();
             }
         }

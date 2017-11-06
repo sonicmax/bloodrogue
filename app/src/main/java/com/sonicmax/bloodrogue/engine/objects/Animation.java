@@ -12,7 +12,7 @@ public class Animation extends GameObject {
     private ArrayList<String> frames;
     private int currentFrame;
     private int length;
-    private boolean finished;
+    public boolean finished;
     private int renderCount;
     private boolean repeating;
 
