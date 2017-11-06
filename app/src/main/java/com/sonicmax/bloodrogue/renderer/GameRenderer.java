@@ -83,6 +83,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private final float[] projMatrix;
     private final float[] viewMatrix;
     private float[] uiMatrix;
+    private float[] scrollMatrix;
 
     // UI
     private UserInterfaceBuilder uiBuilder;
@@ -114,8 +115,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private int chunkHeight;
 
     // Scrolling
-    private float scrollDx = 0f;
-    private float scrollDy = 0f;
+    private float touchScrollDx = 0f;
+    private float touchScrollDy = 0f;
 
     // Timing
     private long startTime;
@@ -154,6 +155,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         viewMatrix = new float[16];
         mvpMatrix = new float[16];
         uiMatrix = new float[16];
+        scrollMatrix = new float[16];
 
         narrations = new ArrayList<>();
         statuses = new ArrayList<>();
@@ -445,13 +447,11 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         float gridSize = SPRITE_SIZE * zoomLevel * scaleFactor;
 
-        // TODO: align better to centre by checking if odd/even number of grid squares in visible width
+        touchScrollDx = 0f - (gridSize * player.x) + (screenWidth / 2);
+        touchScrollDy = 0f - (gridSize * player.y) + (screenHeight / 2);
 
-        scrollDx = 0f - (gridSize * player.x) + (screenWidth / 2);
-        scrollDy = 0f - (gridSize * player.y) + (screenHeight / 2);
-
-        // We have to make sure MainActivity has same coords as renderer
-        // gameInterface.updateScrollPos(scrollDx, scrollDy);
+        // After updating touch scroll coords, we need to translate scroll matrix
+        scrollMatrix = getScrollMatrix();
     }
 
     private void scaleScreen() {
@@ -512,8 +512,11 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     public void setTouchScrollCoords(float dx, float dy) {
-        this.scrollDx -= dx;
-        this.scrollDy += dy;
+        this.touchScrollDx -= dx;
+        this.touchScrollDy += dy;
+
+        // After updating touch scroll coords, we need to translate scroll matrix
+        scrollMatrix = getScrollMatrix();
     }
 
     /*
@@ -538,6 +541,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 lightMap = currentFloorData.getLightMap();
                 fieldOfVision = currentFloorData.getFov();
                 calculateScrollOffset(currentFloorData.getPlayer());
+                scrollMatrix = getScrollMatrix();
                 cachedTerrain = cacheTerrainSprites();
                 firstRender = false;
             }
@@ -557,11 +561,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             addUiLayer();
             addTextLayer();
 
-            // Check whether we need to translate matrix to account for touch scrolling
-            float[] renderMatrix = getRenderMatrix();
-
-            spriteRenderer.renderSprites(renderMatrix);
-            waveRenderer.renderWaveEffect(renderMatrix, dt);
+            spriteRenderer.renderSprites(scrollMatrix);
+            waveRenderer.renderWaveEffect(scrollMatrix, dt);
             textRenderer.renderText(mvpMatrix);
             uiRenderer.renderSprites(uiMatrix);
 
@@ -589,11 +590,11 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         uiTextRenderer.initArrays("Testing".length());
     }
 
-    private float[] getRenderMatrix() {
+    private float[] getScrollMatrix() {
         float[] renderMatrix = new float[16];
 
-        if (scrollDx != 0 || scrollDy != 0) {
-            Matrix.translateM(renderMatrix, 0, mvpMatrix, 0, scrollDx, scrollDy, 0f);
+        if (touchScrollDx != 0 || touchScrollDy != 0) {
+            Matrix.translateM(renderMatrix, 0, mvpMatrix, 0, touchScrollDx, touchScrollDy, 0f);
         }
 
         return renderMatrix;
@@ -939,8 +940,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 spriteRenderer.addSpriteData(object.lastMove.x, object.lastMove.y, object.spriteIndex, lighting, offsetX, offsetY);
 
                 if (object.isPlayerControlled) {
-                    /*scrollDx -= offsetX * (SPRITE_SIZE / 2);
-                    scrollDy -= offsetY * (SPRITE_SIZE / 2);*/
+                    /*touchScrollDx -= offsetX * (SPRITE_SIZE / 2);
+                    touchScrollDy -= offsetY * (SPRITE_SIZE / 2);*/
 
                     // No scrolling, but more accurate?
                     centreAtPlayerPos();
@@ -1104,8 +1105,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         float correctedY = height - y;
 
         // Account for touch scrolling
-        x -= scrollDx;
-        correctedY -= scrollDy;
+        x -= touchScrollDx;
+        correctedY -= touchScrollDy;
 
         float spriteSize = SPRITE_SIZE * zoomLevel * scaleFactor;
 
@@ -1120,8 +1121,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         float y = 0;
 
         // Account for touch scrolling
-        x -= scrollDx;
-        y -= scrollDy;
+        x -= touchScrollDx;
+        y -= touchScrollDy;
 
         float spriteSize = SPRITE_SIZE * zoomLevel * scaleFactor;
 
@@ -1147,8 +1148,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         y += spriteSize * 1.1;
 
         // Subtract scroll offset to find visible surface coords
-        x += scrollDx;
-        y += scrollDy;
+        x += touchScrollDx;
+        y += touchScrollDy;
 
         return new float[] {x, y};
     }
