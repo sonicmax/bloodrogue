@@ -50,7 +50,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private FloorData currentFloorData;
     private FloorData updatedFloorData;
     private ArrayList<Vector> currentPathSelection;
-    private Vector scrollOffset;
+    private int scrollOffsetX;
+    private int scrollOffsetY;
     private double[][] lightMap = null;
     private double[][] fieldOfVision = null;
     private ArrayList<GameObject> movingObjects;
@@ -60,6 +61,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private SpriteSheetRenderer uiRenderer;
     private SpriteSheetRenderer waveRenderer;
     private TextRenderer textRenderer;
+    private TextRenderer uiTextRenderer;
     private SolidColourRenderer screenTransitionRenderer;
 
     // Resources
@@ -384,8 +386,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         uiRenderer.precalculateUv(spriteIndexes.size());
     }
 
-    private TextRenderer uiTextRenderer;
-
     private void prepareUiTextRenderer() {
         // Create our text manager
         uiTextRenderer = new TextRenderer();
@@ -537,51 +537,33 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 centreAtPlayerPos();
                 lightMap = currentFloorData.getLightMap();
                 fieldOfVision = currentFloorData.getFov();
-                firstRender = false;
+                calculateScrollOffset(currentFloorData.getPlayer());
                 cachedTerrain = cacheTerrainSprites();
+                firstRender = false;
             }
 
             if (updatedFloorData != null) {
-                // Replace existing frame with new frame
                 currentFloorData = updatedFloorData;
                 lightMap = currentFloorData.getLightMap();
                 fieldOfVision = currentFloorData.getFov();
+                calculateScrollOffset(currentFloorData.getPlayer());
             }
 
-            scrollOffset = calculateScrollOffset();
             setGridChunkToRender();
-
             buildUiTextObjects();
+            initArrays();
 
-            fps = fpsCount + " fps";
-
-            // Get total sprite count and pass to renderer so we can init arrays used to store rendering data
-            int spriteCount = countSprites();
-
-            spriteRenderer.initArrays(spriteCount);
-            waveRenderer.initArrays(objectCount); // Todo: we should explicitly count objects that need this renderer
-            textRenderer.initArrays(countTextObjects());
-            uiRenderer.initArrays(countUiSprites());
-            uiTextRenderer.initArrays("Testing".length());
-
-            // Iterate over game data and send to renderer
             addSprites();
             addUiLayer();
             addTextLayer();
 
             // Check whether we need to translate matrix to account for touch scrolling
-            float[] renderMatrix = new float[16];
-
-            if (scrollDx != 0 || scrollDy != 0) {
-                Matrix.translateM(renderMatrix, 0, mvpMatrix, 0, scrollDx, scrollDy, 0f);
-            }
+            float[] renderMatrix = getRenderMatrix();
 
             spriteRenderer.renderSprites(renderMatrix);
             waveRenderer.renderWaveEffect(renderMatrix, dt);
             textRenderer.renderText(mvpMatrix);
             uiRenderer.renderSprites(uiMatrix);
-
-            addQueuedTextUpdates();
 
             if (transitionIn && !transitionOut) {
                 fadeTransitionIn(dt);
@@ -590,8 +572,31 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 fadeTransitionOut(dt);
             }
 
+            addQueuedTextUpdates();
+
             isRendering = false;
         }
+    }
+
+    private void initArrays() {
+        // Get total sprite count and pass to renderer so we can init arrays used to store rendering data
+        int spriteCount = countSprites();
+
+        spriteRenderer.initArrays(spriteCount);
+        waveRenderer.initArrays(objectCount); // Todo: we should explicitly count objects that need this renderer
+        textRenderer.initArrays(countTextObjects());
+        uiRenderer.initArrays(countUiSprites());
+        uiTextRenderer.initArrays("Testing".length());
+    }
+
+    private float[] getRenderMatrix() {
+        float[] renderMatrix = new float[16];
+
+        if (scrollDx != 0 || scrollDy != 0) {
+            Matrix.translateM(renderMatrix, 0, mvpMatrix, 0, scrollDx, scrollDy, 0f);
+        }
+
+        return renderMatrix;
     }
 
     public void fadeOutAndDisplaySplash() {
@@ -730,6 +735,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         hp = "HP: " + player.getHpString();
         xp = "XP: " + player.getXpString();
         floor = "Floor " + currentFloorData.getIndex();
+        fps = fpsCount + " fps";
     }
 
     private int countTextObjects() {
@@ -754,6 +760,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         GameObject[][] mapGrid = currentFloorData.getTerrain();
 
         int[][] cached = new int[mapGridWidth][mapGridHeight];
+
         for (int y = 0; y < mapGridHeight; y++) {
             for (int x = 0; x < mapGridWidth; x++) {
                 cached[x][y] = spriteIndexes.get(mapGrid[x][y].sprite);
@@ -998,8 +1005,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     private void addTextLayer() {
-        for (TextObject object : narrations) {
-            textRenderer.addTextData(object.row, object.text, object.color, object.alphaModifier);
+        int narrationSize = narrations.size();
+        for (int i = 0; i < narrationSize; i++) {
+            TextObject narration = narrations.get(i);
+            textRenderer.addTextData(narration.row, narration.text, narration.color, narration.alphaModifier);
         }
 
         Iterator<TextObject> it = statuses.iterator();
@@ -1019,8 +1028,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         textRenderer.addTextData(textRowHeight - 1, hp, TextColours.RED, 0f);
         textRenderer.addTextData(textRowHeight - 2, xp, TextColours.YELLOW, 0f);
 
-        textRenderer.addTextData(textRowHeight - 1, targetWidth, floor, TextColours.WHITE, 0f);
-        textRenderer.addTextData(textRowHeight - 2, targetWidth, fps, TextColours.WHITE, 0f);
+        textRenderer.addTextData(textRowHeight - 1, screenWidth / 1.5f, floor, TextColours.WHITE, 0f);
+        textRenderer.addTextData(textRowHeight - 2, screenWidth / 1.5f, fps, TextColours.WHITE, 0f);
     }
 
     private double getLightingForGrid(int x, int y) {
