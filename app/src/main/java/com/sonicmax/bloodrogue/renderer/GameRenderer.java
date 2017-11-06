@@ -66,6 +66,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private SpriteLoader spriteLoader;
     private HashMap<String, Integer> spriteHandles; // Texture handles for loaded textures
     private HashMap<String, Integer> spriteIndexes; // Position on sprite sheet for particular texture
+    private int[][] cachedTerrain;
     private int objectCount;
 
     // Text
@@ -537,6 +538,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 lightMap = currentFloorData.getLightMap();
                 fieldOfVision = currentFloorData.getFov();
                 firstRender = false;
+                cachedTerrain = cacheTerrainSprites();
             }
 
             if (updatedFloorData != null) {
@@ -748,12 +750,24 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         return narrationSize + statusSize + uiText;
     }
 
+    private int[][] cacheTerrainSprites() {
+        GameObject[][] mapGrid = currentFloorData.getTerrain();
+
+        int[][] cached = new int[mapGridWidth][mapGridHeight];
+        for (int y = 0; y < mapGridHeight; y++) {
+            for (int x = 0; x < mapGridWidth; x++) {
+                cached[x][y] = spriteIndexes.get(mapGrid[x][y].sprite);
+            }
+        }
+
+        return cached;
+    }
+
     /**
      *  Iterates over visible objects in current frame and passes data to SpriteSheetRenderer.
      */
 
     private void addSprites() {
-        GameObject[][] mapGrid = currentFloorData.getTerrain();
         ArrayList<GameObject>[][] objectGrid = currentFloorData.getObjects();
         ArrayList<GameObject>[][] animations = currentFloorData.getAnimations();
 
@@ -763,15 +777,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
                 float lighting = (float) getLightingForGrid(x, y);
 
-                GameObject terrain = mapGrid[x][y];
-
-                if (terrain.spriteIndex == -1) {
-                    terrain.spriteIndex = spriteIndexes.get(terrain.sprite);
-                }
-
                 spriteRenderer.addSpriteData(
                         x, y,
-                        terrain.spriteIndex,
+                        cachedTerrain[x][y],
                         lighting,
                         DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
 
