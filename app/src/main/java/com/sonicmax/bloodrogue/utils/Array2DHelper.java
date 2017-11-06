@@ -6,7 +6,7 @@ import java.util.ArrayList;
 
 
 public class Array2DHelper {
-    public static ArrayList<GameObject>[][] create(int width, int height) {
+    public static ArrayList<GameObject>[][] createArrayList2D(int width, int height) {
         ArrayList<GameObject>[][] array = new ArrayList[width][height];
 
         for (int x = 0; x < width; x++) {

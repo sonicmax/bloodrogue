@@ -121,7 +121,7 @@ public class ProceduralGenerator {
         }
 
         mMapRegions = Array2DHelper.fillIntArray(mMapWidth, mMapHeight, -1);
-        mObjectGrid = Array2DHelper.create(mMapWidth, mMapHeight);
+        mObjectGrid = Array2DHelper.createArrayList2D(mMapWidth, mMapHeight);
     }
 
     public void setFloor(int floor) {

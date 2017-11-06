@@ -96,8 +96,8 @@ public class GameEngine {
         Vector startPosition = mapData.getStartPosition();
         player = PlayerFactory.getPlayer(startPosition.x(), startPosition.y());
 
-        objectGrid = Array2DHelper.create(mapWidth, mapHeight);
-        animations = Array2DHelper.create(mapWidth, mapHeight);
+        objectGrid = Array2DHelper.createArrayList2D(mapWidth, mapHeight);
+        animations = Array2DHelper.createArrayList2D(mapWidth, mapHeight);
         populateUsingNewData();
 
         // Once we have populated object grid and placed player object, we can save data.
@@ -126,8 +126,8 @@ public class GameEngine {
             player = PlayerFactory.getPlayer(startPosition.x(), startPosition.y());
             // moveObjectToNewStack(player, player.getVector(), startPosition);
 
-            objectGrid = Array2DHelper.create(mapWidth, mapHeight);
-            animations = Array2DHelper.create(mapWidth, mapHeight);
+            objectGrid = Array2DHelper.createArrayList2D(mapWidth, mapHeight);
+            animations = Array2DHelper.createArrayList2D(mapWidth, mapHeight);
             populateUsingNewData();
 
             gameState.updateFloorIndex(currentFloor);
