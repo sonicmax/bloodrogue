@@ -1,3 +1,5 @@
+precision lowp float;
+
 uniform mat4 u_MVPMatrix;
 uniform vec2 u_waveData;
 attribute vec4 a_Position;
