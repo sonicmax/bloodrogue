@@ -48,6 +48,17 @@ public class TextRenderer {
     private int index_uvs;
     private int index_colors;
 
+    private FloatBuffer vertexBuffer;
+    private FloatBuffer textureBuffer;
+    private FloatBuffer colorBuffer;
+    private ShortBuffer drawListBuffer;
+
+    private int positionLocation;
+    private int texCoordLocation;
+    private int colorLocation;
+    private int textureLocation;
+    private int matrixLocation;
+
     private int mTextureHandle;
     private int mShaderHandle;
 
@@ -63,6 +74,16 @@ public class TextRenderer {
 
     public void setShaderProgramHandle(int handle) {
         mShaderHandle = handle;
+    }
+
+    public void getShaderVariableLocations() {
+        GLES20.glUseProgram(mShaderHandle);
+
+        positionLocation = GLES20.glGetAttribLocation(mShaderHandle, "a_Position");
+        texCoordLocation = GLES20.glGetAttribLocation(mShaderHandle, "a_texCoord" );
+        colorLocation = GLES20.glGetAttribLocation(mShaderHandle, "a_Color");
+        textureLocation = GLES20.glGetUniformLocation (mShaderHandle, "u_Texture");
+        matrixLocation = GLES20.glGetUniformLocation(mShaderHandle, "u_MVPMatrix");
     }
 
     public void setUniformscale(float uniformscale) {
@@ -198,6 +219,33 @@ public class TextRenderer {
     }
 
     /**
+     * Iterates over each character in given string and returns total width as float.
+     *
+     * @param text String to check
+     * @return Total width in pixels
+     */
+
+    public float getExpectedTextWidth(String text) {
+        float offset = 0f;
+
+        for (int j = 0; j < text.length(); j++) {
+            char c = text.charAt(j);
+            int charIndex = convertCharValueToUvIndex((int) c);
+
+            if (charIndex == -1) {
+                // Space or unknown character
+                offset += ((TEXT_SPACESIZE) * mUniformScale);
+                continue;
+            }
+
+            // Calculate the new position
+            offset += cachedOffsets[charIndex];
+        }
+
+        return offset;
+    }
+
+    /**
      * Tells renderer to display a given string at a particular row on screen.
      */
 
@@ -306,11 +354,6 @@ public class TextRenderer {
     public void renderText(float[] matrix) {
         GLES20.glUseProgram(mShaderHandle);
 
-        FloatBuffer vertexBuffer;
-        FloatBuffer textureBuffer;
-        FloatBuffer colorBuffer;
-        ShortBuffer drawListBuffer;
-
         ByteBuffer bb = ByteBuffer.allocateDirect(vecs.length * 4);
         bb.order(ByteOrder.nativeOrder());
         vertexBuffer = bb.asFloatBuffer();
@@ -331,53 +374,21 @@ public class TextRenderer {
         drawListBuffer = dlb.asShortBuffer();
         BufferUtils.copy(indices, 0, drawListBuffer, indices.length);
 
-        // get handle to vertex shader's vPosition member
-        int mPositionHandle = GLES20.glGetAttribLocation(mShaderHandle, "a_Position");
+        GLES20.glEnableVertexAttribArray(positionLocation);
+        GLES20.glEnableVertexAttribArray(texCoordLocation);
+        GLES20.glEnableVertexAttribArray(colorLocation);
 
-        // Enable a handle to the triangle vertices
-        GLES20.glEnableVertexAttribArray(mPositionHandle);
+        GLES20.glVertexAttribPointer(positionLocation, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer);
+        GLES20.glVertexAttribPointer(texCoordLocation, 2, GLES20.GL_FLOAT, false, 0, textureBuffer);
+        GLES20.glVertexAttribPointer(colorLocation, 4, GLES20.GL_FLOAT, false, 0, colorBuffer);
 
-        // Prepare the background coordinate data
-        GLES20.glVertexAttribPointer(mPositionHandle, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer);
+        GLES20.glUniformMatrix4fv(matrixLocation, 1, false, matrix, 0);
 
-        int mTexCoordLoc = GLES20.glGetAttribLocation(mShaderHandle, "a_texCoord" );
-
-        // Prepare the texturecoordinates
-        GLES20.glVertexAttribPointer(mTexCoordLoc, 2, GLES20.GL_FLOAT, false, 0, textureBuffer);
-        GLES20.glEnableVertexAttribArray(mPositionHandle);
-        GLES20.glEnableVertexAttribArray(mTexCoordLoc);
-
-        int mColorHandle = GLES20.glGetAttribLocation(mShaderHandle, "a_Color");
-
-        // Enable a handle to the triangle vertices
-        GLES20.glEnableVertexAttribArray(mColorHandle);
-
-        // Prepare the background coordinate data
-        GLES20.glVertexAttribPointer(mColorHandle, 4, GLES20.GL_FLOAT, false, 0, colorBuffer);
-
-        // get handle to shape's transformation matrix
-        int mtrxhandle = GLES20.glGetUniformLocation(mShaderHandle, "u_MVPMatrix");
-
-        // Apply the projection and view transformation
-        GLES20.glUniformMatrix4fv(mtrxhandle, 1, false, matrix, 0);
-
-        int textureLocation = GLES20.glGetUniformLocation (mShaderHandle, "u_Texture");
-
-        //Set the active texture unit to texture unit 0.
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
-
-        //Bind the texture to this unit.
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mTextureHandle);
-
-        //Tell the texture uniform sampler to use this texture in the shader by binding to texture unit 0.
         GLES20.glUniform1i(textureLocation, 0);
 
         // render the triangle
         GLES20.glDrawElements(GLES20.GL_TRIANGLES, indices.length, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);
-
-        // Disable vertex array
-        GLES20.glDisableVertexAttribArray(mPositionHandle);
-        GLES20.glDisableVertexAttribArray(mTexCoordLoc);
-        GLES20.glDisableVertexAttribArray(mColorHandle);
     }
 }

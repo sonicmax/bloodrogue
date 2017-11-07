@@ -344,6 +344,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private void prepareSpriteRenderer() {
         spriteRenderer = new SpriteSheetRenderer();
         spriteRenderer.setBasicShader(spriteShaderProgram);
+        spriteRenderer.getShaderVariableLocations();
         spriteRenderer.setSpriteSheetHandle(spriteHandles.get("sprite_sheets/sheet.png"));
         spriteRenderer.setUniformScale(scaleFactor);
         spriteRenderer.precalculatePositions(mapGridWidth, mapGridHeight);
@@ -354,6 +355,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         waveRenderer = new SpriteSheetRenderer();
         waveRenderer.setBasicShader(spriteShaderProgram);
         waveRenderer.setWaveShader(waveShaderProgram);
+        waveRenderer.getWaveShaderVariableLocations();
         waveRenderer.setSpriteSheetHandle(spriteHandles.get("sprite_sheets/sheet.png"));
         waveRenderer.setUniformScale(scaleFactor);
         waveRenderer.precalculatePositions(mapGridWidth, mapGridHeight);
@@ -364,6 +366,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         // Create our text manager
         textRenderer = new TextRenderer();
         textRenderer.setShaderProgramHandle(spriteShaderProgram);
+        textRenderer.getShaderVariableLocations();
         textRenderer.setTextureHandle(spriteHandles.get("fonts/ccra_font.png"));
         textRenderer.setUniformscale(scaleFactor);
         textRenderer.precalculateUv();
@@ -381,16 +384,19 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private void prepareUiRenderer() {
         uiRenderer = new SpriteSheetRenderer();
         uiRenderer.setBasicShader(spriteShaderProgram);
+        uiRenderer.getShaderVariableLocations();
         uiRenderer.setSpriteSheetHandle(spriteHandles.get("sprite_sheets/sheet.png"));
         uiRenderer.setUniformScale(scaleFactor);
         uiRenderer.precalculatePositions(visibleGridWidth, visibleGridHeight);
         uiRenderer.precalculateUv(spriteIndexes.size());
+        uiRenderer.getShaderVariableLocations();
     }
 
     private void prepareUiTextRenderer() {
         // Create our text manager
         uiTextRenderer = new TextRenderer();
         uiTextRenderer.setShaderProgramHandle(spriteShaderProgram);
+        uiTextRenderer.getShaderVariableLocations();
         uiTextRenderer.setTextureHandle(spriteHandles.get("fonts/ccra_font.png"));
         uiTextRenderer.setUniformscale(scaleFactor);
         uiTextRenderer.setTextSize(32f);

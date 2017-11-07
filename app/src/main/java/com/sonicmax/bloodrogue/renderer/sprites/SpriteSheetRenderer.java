@@ -49,14 +49,24 @@ public class SpriteSheetRenderer {
     private int index_uvs;
     private int index_colors;
 
-    private int offsetX;
-    private int offsetY;
     private float mUniformScale;
 
     // Handles for OpenGL
     private int mSpriteSheetHandle;
     private int mBasicShaderHandle;
     private int mWaveShaderHandle;
+
+    private FloatBuffer vertexBuffer;
+    private FloatBuffer textureBuffer;
+    private FloatBuffer colorBuffer;
+    private ShortBuffer drawListBuffer;
+
+    private int positionLocation;
+    private int texCoordLocation;
+    private int colorLocation;
+    private int matrixLocation;
+    private int textureLocation;
+    private int waveDataLocation;
 
     // Values for wave effect. angleWave and amplitudeWave are set as vec2 in vertex shader.
     private float amplitudeWave = 6f;
@@ -65,8 +75,6 @@ public class SpriteSheetRenderer {
 
     public SpriteSheetRenderer() {
         mUniformScale = 1f;
-        offsetX = 0;
-        offsetY = 0;
         System.loadLibrary(BUFFER_UTILS);
     }
 
@@ -79,8 +87,29 @@ public class SpriteSheetRenderer {
         mBasicShaderHandle = handle;
     }
 
+    public void getShaderVariableLocations() {
+        GLES20.glUseProgram(mBasicShaderHandle);
+
+        positionLocation = GLES20.glGetAttribLocation(mBasicShaderHandle, "a_Position");
+        texCoordLocation = GLES20.glGetAttribLocation(mBasicShaderHandle, "a_texCoord");
+        colorLocation = GLES20.glGetAttribLocation(mBasicShaderHandle, "a_Color");
+        matrixLocation = GLES20.glGetUniformLocation(mBasicShaderHandle, "u_MVPMatrix");
+        textureLocation = GLES20.glGetUniformLocation (mBasicShaderHandle, "u_Texture");
+    }
+
     public void setWaveShader(int handle) {
         mWaveShaderHandle = handle;
+    }
+
+    public void getWaveShaderVariableLocations() {
+        GLES20.glUseProgram(mWaveShaderHandle);
+
+        positionLocation = GLES20.glGetAttribLocation(mWaveShaderHandle, "a_Position");
+        texCoordLocation = GLES20.glGetAttribLocation(mWaveShaderHandle, "a_texCoord");
+        colorLocation = GLES20.glGetAttribLocation(mWaveShaderHandle, "a_Color");
+        matrixLocation = GLES20.glGetUniformLocation(mWaveShaderHandle, "u_MVPMatrix");
+        textureLocation = GLES20.glGetUniformLocation (mWaveShaderHandle, "u_Texture");
+        waveDataLocation = GLES20.glGetUniformLocation(mWaveShaderHandle, "u_waveData");
     }
 
     public void setSpriteSheetHandle(int val) {
@@ -183,27 +212,6 @@ public class SpriteSheetRenderer {
         }
     }
 
-    private void addColourRenderInformation(float[] vec, float[] cs) {
-        // Translate the indices to align with the location in our array of vectors
-        short base = (short) (index_vecs / 3);
-
-        // Add data to be passed into GL buffers
-        for (int i = 0; i < vec.length; i++) {
-            vecs[index_vecs] = vec[i];
-            index_vecs++;
-        }
-
-        for(int i = 0; i < cs.length; i++) {
-            colors[index_colors] = cs[i];
-            index_colors++;
-        }
-
-        for (int j = 0; j < mIndices.length; j++) {
-            indices[index_indices] = (short) (base + mIndices[j]);
-            index_indices++;
-        }
-    }
-
     public void addSpriteData(int x, int y, int spriteIndex, float lighting, float offsetX, float offsetY) {
 
         float[] colors = new float[] {
@@ -255,10 +263,45 @@ public class SpriteSheetRenderer {
     public void renderSprites(float[] matrix) {
         GLES20.glUseProgram(mBasicShaderHandle);
 
-        FloatBuffer vertexBuffer;
-        FloatBuffer textureBuffer;
-        FloatBuffer colorBuffer;
-        ShortBuffer drawListBuffer;
+        ByteBuffer bb = ByteBuffer.allocateDirect(vecs.length * 4);
+        bb.order(ByteOrder.nativeOrder());
+        vertexBuffer = bb.asFloatBuffer();
+        BufferUtils.copy(vecs, vertexBuffer, vecs.length, 0);
+
+        ByteBuffer bb3 = ByteBuffer.allocateDirect(colors.length * 4);
+        bb3.order(ByteOrder.nativeOrder());
+        colorBuffer = bb3.asFloatBuffer();
+        BufferUtils.copy(colors, colorBuffer, colors.length, 0);
+
+        ByteBuffer bb2 = ByteBuffer.allocateDirect(uvs.length * 4);
+        bb2.order(ByteOrder.nativeOrder());
+        textureBuffer = bb2.asFloatBuffer();
+        BufferUtils.copy(uvs, textureBuffer, uvs.length, 0);
+
+        ByteBuffer dlb = ByteBuffer.allocateDirect(indices.length * 2);
+        dlb.order(ByteOrder.nativeOrder());
+        drawListBuffer = dlb.asShortBuffer();
+        BufferUtils.copy(indices, 0, drawListBuffer, indices.length);
+
+        GLES20.glEnableVertexAttribArray(positionLocation);
+        GLES20.glEnableVertexAttribArray(texCoordLocation);
+        GLES20.glEnableVertexAttribArray(colorLocation);
+
+        // Pass data to shader
+        GLES20.glVertexAttribPointer(positionLocation, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer);
+        GLES20.glVertexAttribPointer (texCoordLocation, 2, GLES20.GL_FLOAT, false, 0, textureBuffer);
+        GLES20.glVertexAttribPointer(colorLocation, 4, GLES20.GL_FLOAT, false, 0, colorBuffer);
+        GLES20.glUniformMatrix4fv(matrixLocation, 1, false, matrix, 0);
+
+        // Bind texture to unit 0 and render triangle
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mSpriteSheetHandle);
+        GLES20.glUniform1i(textureLocation, 0);
+        GLES20.glDrawElements(GLES20.GL_TRIANGLES, indices.length, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);
+    }
+
+    public void renderWaveEffect(float[] matrix, float dt) {
+        GLES20.glUseProgram(mWaveShaderHandle);
 
         ByteBuffer bb = ByteBuffer.allocateDirect(vecs.length * 4);
         bb.order(ByteOrder.nativeOrder());
@@ -280,89 +323,6 @@ public class SpriteSheetRenderer {
         drawListBuffer = dlb.asShortBuffer();
         BufferUtils.copy(indices, 0, drawListBuffer, indices.length);
 
-        // get handle to vertex shader's vPosition member
-        int mPositionHandle = GLES20.glGetAttribLocation(mBasicShaderHandle, "a_Position");
-
-        // Enable a handle to the triangle vertices
-        GLES20.glEnableVertexAttribArray(mPositionHandle);
-
-        // Prepare the background coordinate data
-        GLES20.glVertexAttribPointer(mPositionHandle, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer);
-
-        int mTexCoordLoc = GLES20.glGetAttribLocation(mBasicShaderHandle, "a_texCoord");
-
-        // Prepare the texturecoordinates
-        GLES20.glVertexAttribPointer ( mTexCoordLoc, 2, GLES20.GL_FLOAT, false, 0, textureBuffer);
-
-        GLES20.glEnableVertexAttribArray(mPositionHandle);
-        GLES20.glEnableVertexAttribArray(mTexCoordLoc);
-
-        int mColorHandle = GLES20.glGetAttribLocation(mBasicShaderHandle, "a_Color");
-
-        // Enable a handle to the triangle vertices
-        GLES20.glEnableVertexAttribArray(mColorHandle);
-
-        // Prepare the background coordinate data
-        GLES20.glVertexAttribPointer(mColorHandle, 4, GLES20.GL_FLOAT, false, 0, colorBuffer);
-
-        // get handle to shape's transformation matrix
-        int mtrxhandle = GLES20.glGetUniformLocation(mBasicShaderHandle, "u_MVPMatrix");
-
-        // Apply the projection and view transformation
-        GLES20.glUniformMatrix4fv(mtrxhandle, 1, false, matrix, 0);
-
-        int textureLocation = GLES20.glGetUniformLocation (mBasicShaderHandle, "u_Texture");
-
-        //Set the active texture unit to texture unit 0.
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
-
-        //Bind the texture to this unit.
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mSpriteSheetHandle);
-
-        //Tell the texture uniform sampler to use this texture in the shader by binding to texture unit 0.
-        GLES20.glUniform1i(textureLocation, 0);
-
-        // render the triangle
-        GLES20.glDrawElements(GLES20.GL_TRIANGLES, indices.length, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);
-
-        // Disable vertex array
-        GLES20.glDisableVertexAttribArray(mPositionHandle);
-        GLES20.glDisableVertexAttribArray(mTexCoordLoc);
-        GLES20.glDisableVertexAttribArray(mColorHandle);
-    }
-
-    public void renderWaveEffect(float[] matrix, float dt) {
-        GLES20.glUseProgram(mWaveShaderHandle);
-
-        FloatBuffer vertexBuffer;
-        FloatBuffer textureBuffer;
-        FloatBuffer colorBuffer;
-        ShortBuffer drawListBuffer;
-
-        ByteBuffer bb = ByteBuffer.allocateDirect(vecs.length * 4);
-        bb.order(ByteOrder.nativeOrder());
-        vertexBuffer = bb.asFloatBuffer();
-        vertexBuffer.put(vecs);
-        vertexBuffer.position(0);
-
-        ByteBuffer bb3 = ByteBuffer.allocateDirect(colors.length * 4);
-        bb3.order(ByteOrder.nativeOrder());
-        colorBuffer = bb3.asFloatBuffer();
-        colorBuffer.put(colors);
-        colorBuffer.position(0);
-
-        ByteBuffer bb2 = ByteBuffer.allocateDirect(uvs.length * 4);
-        bb2.order(ByteOrder.nativeOrder());
-        textureBuffer = bb2.asFloatBuffer();
-        textureBuffer.put(uvs);
-        textureBuffer.position(0);
-
-        ByteBuffer dlb = ByteBuffer.allocateDirect(indices.length * 2);
-        dlb.order(ByteOrder.nativeOrder());
-        drawListBuffer = dlb.asShortBuffer();
-        drawListBuffer.put(indices);
-        drawListBuffer.position(0);
-
         dt = 1f / dt;
 
         angleWave += dt * angleWaveSpeed;
@@ -371,57 +331,23 @@ public class SpriteSheetRenderer {
             angleWave -= PI2;
         }
 
-        // get handle to vertex shader's vPosition member
-        int mPositionHandle = GLES20.glGetAttribLocation(mWaveShaderHandle, "a_Position");
+        GLES20.glEnableVertexAttribArray(positionLocation);
+        GLES20.glEnableVertexAttribArray(texCoordLocation);
+        GLES20.glEnableVertexAttribArray(colorLocation);
 
-        // Enable a handle to the triangle vertices
-        GLES20.glEnableVertexAttribArray(mPositionHandle);
+        GLES20.glVertexAttribPointer(positionLocation, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer);
+        GLES20.glVertexAttribPointer(texCoordLocation, 2, GLES20.GL_FLOAT, false, 0, textureBuffer);
+        GLES20.glVertexAttribPointer(colorLocation, 4, GLES20.GL_FLOAT, false, 0, colorBuffer);
 
-        // Prepare the background coordinate data
-        GLES20.glVertexAttribPointer(mPositionHandle, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer);
+        GLES20.glUniformMatrix4fv(matrixLocation, 1, false, matrix, 0);
 
-        int mTexCoordLoc = GLES20.glGetAttribLocation(mWaveShaderHandle, "a_texCoord");
+        // Pass updated angle & amplitude to shader
+        GLES20.glUniform2f(waveDataLocation, angleWave, amplitudeWave);
 
-        // Prepare the texturecoordinates
-        GLES20.glVertexAttribPointer ( mTexCoordLoc, 2, GLES20.GL_FLOAT, false, 0, textureBuffer);
-
-        GLES20.glEnableVertexAttribArray(mPositionHandle);
-        GLES20.glEnableVertexAttribArray(mTexCoordLoc);
-
-        int mColorHandle = GLES20.glGetAttribLocation(mWaveShaderHandle, "a_Color");
-
-        // Enable a handle to the triangle vertices
-        GLES20.glEnableVertexAttribArray(mColorHandle);
-
-        // Prepare the background coordinate data
-        GLES20.glVertexAttribPointer(mColorHandle, 4, GLES20.GL_FLOAT, false, 0, colorBuffer);
-
-        // get handle to shape's transformation matrix
-        int mtrxhandle = GLES20.glGetUniformLocation(mWaveShaderHandle, "u_MVPMatrix");
-
-        // Apply the projection and view transformation
-        GLES20.glUniformMatrix4fv(mtrxhandle, 1, false, matrix, 0);
-
-        int textureLocation = GLES20.glGetUniformLocation (mWaveShaderHandle, "u_Texture");
-
-        int mWaveDataHandle = GLES20.glGetUniformLocation(mWaveShaderHandle, "u_waveData");
-        GLES20.glUniform2f(mWaveDataHandle, angleWave, amplitudeWave);
-
-        //Set the active texture unit to texture unit 0.
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
-
-        //Bind the texture to this unit.
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mSpriteSheetHandle);
-
-        //Tell the texture uniform sampler to use this texture in the shader by binding to texture unit 0.
         GLES20.glUniform1i(textureLocation, 0);
 
-        // render the triangle
         GLES20.glDrawElements(GLES20.GL_TRIANGLES, indices.length, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);
-
-        // Disable vertex array
-        GLES20.glDisableVertexAttribArray(mPositionHandle);
-        GLES20.glDisableVertexAttribArray(mTexCoordLoc);
-        GLES20.glDisableVertexAttribArray(mColorHandle);
     }
 }
