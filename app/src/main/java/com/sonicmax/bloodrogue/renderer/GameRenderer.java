@@ -52,8 +52,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private ArrayList<Vector> currentPathSelection;
     private int scrollOffsetX;
     private int scrollOffsetY;
-    private double[][] lightMap = null;
-    private double[][] fieldOfVision = null;
+    private double[][] fieldOfVision;
     private ArrayList<GameObject> movingObjects;
 
     // Renderers
@@ -538,7 +537,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
             if (firstRender) {
                 centreAtPlayerPos();
-                lightMap = currentFloorData.getLightMap();
                 fieldOfVision = currentFloorData.getFov();
                 calculateScrollOffset(currentFloorData.getPlayer());
                 scrollMatrix = getScrollMatrix();
@@ -548,7 +546,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
             if (updatedFloorData != null) {
                 currentFloorData = updatedFloorData;
-                lightMap = currentFloorData.getLightMap();
                 fieldOfVision = currentFloorData.getFov();
                 calculateScrollOffset(currentFloorData.getPlayer());
             }
@@ -1034,14 +1031,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     private double getLightingForGrid(int x, int y) {
-        double lightSource, fov;
-
-        if (lightMap == null || lightMap[x][y] == 0) {
-            lightSource = 0.1;
-        }
-        else {
-            lightSource = lightMap[x][y];
-        }
+        double fov;
 
         if (fieldOfVision[x][y] == 0) {
             fov = 0.1;
@@ -1050,7 +1040,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             fov = fieldOfVision[x][y];
         }
 
-        return (lightSource + fov) / 2;
+        return fov;
     }
 
     /*

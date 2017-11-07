@@ -42,7 +42,6 @@ public class GameEngine {
     private ArrayList<GameObject> enemies;
     private ArrayList<GameObject>[][] animations;
     private int[][] playerDesireMap;
-    private double[][] lightMap;
     private double[][] fieldOfVision;
     private ArrayList<GameObject> lightSources;
     private GameObject player;
@@ -142,7 +141,6 @@ public class GameEngine {
             objectGrid = nextFloor.getObjects();
             animations = nextFloor.getAnimations();
             fieldOfVision = nextFloor.getFov();
-            lightMap = nextFloor.getLightMap();
             player = nextFloor.getPlayer();
 
             populateUsingSaveState();
@@ -163,7 +161,6 @@ public class GameEngine {
         objectGrid = previousFloor.getObjects();
         animations = previousFloor.getAnimations();
         fieldOfVision = previousFloor.getFov();
-        lightMap = previousFloor.getLightMap();
         player = previousFloor.getPlayer();
 
         populateUsingSaveState();
@@ -179,7 +176,7 @@ public class GameEngine {
     */
 
     public FloorData getCurrentFloorData() {
-        return new FloorData(currentFloor, mapGrid, objectGrid, animations, fieldOfVision, lightMap, player);
+        return new FloorData(currentFloor, mapGrid, objectGrid, animations, fieldOfVision, player);
     }
 
     public GameState getGameState() {
@@ -193,7 +190,6 @@ public class GameEngine {
         objectGrid = floor.getObjects();
         animations = floor.getAnimations();
         fieldOfVision = floor.getFov();
-        lightMap = floor.getLightMap();
         player = floor.getPlayer();
         populateUsingSaveState();
     }
@@ -231,8 +227,6 @@ public class GameEngine {
     private void updatePreCombatData() {
         fovCalculator.setValues(mapGrid, objectGrid, player.x(), player.y(), sightRadius);
         fieldOfVision = fovCalculator.calculate();
-        generateDesireMaps();
-        lightMap = getVisibleLight();
         generateDesireMaps();
         handlePlayerMetabolism();
     }
@@ -464,42 +458,6 @@ public class GameEngine {
 
         // Player desire is blocked by collision, player radius goes through walls/etc
         playerDesireMap = populateDijkstraGrid(Directions.All.values(), desireGrid, desireLocations, tilesToCheck, false);
-    }
-
-    private double[][] getVisibleLight() {
-        final int LIGHT_RADIUS = 5;
-        FieldOfVisionCalculator fov = new FieldOfVisionCalculator();
-        fov.setDarknessFactor(2);
-        double[][] combinedLightMap = null;
-
-        int lightSize = lightSources.size();
-        for (int i = 0; i < lightSize; i++) {
-            GameObject source = lightSources.get(i);
-
-            // Ignore anything outside of player's FOV
-            if (fieldOfVision[source.x()][source.y()] > 0) {
-
-                fov.setValues(mapGrid, objectGrid, player.x(), player.y(), LIGHT_RADIUS);
-                double[][] lightMap = fov.calculate();
-
-                if (combinedLightMap != null) {
-                    for (int x = 0; x < mapWidth; x++) {
-                        for (int y = 0; y < mapHeight; y++) {
-                            if (lightMap[x][y] > combinedLightMap[x][y]) {
-                                combinedLightMap[x][y] = lightMap[x][y];
-                            }
-                        }
-                    }
-                }
-
-                else {
-                    combinedLightMap = lightMap;
-                }
-
-            }
-        }
-
-        return combinedLightMap;
     }
 
     private int[][] populateDijkstraGrid(Collection<Vector> directions, int[][] desireGrid, ArrayList<Vector> desireLocations, String[] tilesToCheck, boolean ignoreCollisions) {

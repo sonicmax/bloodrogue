@@ -12,27 +12,21 @@ import java.util.ArrayList;
 public class FloorData implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    private int index;
-    private GameObject[][] terrain;
-    private ArrayList<GameObject>[][] objects;
-    private ArrayList<GameObject>[][] animations;
-    private double[][] fov;
-    private double[][] lightMap;
-    private GameObject player;
-
-    public FloorData() {
-
-    }
+    public final int index;
+    public final GameObject[][] terrain;
+    public final ArrayList<GameObject>[][] objects;
+    public final ArrayList<GameObject>[][] animations;
+    public final double[][] fov;
+    public final GameObject player;
 
     public FloorData(int index, GameObject[][] terrain, ArrayList<GameObject>[][] objects,
-                     ArrayList<GameObject>[][] animations, double[][] fov, double[][] lightMap, GameObject player) {
+                     ArrayList<GameObject>[][] animations, double[][] fov, GameObject player) {
 
         this.index = index;
         this.terrain = terrain;
         this.objects = objects;
         this.animations = animations;
         this.fov = fov;
-        this.lightMap = lightMap;
         this.player = player;
     }
 
@@ -50,10 +44,6 @@ public class FloorData implements Serializable {
 
     public double[][] getFov() {
         return this.fov;
-    }
-
-    public double[][] getLightMap() {
-        return this.lightMap;
     }
 
     public GameObject getPlayer() {
