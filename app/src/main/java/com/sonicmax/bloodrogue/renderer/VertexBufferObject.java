@@ -11,44 +11,64 @@ import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
 import java.security.InvalidParameterException;
 
+/**
+ *  Class which creates a VBO and provides various convenience methods for copying data, binding/unbinding, etc
+ */
+
 public class VertexBufferObject {
     private final int FLOAT_SIZE = 4;
     private final int SHORT_SIZE = 2;
 
     private final int name;
-    private int type;
+    private final int[] buffers;
+    private final int type;
 
-    public VertexBufferObject() {
-        final int buffers[] = new int[1];
+    public VertexBufferObject(int type) {
+        this.buffers = new int[1];
         GLES20.glGenBuffers(1, buffers, 0);
-        name = buffers[0];
-        type = -1;
+        this.name = buffers[0];
+
+        if (typeIsAllowed(type)) {
+            this.type = type;
+        }
+        else {
+            throw new IllegalArgumentException("Type is not allowed. Use GL_ARRAY_BUFFER or GL_ELEMENT_ARRAY_BUFFER");
+        }
+    }
+
+    private boolean typeIsAllowed(int type) {
+        switch (type) {
+            case GLES20.GL_ARRAY_BUFFER:
+            case GLES20.GL_ELEMENT_ARRAY_BUFFER:
+                return true;
+
+            default:
+                return false;
+        }
     }
 
     public int getName() {
         return this.name;
     }
 
-    public void setType(int type) {
-        this.type = type;
-    }
-
-    public void bind(int type) {
-        GLES20.glBindBuffer(type, this.name);
-        this.type = type;
-    }
-
     public void bind() {
-        if (this.type == -1) {
-            throw new InvalidParameterException("Must use setType(int type) or bind(int type) before calling bind() with no arguments.");
-        }
-        else {
-            GLES20.glBindBuffer(this.type, this.name);
-        }
+        GLES20.glBindBuffer(this.type, this.name);
     }
 
     public void unbind() {
         GLES20.glBindBuffer(this.type, 0);
+    }
+
+    public void bindAndCopy(float[] data) {
+        this.bind();
+        this.copy(data);
+        this.unbind();
+    }
+
+    public void bindAndCopy(short[] data) {
+        this.bind();
+        this.copy(data);
+        this.unbind();
     }
 
     public void copy(float[] data) {
@@ -71,5 +91,9 @@ public class VertexBufferObject {
 
         bb.clear();
         shortBuffer.clear();
+    }
+
+    public void delete() {
+        GLES20.glDeleteBuffers(1, buffers, 0);
     }
 }

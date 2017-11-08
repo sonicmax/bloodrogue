@@ -291,16 +291,11 @@ public class TerrainRenderer {
         // We need two VBOs - one for floats, one for shorts.
         // Get object name for later use
 
-        packedBuffer = new VertexBufferObject();
-        indicesBuffer = new VertexBufferObject();
+        packedBuffer = new VertexBufferObject(GLES20.GL_ARRAY_BUFFER);
+        indicesBuffer = new VertexBufferObject(GLES20.GL_ELEMENT_ARRAY_BUFFER);
 
-        packedBuffer.bind(GLES20.GL_ARRAY_BUFFER);
-        packedBuffer.copy(packedFloats);
-        packedBuffer.unbind();
-
-        indicesBuffer.bind(GLES20.GL_ELEMENT_ARRAY_BUFFER);
-        indicesBuffer.copy(indices);
-        indicesBuffer.unbind();
+        packedBuffer.bindAndCopy(packedFloats);
+        indicesBuffer.bindAndCopy(indices);
 
         // Once data has been copied to GPU, we can remove local references to data
         packedFloats = null;
@@ -363,7 +358,7 @@ public class TerrainRenderer {
         indicesBuffer.bind();
         GLES20.glDrawElements(GLES20.GL_TRIANGLES, indexCount, GLES20.GL_UNSIGNED_SHORT, 0);
 
-        // Unbind buffers once we've finished using them
+        // Unbind VBOs once we've finished using them
         packedBuffer.unbind();
         indicesBuffer.unbind();
     }

@@ -132,16 +132,11 @@ public class SolidColourRenderer {
         // We need two VBOs - one for floats, one for shorts.
         // Get object name for later use
 
-        positionBuffer = new VertexBufferObject();
-        indicesBuffer = new VertexBufferObject();
+        positionBuffer = new VertexBufferObject(GLES20.GL_ARRAY_BUFFER);
+        indicesBuffer = new VertexBufferObject(GLES20.GL_ELEMENT_ARRAY_BUFFER);
 
-        positionBuffer.bind(GLES20.GL_ARRAY_BUFFER);
-        positionBuffer.copy(vertices);
-        positionBuffer.unbind();
-
-        indicesBuffer.bind(GLES20.GL_ELEMENT_ARRAY_BUFFER);
-        indicesBuffer.copy(indices);
-        indicesBuffer.unbind();
+        positionBuffer.bindAndCopy(vertices);
+        indicesBuffer.bindAndCopy(indices);
 
         // Once data has been copied to GPU, we can remove local references to data
         vertices = null;
