@@ -390,8 +390,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         screenTransitionRenderer.setUniformScale(scaleFactor);
         int width = visibleGridWidth + 1;
         int height = visibleGridHeight + 1;
-        screenTransitionRenderer.precalculatePositions(width, height);
-        screenTransitionRenderer.prepareIndicesBuffer(width, height);
+        screenTransitionRenderer.addPositions(width, height);
+        screenTransitionRenderer.addIndices(width, height);
+        screenTransitionRenderer.createVBO();
     }
 
     private void prepareUiRenderer() {
@@ -634,10 +635,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             // Game data will already be present and rendered, so we don't need to do anything here
         }
 
-        int size = (visibleGridWidth + 1) * (visibleGridHeight + 1);
-        screenTransitionRenderer.initArrays(size);
         renderTransition();
-        screenTransitionRenderer.renderSolidColours(mvpMatrix);
     }
 
     /**
@@ -661,11 +659,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             renderState = SPLASH;
         }
 
-        int size = (visibleGridWidth + 2) * (visibleGridHeight + 2);
-
-        screenTransitionRenderer.initArrays(size);
         renderTransition();
-        screenTransitionRenderer.renderSolidColours(mvpMatrix);
     }
 
     /**
@@ -914,7 +908,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     private void renderTransition() {
         int size = (visibleGridWidth + 1) * (visibleGridHeight + 1);
-        screenTransitionRenderer.initArrays(size);
+
+        screenTransitionRenderer.initColourArray(size);
 
         float[] colour = new float[] {
                 0f, 0f, 0f, currentTransitionAlpha,
@@ -923,10 +918,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 0f, 0f, 0f, currentTransitionAlpha
         };
 
-        for (int y = 0; y <= visibleGridHeight; y++) {
-            for (int x = 0; x <= visibleGridWidth; x++) {
-                screenTransitionRenderer.addSolidTile(x, y, colour);
-            }
+        for (int i = 0; i < size; i++) {
+            screenTransitionRenderer.addSolidTile(colour);
         }
 
         screenTransitionRenderer.renderSolidColours(mvpMatrix);

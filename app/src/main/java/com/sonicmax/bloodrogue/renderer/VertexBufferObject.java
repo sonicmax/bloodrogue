@@ -11,7 +11,6 @@ import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
 import java.security.InvalidParameterException;
 
-
 public class VertexBufferObject {
     private final int FLOAT_SIZE = 4;
     private final int SHORT_SIZE = 2;
