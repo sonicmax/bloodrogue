@@ -1007,7 +1007,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         int narrationSize = narrations.size();
         for (int i = 0; i < narrationSize; i++) {
             TextObject narration = narrations.get(i);
-            textRenderer.addTextData(narration.row, narration.text, narration.color, narration.alphaModifier);
+            textRenderer.addTextRowData(narration.row, narration.text, narration.color, narration.alphaModifier);
         }
 
         Iterator<TextObject> it = statuses.iterator();
@@ -1020,15 +1020,15 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             } else {
                 status.offsetY = fraction;
                 status.alphaModifier = fraction;
-                textRenderer.addTextData(status.x, status.y, status.offsetY, status.scale, status.text, status.color, status.alphaModifier);
+                textRenderer.addTextRowData(status.x, status.y, status.offsetY, status.scale, status.text, status.color, status.alphaModifier);
             }
         }
 
-        textRenderer.addTextData(textRowHeight - 1, hp, TextColours.RED, 0f);
-        textRenderer.addTextData(textRowHeight - 2, xp, TextColours.YELLOW, 0f);
+        textRenderer.addTextRowData(textRowHeight - 1, hp, TextColours.RED, 0f);
+        textRenderer.addTextRowData(textRowHeight - 2, xp, TextColours.YELLOW, 0f);
 
-        textRenderer.addTextData(textRowHeight - 1, screenWidth / 1.5f, floor, TextColours.WHITE, 0f);
-        textRenderer.addTextData(textRowHeight - 2, screenWidth / 1.5f, fps, TextColours.WHITE, 0f);
+        textRenderer.addTextRowData(textRowHeight - 1, screenWidth / 1.5f, floor, TextColours.WHITE, 0f);
+        textRenderer.addTextRowData(textRowHeight - 2, screenWidth / 1.5f, fps, TextColours.WHITE, 0f);
     }
 
     private double getLightingForGrid(int x, int y) {
