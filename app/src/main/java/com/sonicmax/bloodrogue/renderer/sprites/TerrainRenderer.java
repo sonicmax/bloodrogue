@@ -113,38 +113,6 @@ public class TerrainRenderer {
         this.gridHeight = height;
     }
 
-    public void precalculatePositions(int width, int height) {
-        cachedVecs = new float[width][height][12];
-
-        float x;
-        float y;
-        float yUnit = TARGET_WIDTH * mUniformScale;
-
-        // Iterate over row of terrainIndexes and setup vertices/etc for each sprite
-        for (int tileY = 0; tileY < height; tileY++) {
-            x = 0f;
-            y = 0f + (tileY * yUnit);
-
-            for (int tileX = 0; tileX < width; tileX++) {
-
-                cachedVecs[tileX][tileY][0] = x;
-                cachedVecs[tileX][tileY][1] = y + (TARGET_WIDTH * mUniformScale);
-                cachedVecs[tileX][tileY][2] = 1f;
-                cachedVecs[tileX][tileY][3] = x;
-                cachedVecs[tileX][tileY][4] = y;
-                cachedVecs[tileX][tileY][5] = 1f;
-                cachedVecs[tileX][tileY][6] = x + (TARGET_WIDTH * mUniformScale);
-                cachedVecs[tileX][tileY][7] = y;
-                cachedVecs[tileX][tileY][8] = 1f;
-                cachedVecs[tileX][tileY][9] = x + (TARGET_WIDTH * mUniformScale);
-                cachedVecs[tileX][tileY][10] = y + (TARGET_WIDTH * mUniformScale);
-                cachedVecs[tileX][tileY][11] = 1f;
-
-                x += TARGET_WIDTH * mUniformScale;
-            }
-        }
-    }
-
     public void precalculateUv(int numberOfIndexes) {
         cachedUvs = new float[numberOfIndexes][8];
 
@@ -176,21 +144,40 @@ public class TerrainRenderer {
 
     /**
      * This method expects that you pass the sprite data in the same order that vertices and indices
-     * are prepared -
-     *
-     * @param x
-     * @param y
-     * @param spriteIndex
-     * @param lighting
+     * are prepared - this will be row by row starting from the origin
+     * (eg. 1st sprite = [0, 0], 2nd sprite = [1, 0], etc)
      */
 
-    public void addSpriteData(int x, int y, int spriteIndex, float lighting) {
+    public void addSpriteData(int x, int y, int spriteIndex) {
         if (spriteIndex == -1) {
             Log.e(LOG_TAG, "Invalid sprite at " + x + ", " + y);
             return;
         }
 
-        addRenderInformation(cachedVecs[x][y], cachedUvs[spriteIndex]);
+        float yUnit = TARGET_WIDTH * mUniformScale;
+
+        float vecX = x * yUnit;
+        float vecY = y * yUnit;
+
+        float[] vertices = new float[12];
+
+        vertices[0] = vecX;
+        vertices[1] = vecY + (TARGET_WIDTH * mUniformScale);
+        vertices[2] = 1f;
+
+        vertices[3] = vecX;
+        vertices[4] = vecY;
+        vertices[5] = 1f;
+
+        vertices[6] = vecX + (TARGET_WIDTH * mUniformScale);
+        vertices[7] = vecY;
+        vertices[8] = 1f;
+
+        vertices[9] = vecX + (TARGET_WIDTH * mUniformScale);
+        vertices[10] = vecY + (TARGET_WIDTH * mUniformScale);
+        vertices[11] = 1f;
+
+        addRenderInformation(vertices, cachedUvs[spriteIndex]);
     }
 
     private void addRenderInformation(float[] vec, float[] uv) {

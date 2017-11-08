@@ -350,7 +350,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         terrainRenderer.setSpriteSheetHandle(spriteHandles.get("sprite_sheets/sheet.png"));
         terrainRenderer.setUniformScale(scaleFactor);
         terrainRenderer.setMapSize(mapGridWidth, mapGridHeight);
-        terrainRenderer.precalculatePositions(mapGridWidth, mapGridHeight);
         terrainRenderer.precalculateUv(spriteIndexes.size());
     }
 
@@ -766,14 +765,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         GameObject[][] mapGrid = currentFloorData.getTerrain();
 
         int[][] cached = new int[mapGridWidth][mapGridHeight];
-        float lighting = 0f;
 
         for (int y = 0; y < mapGridHeight; y++) {
             for (int x = 0; x < mapGridWidth; x++) {
                 terrainRenderer.addSpriteData(
                         x, y,
-                        spriteIndexes.get(mapGrid[x][y].sprite),
-                        lighting);
+                        spriteIndexes.get(mapGrid[x][y].sprite));
             }
         }
 
