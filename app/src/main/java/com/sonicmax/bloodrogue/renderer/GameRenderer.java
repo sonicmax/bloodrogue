@@ -12,6 +12,7 @@ import android.util.Log;
 import com.sonicmax.bloodrogue.GameInterface;
 import com.sonicmax.bloodrogue.engine.FloorData;
 import com.sonicmax.bloodrogue.engine.objects.Actor;
+import com.sonicmax.bloodrogue.renderer.sprites.ImageLoader;
 import com.sonicmax.bloodrogue.renderer.sprites.SpriteRenderer;
 import com.sonicmax.bloodrogue.renderer.sprites.TerrainRenderer;
 import com.sonicmax.bloodrogue.renderer.sprites.WaveEffectSpriteRenderer;
@@ -20,7 +21,6 @@ import com.sonicmax.bloodrogue.renderer.text.TextColours;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 import com.sonicmax.bloodrogue.engine.objects.Animation;
 import com.sonicmax.bloodrogue.engine.objects.GameObject;
-import com.sonicmax.bloodrogue.renderer.sprites.SpriteLoader;
 import com.sonicmax.bloodrogue.renderer.text.Status;
 import com.sonicmax.bloodrogue.renderer.text.TextObject;
 import com.sonicmax.bloodrogue.renderer.text.TextRenderer;
@@ -67,8 +67,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private SolidColourRenderer screenTransitionRenderer;
 
     // Resources
-    private SpriteLoader spriteLoader;
-    private HashMap<String, Integer> spriteHandles; // Texture handles for loaded textures
+    private ImageLoader imageLoader;
+    private HashMap<String, Integer> textureHandles; // Texture handles for loaded textures
     private HashMap<String, Integer> spriteIndexes; // Position on sprite sheet for particular texture
     private int[][] cachedTerrain;
     private int objectCount;
@@ -165,7 +165,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         queuedStatuses = new ArrayList<>();
         movingObjects = new ArrayList<>();
 
-        spriteHandles = new HashMap<>();
+        textureHandles = new HashMap<>();
         zoomLevel = 1f;
 
         firstRender = true;
@@ -181,14 +181,14 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         spriteShaderProgram = loader.compileSpriteShader();
         waveShaderProgram = loader.compileWaveShader();
 
-        // For now, we're using the same shader program for all rendering
-
-        spriteLoader = new SpriteLoader();
+        imageLoader = new ImageLoader();
         prepareGLSurface();
 
         renderState = SPLASH;
 
-        loadImages();
+        imageLoader.loadImagesFromDisk(gameInterface.getAssets());
+        spriteIndexes = imageLoader.getSpriteIndexes();
+        textureHandles = imageLoader.getTextureHandles();
 
         scaleScreen();
         setupMatrixes();
@@ -206,15 +206,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         prepareScreenTransitionRenderer();
 
         renderState = GAME;
-
-        // Post new runnable to GLSurfaceView which allows us to load textures/etc in background
-        /*mGLSurfaceView.queueEvent(new Runnable() {
-
-            @Override
-            public void run() {
-
-            }
-        });*/
     }
 
     @Override
@@ -289,65 +280,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST);
     }
 
-    private void loadImages() {
-        spriteIndexes = new HashMap<>();
-        // Iterate over all paths in /assets/img and create SpriteLoader object with handle to loaded texture
-        long startTime = System.nanoTime();
-
-        final String IMG_PATH = "sprites/";
-        final String SHEET_PATH = "sprite_sheets/";
-        final String FONT_PATH = "fonts/";
-        AssetManager assetManager = gameInterface.getAssets();
-
-        try {
-            String[] images = assetManager.list("sprites");
-            int index = 0;
-
-            // As AssetManager.list() returns alphabetically sorted list, and sprite sheet is also
-            // ordered alphabetically, we can just increment the index on each filename to get the position
-            // on sprite sheet. These will be used later when passing data to SpriteRenderer
-
-            for (String image : images) {
-                spriteIndexes.put(IMG_PATH + image, index);
-                index++;
-            }
-
-            // Now we can load our sprite sheet and fonts
-
-            String[] sheets = assetManager.list("sprite_sheets");
-
-            for (String sheet : sheets) {
-                InputStream is = assetManager.open(SHEET_PATH + sheet);
-                BitmapFactory.Options opts = new BitmapFactory.Options();
-                opts.inPreferredConfig = Bitmap.Config.ARGB_4444;
-                Bitmap bitmap = BitmapFactory.decodeStream(is, null, opts);
-                int textureHandle = spriteLoader.loadTexture(bitmap);
-                spriteHandles.put(SHEET_PATH + sheet, textureHandle);
-            }
-
-            String[] fontPaths = assetManager.list("fonts");
-
-            for (String path : fontPaths) {
-                InputStream is = assetManager.open(FONT_PATH + path);
-                BitmapFactory.Options opts = new BitmapFactory.Options();
-                opts.inPreferredConfig = Bitmap.Config.ARGB_4444;
-                Bitmap bitmap = BitmapFactory.decodeStream(is, null, opts);
-                int textureHandle = spriteLoader.loadTexture(bitmap);
-                spriteHandles.put(FONT_PATH + path, textureHandle);
-            }
-
-            long stopTime = System.nanoTime();
-            Log.v(LOG_TAG, "Loaded images in " + TimeUnit.MILLISECONDS.convert(stopTime - startTime, TimeUnit.NANOSECONDS) + " ms");
-
-        } catch (IOException e) {
-            throw new Error(e);
-        }
-    }
-
     private void prepareTerrainRenderer() {
         terrainRenderer = new TerrainRenderer();
         terrainRenderer.setBasicShader(spriteShaderProgram);
-        terrainRenderer.setSpriteSheetHandle(spriteHandles.get("sprite_sheets/sheet.png"));
+        terrainRenderer.setSpriteSheetHandle(textureHandles.get("sprite_sheets/sheet.png"));
         terrainRenderer.setUniformScale(scaleFactor);
         terrainRenderer.setMapSize(mapGridWidth, mapGridHeight);
         terrainRenderer.precalculateUv(spriteIndexes.size());
@@ -356,7 +292,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private void prepareSpriteRenderer() {
         spriteRenderer = new SpriteRenderer();
         spriteRenderer.setBasicShader(spriteShaderProgram);
-        spriteRenderer.setSpriteSheetHandle(spriteHandles.get("sprite_sheets/sheet.png"));
+        spriteRenderer.setSpriteSheetHandle(textureHandles.get("sprite_sheets/sheet.png"));
         spriteRenderer.setUniformScale(scaleFactor);
         spriteRenderer.precalculatePositions(mapGridWidth, mapGridHeight);
         spriteRenderer.precalculateUv(spriteIndexes.size());
@@ -366,7 +302,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         waveRenderer = new WaveEffectSpriteRenderer();
         waveRenderer.setWaveShader(waveShaderProgram);
         waveRenderer.setShaderVariableLocations();
-        waveRenderer.setSpriteSheetHandle(spriteHandles.get("sprite_sheets/sheet.png"));
+        waveRenderer.setSpriteSheetHandle(textureHandles.get("sprite_sheets/sheet.png"));
         waveRenderer.setUniformScale(scaleFactor);
         waveRenderer.precalculatePositions(mapGridWidth, mapGridHeight);
         waveRenderer.precalculateUv(spriteIndexes.size());
@@ -376,7 +312,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         // Create our text manager
         textRenderer = new TextRenderer();
         textRenderer.setShaderProgramHandle(spriteShaderProgram);
-        textRenderer.setTextureHandle(spriteHandles.get("fonts/ccra_font.png"));
+        textRenderer.setTextureHandle(textureHandles.get("fonts/ccra_font.png"));
         textRenderer.setUniformscale(scaleFactor);
         textRenderer.precalculateUv();
         textRenderer.precalculateOffsets();
@@ -397,7 +333,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private void prepareUiRenderer() {
         uiRenderer = new SpriteRenderer();
         uiRenderer.setBasicShader(spriteShaderProgram);
-        uiRenderer.setSpriteSheetHandle(spriteHandles.get("sprite_sheets/sheet.png"));
+        uiRenderer.setSpriteSheetHandle(textureHandles.get("sprite_sheets/sheet.png"));
         uiRenderer.setUniformScale(scaleFactor);
         uiRenderer.precalculatePositions(visibleGridWidth, visibleGridHeight);
         uiRenderer.precalculateUv(spriteIndexes.size());
@@ -407,7 +343,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         // Create our text manager
         uiTextRenderer = new TextRenderer();
         uiTextRenderer.setShaderProgramHandle(spriteShaderProgram);
-        uiTextRenderer.setTextureHandle(spriteHandles.get("fonts/ccra_font.png"));
+        uiTextRenderer.setTextureHandle(textureHandles.get("fonts/ccra_font.png"));
         uiTextRenderer.setUniformscale(scaleFactor);
         uiTextRenderer.setTextSize(32f);
         uiTextRenderer.precalculateUv();
