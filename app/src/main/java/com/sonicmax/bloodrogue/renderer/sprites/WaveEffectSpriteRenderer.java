@@ -3,6 +3,7 @@ package com.sonicmax.bloodrogue.renderer.sprites;
 import android.opengl.GLES20;
 import android.util.Log;
 
+import com.sonicmax.bloodrogue.renderer.Shader;
 import com.sonicmax.bloodrogue.utils.BufferUtils;
 
 import java.nio.ByteBuffer;
@@ -11,12 +12,10 @@ import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
 
 /**
- *  Class which handles the majority of rendering for our game. Caches UV coordinates for our sprite
- *  sheet and and caches vectors for each grid square. Then takes an array of SpriteRow
- *  objects and renders everything in one call.
+ *  Renders sprites using wave effect (provided by vertex shader)
  */
 
-public class SpriteSheetRenderer {
+public class WaveEffectSpriteRenderer {
     private final String LOG_TAG = this.getClass().getSimpleName();
 
     /**
@@ -24,7 +23,6 @@ public class SpriteSheetRenderer {
      * These will be upscaled to 64x64 when rendering
      */
 
-    private final String BUFFER_UTILS = "buffer-utils";
     private final float SPRITE_BOX_WIDTH = 0.03125f; // 1f / 32 sprites per row
     private final float SPRITE_BOX_HEIGHT = 0.03125f; // 1f / 32 sprites per column
     private final float TARGET_WIDTH = 64f; // Upscaled from 16
@@ -39,26 +37,34 @@ public class SpriteSheetRenderer {
     private float[][][] cachedVecs;
     private float[][] cachedUvs;
 
-    private float[] vecs;
-    private float[] uvs;
-    private short[] indices;
-    private float[] colors;
+    private int packedCount;
+    private int stride;
 
-    private int index_vecs;
-    private int index_indices;
-    private int index_uvs;
-    private int index_colors;
+    private final int POSITION_SIZE = 12;
+    private final int COLOUR_SIZE = 16;
+    private final int UV_SIZE = 8;
+    private final int INDICES_SIZE = 6;
+
+    private final int FLOATS_PER_POSITION = 3;
+    private final int FLOATS_PER_COLOUR = 4;
+    private final int FLOATS_PER_UV = 2;
+
+    private final int FLOAT_SIZE = 4;
+    private final int SHORT_SIZE = 2;
+
+    private float[] packedArray;
+    private short[] indices;
+
+    private int vertCount;
+    private int indicesCount;
 
     private float mUniformScale;
 
     // Handles for OpenGL
     private int mSpriteSheetHandle;
-    private int mBasicShaderHandle;
     private int mWaveShaderHandle;
 
-    private FloatBuffer vertexBuffer;
-    private FloatBuffer textureBuffer;
-    private FloatBuffer colorBuffer;
+    private FloatBuffer floatBuffer;
     private ShortBuffer drawListBuffer;
 
     private int positionLocation;
@@ -73,9 +79,11 @@ public class SpriteSheetRenderer {
     private float angleWave = 0.0f;
     private float angleWaveSpeed = 1.0f;
 
-    public SpriteSheetRenderer() {
+    public WaveEffectSpriteRenderer() {
         mUniformScale = 1f;
-        System.loadLibrary(BUFFER_UTILS);
+
+        // How many bytes we need to skip in VBO to find new entry for same data type.
+        stride = (FLOATS_PER_POSITION + FLOATS_PER_COLOUR + FLOATS_PER_UV) * FLOAT_SIZE;
     }
 
     public void setUniformScale(float uniformScale) {
@@ -83,25 +91,11 @@ public class SpriteSheetRenderer {
         this.amplitudeWave = (TARGET_WIDTH * uniformScale) / 20;
     }
 
-    public void setBasicShader(int handle) {
-        mBasicShaderHandle = handle;
-    }
-
-    public void getShaderVariableLocations() {
-        GLES20.glUseProgram(mBasicShaderHandle);
-
-        positionLocation = GLES20.glGetAttribLocation(mBasicShaderHandle, "a_Position");
-        texCoordLocation = GLES20.glGetAttribLocation(mBasicShaderHandle, "a_texCoord");
-        colorLocation = GLES20.glGetAttribLocation(mBasicShaderHandle, "a_Color");
-        matrixLocation = GLES20.glGetUniformLocation(mBasicShaderHandle, "u_MVPMatrix");
-        textureLocation = GLES20.glGetUniformLocation (mBasicShaderHandle, "u_Texture");
-    }
-
     public void setWaveShader(int handle) {
         mWaveShaderHandle = handle;
     }
 
-    public void getWaveShaderVariableLocations() {
+    public void setShaderVariableLocations() {
         GLES20.glUseProgram(mWaveShaderHandle);
 
         positionLocation = GLES20.glGetAttribLocation(mWaveShaderHandle, "a_Position");
@@ -116,16 +110,22 @@ public class SpriteSheetRenderer {
         mSpriteSheetHandle = val;
     }
 
-    public void initArrays(int size) {
-        index_vecs = 0;
-        index_indices = 0;
-        index_uvs = 0;
-        index_colors = 0;
+    /**
+     * Initialises arrays used to store rendering data and zeroes array item counts.
+     * We have to call this each time we update the data stored in VBO
+     *
+     * @param length Number of sprites to render
+     */
 
-        vecs = new float[size * 12];
-        colors = new float[size * 16];
-        uvs = new float[size * 8];
-        indices = new short[size * 6];
+    public void initArrays(int length) {
+        vertCount = 0;
+        indicesCount = 0;
+        packedCount = 0;
+
+        int packedSize = (length * POSITION_SIZE) + (length * COLOUR_SIZE) + (length * UV_SIZE);
+
+        packedArray = new float[packedSize];
+        indices = new short[length * INDICES_SIZE];
     }
 
     public void precalculatePositions(int width, int height) {
@@ -234,95 +234,185 @@ public class SpriteSheetRenderer {
         }
     }
 
-    private void addRenderInformation(float[] vec, float[] cs, float[] uv) {
-        // Translate the indices to align with the location in our array of vectors
-        short base = (short) (index_vecs / 3);
+    /**
+     * Vectors, colours and UV coords are stored in a packed array.
+     * Indices are stored in an array of shorts.
+     *
+     * @param vec
+     * @param colours
+     * @param uv
+     */
 
-        // Add data to be passed into GL buffers
-        for (int i = 0; i < vec.length; i++) {
-            vecs[index_vecs] = vec[i];
-            index_vecs++;
+    private void addRenderInformation(float[] vec, float[] colours, float[] uv) {
+        // Translate the indices to align with the location in our array of vertices
+        short base = (short) (vertCount / 3);
+
+        // Add floats for each vertex into packed array.
+        // Position vertices, colour floats and UV coords are packed in this format: x, y, z, r, g, b, a, x, y
+
+        /*
+            First vertex
+         */
+
+        for (int i = 0; i < 3; i++) {
+            packedArray[packedCount] = vec[i];
+            packedCount++;
+            vertCount++; // Note: we keep a separate count for vertices so we can translate indices
         }
 
-        for(int i=0; i < cs.length; i++) {
-            colors[index_colors] = cs[i];
-            index_colors++;
+        for (int i = 0; i < 4; i++) {
+            packedArray[packedCount] = colours[i];
+            packedCount++;
         }
 
-        for (int i=0; i < uv.length; i++) {
-            uvs[index_uvs] = uv[i];
-            index_uvs++;
+        for (int i = 0; i < 2; i++) {
+            packedArray[packedCount] = uv[i];
+            packedCount++;
         }
+
+
+        /*
+            Second vertex
+         */
+
+        for (int i = 3; i < 6; i++) {
+            packedArray[packedCount] = vec[i];
+            packedCount++;
+            vertCount++;
+        }
+
+        for (int i = 4; i < 8; i++) {
+            packedArray[packedCount] = colours[i];
+            packedCount++;
+        }
+
+        for (int i = 2; i < 4; i++) {
+            packedArray[packedCount] = uv[i];
+            packedCount++;
+        }
+
+
+        /*
+            Third vertex
+         */
+
+        for (int i = 6; i < 9; i++) {
+            packedArray[packedCount] = vec[i];
+            packedCount++;
+            vertCount++;
+        }
+
+        for (int i = 8; i < 12; i++) {
+            packedArray[packedCount] = colours[i];
+            packedCount++;
+        }
+
+        for (int i = 4; i < 6; i++) {
+            packedArray[packedCount] = uv[i];
+            packedCount++;
+        }
+
+
+        /*
+            Fourth vertex
+         */
+
+        for (int i = 9; i < 12; i++) {
+            packedArray[packedCount] = vec[i];
+            packedCount++;
+            vertCount++;
+        }
+
+        for (int i = 12; i < 16; i++) {
+            packedArray[packedCount] = colours[i];
+            packedCount++;
+        }
+
+        for (int i = 6; i < 8; i++) {
+            packedArray[packedCount] = uv[i];
+            packedCount++;
+        }
+
+        // Todo: is there anyway to include indices in packed array?
 
         for (int j = 0; j < mIndices.length; j++) {
-            indices[index_indices] = (short) (base + mIndices[j]);
-            index_indices++;
+            indices[indicesCount] = (short) (base + mIndices[j]);
+            indicesCount++;
         }
     }
 
-    public void renderSprites(float[] matrix) {
-        GLES20.glUseProgram(mBasicShaderHandle);
-
-        ByteBuffer bb = ByteBuffer.allocateDirect(vecs.length * 4);
-        bb.order(ByteOrder.nativeOrder());
-        vertexBuffer = bb.asFloatBuffer();
-        BufferUtils.copy(vecs, vertexBuffer, vecs.length, 0);
-
-        ByteBuffer bb3 = ByteBuffer.allocateDirect(colors.length * 4);
-        bb3.order(ByteOrder.nativeOrder());
-        colorBuffer = bb3.asFloatBuffer();
-        BufferUtils.copy(colors, colorBuffer, colors.length, 0);
-
-        ByteBuffer bb2 = ByteBuffer.allocateDirect(uvs.length * 4);
-        bb2.order(ByteOrder.nativeOrder());
-        textureBuffer = bb2.asFloatBuffer();
-        BufferUtils.copy(uvs, textureBuffer, uvs.length, 0);
-
-        ByteBuffer dlb = ByteBuffer.allocateDirect(indices.length * 2);
-        dlb.order(ByteOrder.nativeOrder());
-        drawListBuffer = dlb.asShortBuffer();
-        BufferUtils.copy(indices, 0, drawListBuffer, indices.length);
-
-        GLES20.glEnableVertexAttribArray(positionLocation);
-        GLES20.glEnableVertexAttribArray(texCoordLocation);
-        GLES20.glEnableVertexAttribArray(colorLocation);
-
-        // Pass data to shader
-        GLES20.glVertexAttribPointer(positionLocation, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer);
-        GLES20.glVertexAttribPointer (texCoordLocation, 2, GLES20.GL_FLOAT, false, 0, textureBuffer);
-        GLES20.glVertexAttribPointer(colorLocation, 4, GLES20.GL_FLOAT, false, 0, colorBuffer);
-        GLES20.glUniformMatrix4fv(matrixLocation, 1, false, matrix, 0);
-
-        // Bind texture to unit 0 and render triangle
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mSpriteSheetHandle);
-        GLES20.glUniform1i(textureLocation, 0);
-        GLES20.glDrawElements(GLES20.GL_TRIANGLES, indices.length, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);
-    }
+    /**
+     * Called once we've added all our sprite data and are ready to render frame.
+     *
+     * @param matrix Model-view-projection matrix to use when rendering
+     */
 
     public void renderWaveEffect(float[] matrix, float dt) {
         GLES20.glUseProgram(mWaveShaderHandle);
 
-        ByteBuffer bb = ByteBuffer.allocateDirect(vecs.length * 4);
+        if (packedArray.length == 0) {
+            return;
+        }
+
+        ByteBuffer bb = ByteBuffer.allocateDirect(packedArray.length * FLOAT_SIZE);
         bb.order(ByteOrder.nativeOrder());
-        vertexBuffer = bb.asFloatBuffer();
-        BufferUtils.copy(vecs, vertexBuffer, vecs.length, 0);
+        floatBuffer = bb.asFloatBuffer();
+        BufferUtils.copy(packedArray, floatBuffer, packedArray.length, 0);
 
-        ByteBuffer bb3 = ByteBuffer.allocateDirect(colors.length * 4);
-        bb3.order(ByteOrder.nativeOrder());
-        colorBuffer = bb3.asFloatBuffer();
-        BufferUtils.copy(colors, colorBuffer, colors.length, 0);
-
-        ByteBuffer bb2 = ByteBuffer.allocateDirect(uvs.length * 4);
-        bb2.order(ByteOrder.nativeOrder());
-        textureBuffer = bb2.asFloatBuffer();
-        BufferUtils.copy(uvs, textureBuffer, uvs.length, 0);
-
-        ByteBuffer dlb = ByteBuffer.allocateDirect(indices.length * 2);
+        ByteBuffer dlb = ByteBuffer.allocateDirect(indices.length * SHORT_SIZE);
         dlb.order(ByteOrder.nativeOrder());
         drawListBuffer = dlb.asShortBuffer();
         BufferUtils.copy(indices, 0, drawListBuffer, indices.length);
 
+        GLES20.glEnableVertexAttribArray(Shader.POSITION);
+        GLES20.glEnableVertexAttribArray(Shader.COLOUR);
+        GLES20.glEnableVertexAttribArray(Shader.TEXCOORD);
+
+        // Add pointers to buffer for each attribute.
+
+        // GLES20.glVertexAttribPointer() doesn't have offset parameter, so we have to
+        // add the offset manually using Buffer.duplicate().position()
+
+        GLES20.glVertexAttribPointer(
+                Shader.POSITION,
+                FLOATS_PER_POSITION,
+                GLES20.GL_FLOAT,
+                false,
+                stride,
+                floatBuffer);
+
+        GLES20.glVertexAttribPointer(
+                Shader.COLOUR,
+                FLOATS_PER_COLOUR,
+                GLES20.GL_FLOAT,
+                false,
+                stride,
+                floatBuffer.duplicate().position(FLOATS_PER_POSITION));
+
+        GLES20.glVertexAttribPointer(
+                Shader.TEXCOORD,
+                FLOATS_PER_UV,
+                GLES20.GL_FLOAT,
+                false,
+                stride,
+                floatBuffer.duplicate().position(FLOATS_PER_POSITION + FLOATS_PER_COLOUR));
+
+        // Pass MVP matrix to shader
+        GLES20.glUniformMatrix4fv(matrixLocation, 1, false, matrix, 0);
+
+        updateWaveVariables(dt);
+        // Pass updated angle & amplitude to shader
+        GLES20.glUniform2f(waveDataLocation, angleWave, amplitudeWave);
+
+        // Bind texture to unit 0 and render triangles
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mSpriteSheetHandle);
+        GLES20.glUniform1i(textureLocation, 0);
+
+        GLES20.glDrawElements(GLES20.GL_TRIANGLES, indices.length, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);
+    }
+
+    private void updateWaveVariables(float dt) {
         dt = 1f / dt;
 
         angleWave += dt * angleWaveSpeed;
@@ -330,24 +420,5 @@ public class SpriteSheetRenderer {
         while (angleWave > PI2) {
             angleWave -= PI2;
         }
-
-        GLES20.glEnableVertexAttribArray(positionLocation);
-        GLES20.glEnableVertexAttribArray(texCoordLocation);
-        GLES20.glEnableVertexAttribArray(colorLocation);
-
-        GLES20.glVertexAttribPointer(positionLocation, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer);
-        GLES20.glVertexAttribPointer(texCoordLocation, 2, GLES20.GL_FLOAT, false, 0, textureBuffer);
-        GLES20.glVertexAttribPointer(colorLocation, 4, GLES20.GL_FLOAT, false, 0, colorBuffer);
-
-        GLES20.glUniformMatrix4fv(matrixLocation, 1, false, matrix, 0);
-
-        // Pass updated angle & amplitude to shader
-        GLES20.glUniform2f(waveDataLocation, angleWave, amplitudeWave);
-
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mSpriteSheetHandle);
-        GLES20.glUniform1i(textureLocation, 0);
-
-        GLES20.glDrawElements(GLES20.GL_TRIANGLES, indices.length, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);
     }
 }

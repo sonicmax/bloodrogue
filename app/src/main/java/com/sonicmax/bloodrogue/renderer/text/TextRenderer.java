@@ -2,6 +2,7 @@ package com.sonicmax.bloodrogue.renderer.text;
 
 import android.opengl.GLES20;
 
+import com.sonicmax.bloodrogue.renderer.Shader;
 import com.sonicmax.bloodrogue.utils.BufferUtils;
 
 import java.nio.ByteBuffer;
@@ -15,8 +16,6 @@ import java.util.List;
 
 public class TextRenderer {
     private final String LOG_TAG = this.getClass().getSimpleName();
-
-    private final String BUFFER_UTILS = "buffer-utils";
     private final float UV_BOX_WIDTH = 0.0625f;
     private final float ORIGINAL_WIDTH = 32f;
     private float TEXT_WIDTH = 24f;
@@ -53,20 +52,12 @@ public class TextRenderer {
     private FloatBuffer colorBuffer;
     private ShortBuffer drawListBuffer;
 
-    private int positionLocation;
-    private int texCoordLocation;
-    private int colorLocation;
-    private int textureLocation;
-    private int matrixLocation;
-
     private int mTextureHandle;
     private int mShaderHandle;
 
     private float mUniformScale;
 
-    public TextRenderer() {
-        System.loadLibrary(BUFFER_UTILS);
-    }
+    public TextRenderer() {}
 
     public void setTextureHandle(int val) {
         mTextureHandle = val;
@@ -74,16 +65,6 @@ public class TextRenderer {
 
     public void setShaderProgramHandle(int handle) {
         mShaderHandle = handle;
-    }
-
-    public void getShaderVariableLocations() {
-        GLES20.glUseProgram(mShaderHandle);
-
-        positionLocation = GLES20.glGetAttribLocation(mShaderHandle, "a_Position");
-        texCoordLocation = GLES20.glGetAttribLocation(mShaderHandle, "a_texCoord" );
-        colorLocation = GLES20.glGetAttribLocation(mShaderHandle, "a_Color");
-        textureLocation = GLES20.glGetUniformLocation (mShaderHandle, "u_Texture");
-        matrixLocation = GLES20.glGetUniformLocation(mShaderHandle, "u_MVPMatrix");
     }
 
     public void setUniformscale(float uniformscale) {
@@ -374,19 +355,22 @@ public class TextRenderer {
         drawListBuffer = dlb.asShortBuffer();
         BufferUtils.copy(indices, 0, drawListBuffer, indices.length);
 
-        GLES20.glEnableVertexAttribArray(positionLocation);
-        GLES20.glEnableVertexAttribArray(texCoordLocation);
-        GLES20.glEnableVertexAttribArray(colorLocation);
+        GLES20.glEnableVertexAttribArray(Shader.POSITION);
+        GLES20.glEnableVertexAttribArray(Shader.TEXCOORD);
+        GLES20.glEnableVertexAttribArray(Shader.COLOUR);
 
-        GLES20.glVertexAttribPointer(positionLocation, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer);
-        GLES20.glVertexAttribPointer(texCoordLocation, 2, GLES20.GL_FLOAT, false, 0, textureBuffer);
-        GLES20.glVertexAttribPointer(colorLocation, 4, GLES20.GL_FLOAT, false, 0, colorBuffer);
+        GLES20.glVertexAttribPointer(Shader.POSITION, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer);
+        GLES20.glVertexAttribPointer(Shader.TEXCOORD, 2, GLES20.GL_FLOAT, false, 0, textureBuffer);
+        GLES20.glVertexAttribPointer(Shader.COLOUR, 4, GLES20.GL_FLOAT, false, 0, colorBuffer);
 
-        GLES20.glUniformMatrix4fv(matrixLocation, 1, false, matrix, 0);
+        int uniformMatrix = GLES20.glGetUniformLocation(mShaderHandle, "u_MVPMatrix");
+        int uniformTexture = GLES20.glGetUniformLocation(mShaderHandle, "u_Texture");
+
+        GLES20.glUniformMatrix4fv(uniformMatrix, 1, false, matrix, 0);
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mTextureHandle);
-        GLES20.glUniform1i(textureLocation, 0);
+        GLES20.glUniform1i(uniformTexture, 0);
 
         // render the triangle
         GLES20.glDrawElements(GLES20.GL_TRIANGLES, indices.length, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);

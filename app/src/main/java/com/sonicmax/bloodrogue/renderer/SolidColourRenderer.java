@@ -11,29 +11,34 @@ import java.nio.ShortBuffer;
 
 public class SolidColourRenderer {
     private final String LOG_TAG = this.getClass().getSimpleName();
-    private final String BUFFER_UTILS = "buffer-utils";
-
-    /**
-     * Sprite sheet is 512x512, containing 16x16 textures.
-     * These will be upscaled to 64x64 when rendering
-     */
-
     private final float TARGET_WIDTH = 64f;
+
+    private final int POSITIONS_SIZE = 12;
+    private final int COLOURS_SIZE = 16;
+    private final int FLOATS_PER_POSITION = 3;
+    private final int FLOATS_PER_COLOUR = 4;
+    private final int stride;
+
+    private final int FLOAT_SIZE = 4;
+    private final int SHORT_SIZE = 2;
 
     private final short[] mIndices = {
             0, 1, 2, // top-left, bottom-left, bottom right
             0, 2, 3  // top-left, bottom-right, top-right
     };
 
+
     private float[][][] cachedVecs;
 
-    private float[] vecs;
+    private float[] packedArray;
     private short[] indices;
-    private float[] colors;
 
-    private int index_vecs;
-    private int index_indices;
-    private int index_colors;
+    private int packedCount;
+    private int vertCount;
+    private int indicesCount;
+
+    private FloatBuffer floatBuffer;
+    private ShortBuffer drawListBuffer;
 
     private float mUniformScale;
 
@@ -41,8 +46,10 @@ public class SolidColourRenderer {
     private int mBasicShaderHandle;
 
     public SolidColourRenderer() {
+        stride = (FLOATS_PER_POSITION + FLOATS_PER_COLOUR) * FLOAT_SIZE;
+
         mUniformScale = 1f;
-        System.loadLibrary(BUFFER_UTILS);
+        vertCount = 0;
     }
 
     public void setUniformScale(float uniformScale) {
@@ -53,14 +60,42 @@ public class SolidColourRenderer {
         mBasicShaderHandle = handle;
     }
 
-    public void initArrays(int size) {
-        index_vecs = 0;
-        index_indices = 0;
-        index_colors = 0;
+    public void initArrays(int count) {
+        packedCount = 0;
 
-        vecs = new float[size * 12];
-        colors = new float[size * 16];
-        indices = new short[size * 6];
+        int packedSize = (count * POSITIONS_SIZE) + (count * COLOURS_SIZE);
+        packedArray = new float[packedSize];
+    }
+
+    /**
+     * Indices won't change for each render, so we can safely precalculate these
+     * and set up a ShortBuffer to pass them into glDrawElements()
+     *
+     * @param width
+     * @param height
+     */
+
+    public void prepareIndicesBuffer(int width, int height) {
+        indices = new short[(width * height) * mIndices.length];
+
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                // Translate the indices to align with the location in our array of vertices
+                short base = (short) (vertCount / 3);
+
+                for (int j = 0; j < mIndices.length; j++) {
+                    indices[indicesCount] = (short) (base + mIndices[j]);
+                    indicesCount++;
+                }
+
+                vertCount += POSITIONS_SIZE;
+            }
+        }
+
+        ByteBuffer dlb = ByteBuffer.allocateDirect(indices.length * SHORT_SIZE);
+        dlb.order(ByteOrder.nativeOrder());
+        drawListBuffer = dlb.asShortBuffer();
+        BufferUtils.copy(indices, 0, drawListBuffer, indices.length);
     }
 
     public void precalculatePositions(int width, int height) {
@@ -95,101 +130,112 @@ public class SolidColourRenderer {
         }
     }
 
-    private float[] calculateOffset(float[] vec, float offsetX, float offsetY) {
-        float[] offsetVec = new float[vec.length];
-        System.arraycopy(vec, 0, offsetVec, 0, vec.length);
-        offsetX *= TARGET_WIDTH;
-        offsetY *= TARGET_WIDTH;
-
-        // Add offset to vectors, ignoring z axis
-        offsetVec[0] += offsetX;
-        offsetVec[1] += offsetY;
-        // vec[2] = 1f;
-        offsetVec[3] += offsetX;
-        offsetVec[4] += offsetY;
-        // vec[5] = 1f;
-        offsetVec[6] += offsetX;
-        offsetVec[7] += offsetY;
-        // vec[8] = 1f;
-        offsetVec[9] += offsetX;
-        offsetVec[10] += offsetY;
-        // vec[11] = 1f;
-
-        return offsetVec;
+    public void addSolidTile(int x, int y, float[] colour) {
+        addColourRenderInformation(cachedVecs[x][y], colour);
     }
 
-    public void addSolidTile(int x, int y, float[] colour, float offsetX, float offsetY) {
-        if (offsetX == 0f && offsetY == 0f) {
-            addColourRenderInformation(cachedVecs[x][y], colour);
-        }
-        else {
-            addColourRenderInformation(calculateOffset(cachedVecs[x][y], offsetX, offsetY), colour);
-        }
-    }
+    private void addColourRenderInformation(float[] vec, float[] colours) {
+        // Add floats for each vertex into packed array.
+        // Position vertices, colour floats and UV coords are packed in this format: x, y, z, r, g, b, a, x, y
 
-    private void addColourRenderInformation(float[] vec, float[] cs) {
-        // Translate the indices to align with the location in our array of vectors
-        short base = (short) (index_vecs / 3);
+        /*
+            First vertex
+         */
 
-        // Add data to be passed into GL buffers
-        for (int i = 0; i < vec.length; i++) {
-            vecs[index_vecs] = vec[i];
-            index_vecs++;
+        for (int i = 0; i < 3; i++) {
+            packedArray[packedCount] = vec[i];
+            packedCount++;
         }
 
-        for(int i = 0; i < cs.length; i++) {
-            colors[index_colors] = cs[i];
-            index_colors++;
+        for (int i = 0; i < 4; i++) {
+            packedArray[packedCount] = colours[i];
+            packedCount++;
         }
 
-        for (int j = 0; j < mIndices.length; j++) {
-            indices[index_indices] = (short) (base + mIndices[j]);
-            index_indices++;
+
+        /*
+            Second vertex
+         */
+
+        for (int i = 3; i < 6; i++) {
+            packedArray[packedCount] = vec[i];
+            packedCount++;
+        }
+
+        for (int i = 4; i < 8; i++) {
+            packedArray[packedCount] = colours[i];
+            packedCount++;
+        }
+
+
+        /*
+            Third vertex
+         */
+
+        for (int i = 6; i < 9; i++) {
+            packedArray[packedCount] = vec[i];
+            packedCount++;
+        }
+
+        for (int i = 8; i < 12; i++) {
+            packedArray[packedCount] = colours[i];
+            packedCount++;
+        }
+
+
+        /*
+            Fourth vertex
+         */
+
+        for (int i = 9; i < 12; i++) {
+            packedArray[packedCount] = vec[i];
+            packedCount++;
+        }
+
+        for (int i = 12; i < 16; i++) {
+            packedArray[packedCount] = colours[i];
+            packedCount++;
         }
     }
 
     public void renderSolidColours(float[] matrix) {
         GLES20.glUseProgram(mBasicShaderHandle);
 
-        FloatBuffer vertexBuffer;
-        FloatBuffer colorBuffer;
-        ShortBuffer drawListBuffer;
-
-        ByteBuffer bb = ByteBuffer.allocateDirect(vecs.length * 4);
+        ByteBuffer bb = ByteBuffer.allocateDirect(packedArray.length * FLOAT_SIZE);
         bb.order(ByteOrder.nativeOrder());
-        vertexBuffer = bb.asFloatBuffer();
-        BufferUtils.copy(vecs, vertexBuffer, vecs.length, 0);
+        floatBuffer = bb.asFloatBuffer();
+        BufferUtils.copy(packedArray, floatBuffer, packedArray.length, 0);
 
-        ByteBuffer bb3 = ByteBuffer.allocateDirect(colors.length * 4);
-        bb3.order(ByteOrder.nativeOrder());
-        colorBuffer = bb3.asFloatBuffer();
-        BufferUtils.copy(colors, colorBuffer, colors.length, 0);
+        GLES20.glEnableVertexAttribArray(Shader.POSITION);
+        GLES20.glEnableVertexAttribArray(Shader.COLOUR);
 
-        ByteBuffer dlb = ByteBuffer.allocateDirect(indices.length * 2);
-        dlb.order(ByteOrder.nativeOrder());
-        drawListBuffer = dlb.asShortBuffer();
-        BufferUtils.copy(indices, 0, drawListBuffer, indices.length);
+        // Add pointers to buffer for each attribute.
 
-        // Prepare screen coordinate data
-        int mPositionHandle = GLES20.glGetAttribLocation(mBasicShaderHandle, "a_Position");
-        GLES20.glEnableVertexAttribArray(mPositionHandle);
-        GLES20.glVertexAttribPointer(mPositionHandle, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer);
+        // GLES20.glVertexAttribPointer() doesn't have offset parameter, so we have to
+        // add the offset manually using Buffer.duplicate().position()
 
-        // Prepare colours
-        int mColorHandle = GLES20.glGetAttribLocation(mBasicShaderHandle, "a_Color");
-        GLES20.glEnableVertexAttribArray(mColorHandle);
-        GLES20.glVertexAttribPointer(mColorHandle, 4, GLES20.GL_FLOAT, false, 0, colorBuffer);
+        GLES20.glVertexAttribPointer(
+                Shader.POSITION,
+                FLOATS_PER_POSITION,
+                GLES20.GL_FLOAT,
+                false,
+                stride,
+                floatBuffer);
 
-        // Apply projection and view transformation
-        int mtrxhandle = GLES20.glGetUniformLocation(mBasicShaderHandle, "u_MVPMatrix");
-        GLES20.glUniformMatrix4fv(mtrxhandle, 1, false, matrix, 0);
+        GLES20.glVertexAttribPointer(
+                Shader.COLOUR,
+                FLOATS_PER_COLOUR,
+                GLES20.GL_FLOAT,
+                false,
+                stride,
+                floatBuffer.duplicate().position(FLOATS_PER_POSITION));
 
-        // Render the triangles
+        int uniformMatrix = GLES20.glGetUniformLocation(mBasicShaderHandle, "u_MVPMatrix");
+
+        // Pass MVP matrix to shader
+        GLES20.glUniformMatrix4fv(uniformMatrix, 1, false, matrix, 0);
+
         GLES20.glDrawElements(GLES20.GL_TRIANGLES, indices.length, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);
-
-        // Disable vertex arrays
-        GLES20.glDisableVertexAttribArray(mPositionHandle);
-        GLES20.glDisableVertexAttribArray(mColorHandle);
     }
 }
 

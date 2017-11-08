@@ -42,6 +42,9 @@ public class GLShaderLoader {
             GLES20.glAttachShader(spriteShaderHandle, vertexShader);
             GLES20.glAttachShader(spriteShaderHandle, fragmentShader);
 
+            GLES20.glBindAttribLocation(spriteShaderHandle, Shader.POSITION, "a_Position");
+            GLES20.glBindAttribLocation(spriteShaderHandle, Shader.COLOUR, "a_Color");
+
             GLES20.glLinkProgram(spriteShaderHandle);
 
             return spriteShaderHandle;
@@ -68,6 +71,10 @@ public class GLShaderLoader {
             GLES20.glAttachShader(spriteShaderHandle, vertexShader);
             GLES20.glAttachShader(spriteShaderHandle, fragmentShader);
 
+            GLES20.glBindAttribLocation(spriteShaderHandle, Shader.POSITION, "a_Position");
+            GLES20.glBindAttribLocation(spriteShaderHandle, Shader.COLOUR, "a_Color");
+            GLES20.glBindAttribLocation(spriteShaderHandle, Shader.TEXCOORD, "a_texCoord");
+
             GLES20.glLinkProgram(spriteShaderHandle);
 
             return spriteShaderHandle;
@@ -93,6 +100,10 @@ public class GLShaderLoader {
             int spriteShaderHandle = GLES20.glCreateProgram();
             GLES20.glAttachShader(spriteShaderHandle, vertexShader);
             GLES20.glAttachShader(spriteShaderHandle, fragmentShader);
+
+            GLES20.glBindAttribLocation(spriteShaderHandle, Shader.POSITION, "a_Position");
+            GLES20.glBindAttribLocation(spriteShaderHandle, Shader.COLOUR, "a_Color");
+            GLES20.glBindAttribLocation(spriteShaderHandle, Shader.TEXCOORD, "a_texCoord");
 
             GLES20.glLinkProgram(spriteShaderHandle);
 

@@ -4,7 +4,7 @@ import android.util.Log;
 
 import com.sonicmax.bloodrogue.engine.factories.AnimationFactory;
 import com.sonicmax.bloodrogue.engine.objects.Animation;
-import com.sonicmax.bloodrogue.renderer.sprites.SpriteSheetRenderer;
+import com.sonicmax.bloodrogue.renderer.sprites.SpriteRenderer;
 
 import java.util.HashMap;
 
@@ -61,7 +61,7 @@ public class UserInterfaceBuilder {
      *  Caches relevant sprite indexes to this instance so we don't have to look them up each render
      */
 
-    public void buildUi(SpriteSheetRenderer renderer) {
+    public void buildUi(SpriteRenderer renderer) {
         addIcons(renderer);
     }
 
@@ -79,7 +79,7 @@ public class UserInterfaceBuilder {
         closedInventoryIcon = spriteIndexes.get(UserInterfaceTileset.INVENTORY_ICON);
     }
 
-    public void addIcons(SpriteSheetRenderer uiRenderer) {
+    public void addIcons(SpriteRenderer uiRenderer) {
         if (inventoryOpenAnim) {
             int frame = processAnimation(inventoryAnimation);
 
@@ -154,7 +154,7 @@ public class UserInterfaceBuilder {
      *   Adds empty window to screen.
      */
 
-    public void addWindow(SpriteSheetRenderer uiRenderer) {
+    public void addWindow(SpriteRenderer uiRenderer) {
         float lighting = 1f;
 
         int x = 0;

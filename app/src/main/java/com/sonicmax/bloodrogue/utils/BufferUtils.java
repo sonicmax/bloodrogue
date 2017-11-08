@@ -8,8 +8,21 @@ import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.nio.ShortBuffer;
+import java.util.Arrays;
 
 public class BufferUtils {
+    private static final String BUFFER_UTILS = "buffer-utils";
+
+    static {
+        System.loadLibrary(BUFFER_UTILS);
+    }
+
+    public static float[] concat(float[] first, float[] second) {
+        float[] result = Arrays.copyOf(first, first.length + second.length);
+        System.arraycopy(second, 0, result, first.length, second.length);
+        return result;
+    }
+
     private static int bytesToElements (Buffer dst, int bytes) {
         if (dst instanceof ByteBuffer)
             return bytes;
