@@ -6,6 +6,7 @@ import com.sonicmax.bloodrogue.GameInterface;
 import com.sonicmax.bloodrogue.engine.ai.AffinityManager;
 import com.sonicmax.bloodrogue.engine.ai.EnemyState;
 import com.sonicmax.bloodrogue.engine.ai.PlayerState;
+import com.sonicmax.bloodrogue.engine.collisions.FieldOfVisionCalculator;
 import com.sonicmax.bloodrogue.engine.factories.AnimationFactory;
 import com.sonicmax.bloodrogue.engine.factories.DecalFactory;
 import com.sonicmax.bloodrogue.generator.MapData;

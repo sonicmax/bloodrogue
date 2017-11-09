@@ -1,8 +1,8 @@
-package com.sonicmax.bloodrogue.engine;
+package com.sonicmax.bloodrogue.engine.collisions;
 
+import com.sonicmax.bloodrogue.engine.Directions;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 import com.sonicmax.bloodrogue.engine.objects.GameObject;
-import com.sonicmax.bloodrogue.engine.objects.Wall;
 
 import java.util.ArrayList;
 
@@ -18,7 +18,11 @@ public class FieldOfVisionCalculator {
     private int height;
     private double[][] lightMap;
 
-    public FieldOfVisionCalculator() {}
+    private ArrayList<Vector> directions;
+
+    public FieldOfVisionCalculator() {
+        directions = new ArrayList<>(Directions.Diagonal.values());
+    }
 
     public void setValues(GameObject[][] mapGrid, ArrayList<GameObject>[][] objectGrid, int x, int y, int radius) {
         this.mapGrid = mapGrid;
@@ -38,7 +42,8 @@ public class FieldOfVisionCalculator {
         // Light starting cell
         lightMap[startX][startY] = 1 * darknessFactor;
 
-        for (Vector direction : Directions.Diagonal.values()) {
+        for (int i = 0; i < 4; i++) {
+            Vector direction = directions.get(i);
             castLight(1, 1.0, 0.0, 0, direction.x(), direction.y(), 0);
             castLight(1, 1.0, 0.0, direction.x(), 0, 0, direction.y());
         }
@@ -127,15 +132,15 @@ public class FieldOfVisionCalculator {
 
         GameObject mapTile = mapGrid[x][y];
 
-        if (mapTile instanceof Wall) {
+        if (mapTile.type == GameObject.WALL) {
             return true;
         }
 
-        ArrayList<GameObject> objectStack = objectGrid[x][y];
+        int objectsSize = objectGrid[x][y].size();
 
-        for (GameObject object : objectStack) {
+        for (int i = 0; i < objectsSize; i++) {
 
-            if (object.isBlocking()) {
+            if (objectGrid[x][y].get(i).isBlocking()) {
                 return true;
             }
         }
