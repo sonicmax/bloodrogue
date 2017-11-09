@@ -5,6 +5,7 @@ import android.util.SparseIntArray;
 
 import com.sonicmax.bloodrogue.engine.Directions;
 import com.sonicmax.bloodrogue.engine.collisions.AxisAlignedBoxTester;
+import com.sonicmax.bloodrogue.engine.factories.TerrainFactory;
 import com.sonicmax.bloodrogue.engine.factories.WidgetFactory;
 import com.sonicmax.bloodrogue.tilesets.Ruins;
 import com.sonicmax.bloodrogue.utils.maths.Calculator;
@@ -107,12 +108,7 @@ public class ProceduralGenerator {
             for (int y = 0; y < mMapHeight; y++) {
 
                 if (x == 0 || x == mMapWidth - 1 || y == 0 || y == mMapHeight - 1) {
-                    GameObject object = new GameObject(x, y);
-                    object.setSprite(mTiler.getBorderTilePath());
-                    object.setTraversable(false);
-                    object.setBlocking(true);
-                    object.type = GameObject.BORDER;
-                    mMapGrid[x][y] = object;
+                    mMapGrid[x][y] = TerrainFactory.createBorder(x, y, mTiler.getBorderTilePath());
                 }
                 else {
                     mMapGrid[x][y] = mTiler.getWallTile(x, y);
@@ -302,23 +298,11 @@ public class ProceduralGenerator {
             if (!adjacentCellsAreCarvable(north) || !adjacentCellsAreCarvable(south)) break;
 
             if (inBounds(north)) {
-                GameObject object = new GameObject(north.x, north.y);
-                object.type = GameObject.WALL;
-                object.setSprite(themedTile);
-                object.setBlocking(true);
-                object.setTraversable(false);
-
-                mMapGrid[north.x()][north.y()] = object;
+                mMapGrid[north.x()][north.y()] = TerrainFactory.createWall(north.x, north.y, themedTile);
             }
 
             if (inBounds(south)) {
-                GameObject object = new GameObject(south.x, south.y);
-                object.type = GameObject.WALL;
-                object.setSprite(themedTile);
-                object.setBlocking(true);
-                object.setTraversable(false);
-
-                mMapGrid[south.x()][south.y()] = object;
+                mMapGrid[south.x()][south.y()] = TerrainFactory.createWall(south.x, south.y, themedTile);
             }
         }
 
@@ -329,23 +313,11 @@ public class ProceduralGenerator {
             if (!adjacentCellsAreCarvable(east) || !adjacentCellsAreCarvable(west)) break;
 
             if (inBounds(east)) {
-                GameObject object = new GameObject(east.x, east.y);
-                object.type = GameObject.WALL;
-                object.setSprite(themedTile);
-                object.setBlocking(true);
-                object.setTraversable(false);
-
-                mMapGrid[east.x()][east.y()] = object;
+                mMapGrid[east.x()][east.y()] = TerrainFactory.createWall(east.x, east.y, themedTile);
             }
 
             if (inBounds(west)) {
-                GameObject object = new GameObject(west.x, west.y);
-                object.type = GameObject.WALL;
-                object.setSprite(themedTile);
-                object.setBlocking(true);
-                object.setTraversable(false);
-
-                mMapGrid[west.x()][west.y()] = object;
+                mMapGrid[west.x()][west.y()] = TerrainFactory.createWall(west.x, west.y, themedTile);
             }
         }
     }
@@ -941,14 +913,7 @@ public class ProceduralGenerator {
                 if (!checked.contains(cell.toString())) {
 
                     if (getMapObjectForCell(cell).type == GameObject.WALL && cellIsInaccessible(cell)) {
-
-                        GameObject object = new GameObject(x, y);
-                        object.setSprite(All.DEFAULT_BORDER);
-                        object.setBlocking(true);
-                        object.setTraversable(false);
-                        object.type = GameObject.BORDER;
-
-                        setTile(cell, object);
+                        setTile(cell, TerrainFactory.createBorder(x, y, All.DEFAULT_BORDER));
                         checked.add(cell.toString());
                     }
                 }

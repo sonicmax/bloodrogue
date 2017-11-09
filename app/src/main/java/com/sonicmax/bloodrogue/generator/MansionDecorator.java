@@ -5,6 +5,7 @@ import android.util.Log;
 import com.sonicmax.bloodrogue.engine.collisions.AxisAlignedBoxTester;
 import com.sonicmax.bloodrogue.engine.Directions;
 import com.sonicmax.bloodrogue.engine.factories.EnemyFactory;
+import com.sonicmax.bloodrogue.engine.factories.TerrainFactory;
 import com.sonicmax.bloodrogue.engine.factories.WidgetFactory;
 import com.sonicmax.bloodrogue.utils.maths.Calculator;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
@@ -476,10 +477,7 @@ public class MansionDecorator {
             for (int y = room.y(); y < bottom; y++) {
                 Vector pos = new Vector(x, y);
                 if (inBounds(pos) && mMapGrid[x][y].type == GameObject.FLOOR) {
-                    GameObject floor = new GameObject(x, y);
-                    floor.setSprite(imgPath);
-                    floor.type = GameObject.FLOOR;
-                    mMapGrid[x][y] = floor;
+                    mMapGrid[x][y] = TerrainFactory.createFloor(x, y, imgPath);
                 }
             }
         }
@@ -647,8 +645,7 @@ public class MansionDecorator {
         GameObject object = getMapObjectForCell(cell);
 
         if (object.type != GameObject.FLOOR && object.type != GameObject.DOORWAY) {
-            GameObject lightSource = new GameObject(cell.x, cell.y);
-            lightSource.setSprite(getLightSourceTile(bearing));
+            GameObject lightSource = WidgetFactory.createDecoration(cell.x, cell.y, getLightSourceTile(bearing));
             mObjects.add(lightSource);
         }
 

@@ -1,5 +1,6 @@
 package com.sonicmax.bloodrogue.generator;
 
+import com.sonicmax.bloodrogue.engine.factories.TerrainFactory;
 import com.sonicmax.bloodrogue.engine.objects.GameObject;
 import com.sonicmax.bloodrogue.tilesets.All;
 import com.sonicmax.bloodrogue.tilesets.Mansion;
@@ -24,24 +25,23 @@ public class Tiler {
     */
 
     public GameObject getWallTile(int x, int y) {
-        GameObject object = new GameObject(x, y);
-        object.type = GameObject.WALL;
-        object.setBlocking(true);
-        object.setTraversable(false);
+        String sprite;
 
         switch (mTheme) {
             case Mansion.KEY:
-                object.setSprite(Mansion.WALLPAPER_3);
-                return object;
+                sprite = Mansion.WALLPAPER_3;
+                break;
 
             case Ruins.KEY:
-                object.setSprite(Ruins.WALL);
-                return object;
+                sprite = Ruins.WALL;
+                break;
 
             default:
-                object.setSprite(Mansion.WALLPAPER_3);
-                return object;
+                sprite = Mansion.WALLPAPER_3;
+                break;
         }
+
+        return TerrainFactory.createWall(x, y, sprite);
     }
 
     public String getMansionWallTilePath(int type) {
@@ -70,24 +70,23 @@ public class Tiler {
     */
 
     public GameObject getFloorTile(int x, int y, int type) {
-        GameObject floor = new GameObject(x, y);
-        floor.type = GameObject.FLOOR;
-        floor.setBlocking(false);
-        floor.setTraversable(true);
+        String sprite;
 
         switch (mTheme) {
             case Mansion.KEY:
-                floor.setSprite(getMansionFloorTilePath(type));
-                return floor;
+                sprite = getMansionFloorTilePath(type);
+                break;
 
             case Ruins.KEY:
-                floor.setSprite(Ruins.FLOOR);
-                return floor;
+                sprite = Ruins.FLOOR;
+                break;
 
             default:
-                floor.setSprite(Mansion.FLOOR);
-                return floor;
+                sprite = Mansion.FLOOR;
+                break;
         }
+
+        return TerrainFactory.createFloor(x, y, sprite);
     }
 
     public String getMansionFloorTilePath(int type) {
@@ -128,7 +127,7 @@ public class Tiler {
 
     /*
     ---------------------------------------------
-      Door tiles
+      Barrier tiles
     ---------------------------------------------
     */
 
@@ -153,23 +152,22 @@ public class Tiler {
     }
 
     public GameObject getDoorwayTile(int x, int y) {
-        GameObject doorway = new GameObject(x, y);
-        doorway.type = GameObject.DOORWAY;
-        doorway.setBlocking(false);
-        doorway.setTraversable(true);
+        String sprite;
 
         switch (mTheme) {
             case Mansion.KEY:
-                doorway.setSprite(Mansion.WOOD_FLOOR_1);
-                return doorway;
+                sprite = Mansion.WOOD_FLOOR_1;
+                break;
 
             case Ruins.KEY:
-                doorway.setSprite(Ruins.FLOOR);
-                return doorway;
+                sprite = Ruins.FLOOR;
+                break;
 
             default:
-                doorway.setSprite(Mansion.WOOD_FLOOR_1);
-                return doorway;
+                sprite = Mansion.WOOD_FLOOR_1;
+                break;
         }
+
+        return TerrainFactory.createDoorway(x, y, sprite);
     }
 }
