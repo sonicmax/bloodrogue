@@ -12,8 +12,15 @@ public class GameObject implements Serializable {
     private final String LOG_TAG = this.getClass().getSimpleName();
     private static final long serialVersionUID = 1L;
 
+    public static final int DEFAULT = 0;
+    public static final int FLOOR = 1;
+    public static final int DOORWAY = 2;
+    public static final int WALL = 3;
+    public static final int BORDER = 4;
+
     public final String id;
     public String name;
+    public int type;
 
     public int x;
     public int y;
@@ -25,6 +32,7 @@ public class GameObject implements Serializable {
     public int currentFrame;
     public int renderCount;
     public int movementStep;
+    public Vector lastMove;
 
     public boolean hasDeathAnimation;
     public GameObject deathAnimation;
@@ -46,11 +54,18 @@ public class GameObject implements Serializable {
     public boolean activateOnCollide;
     public boolean activateOnMove;
 
+    // Door/container component
+    public String openTile;
+    public String closedTile;
+    public boolean open;
+    public boolean empty;
+    public ArrayList<GameObject> contents;
+
+    // AI component
     public int dijkstra;
     public int playerInterest;
     public int state;
     public ArrayList<Vector> path;
-    public Vector lastMove;
 
     public GameObject() {
         this.id = UUID.randomUUID().toString(); // Still want unique id for cloned object
@@ -62,6 +77,7 @@ public class GameObject implements Serializable {
 
         this.id = UUID.randomUUID().toString();
         this.name = this.getClass().getSimpleName();
+        this.type = GameObject.DEFAULT;
 
         // Set default values for object fields
         this.sprite = "sprites/transparent.png";
@@ -71,6 +87,7 @@ public class GameObject implements Serializable {
         this.currentFrame = 0;
         this.renderCount = 0;
         this.movementStep = 0;
+        this.lastMove = null;
 
         this.hasDeathAnimation = false;
         this.deathAnimation = null;
@@ -96,7 +113,6 @@ public class GameObject implements Serializable {
         this.playerInterest = 0;
         this.state = 0;
         this.path = null;
-        this.lastMove = null;
 
     }
 
@@ -116,6 +132,7 @@ public class GameObject implements Serializable {
         this.currentFrame = 0;
         this.renderCount = 0;
         this.movementStep = 0;
+        this.lastMove = null;
 
         this.hasDeathAnimation = original.hasDeathAnimation;
         this.deathAnimation = original.deathAnimation;
@@ -141,7 +158,6 @@ public class GameObject implements Serializable {
         this.playerInterest = original.playerInterest;
         this.state = original.state;
         this.path = null;
-        this.lastMove = null;
     }
 
 

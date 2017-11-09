@@ -9,13 +9,8 @@ import com.sonicmax.bloodrogue.engine.factories.WidgetFactory;
 import com.sonicmax.bloodrogue.tilesets.Ruins;
 import com.sonicmax.bloodrogue.utils.maths.Calculator;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
-import com.sonicmax.bloodrogue.engine.objects.Border;
-import com.sonicmax.bloodrogue.engine.objects.Decoration;
-import com.sonicmax.bloodrogue.engine.objects.Door;
-import com.sonicmax.bloodrogue.engine.objects.Floor;
 import com.sonicmax.bloodrogue.engine.objects.GameObject;
 import com.sonicmax.bloodrogue.engine.objects.Room;
-import com.sonicmax.bloodrogue.engine.objects.Wall;
 import com.sonicmax.bloodrogue.tilesets.All;
 import com.sonicmax.bloodrogue.tilesets.Mansion;
 import com.sonicmax.bloodrogue.utils.Array2DHelper;
@@ -110,8 +105,14 @@ public class ProceduralGenerator {
 
         for (int x = 0; x < mMapWidth; x++) {
             for (int y = 0; y < mMapHeight; y++) {
+
                 if (x == 0 || x == mMapWidth - 1 || y == 0 || y == mMapHeight - 1) {
-                    mMapGrid[x][y] = new Border(x, y, mTiler.getBorderTilePath());
+                    GameObject object = new GameObject(x, y);
+                    object.setSprite(mTiler.getBorderTilePath());
+                    object.setTraversable(false);
+                    object.setBlocking(true);
+                    object.type = GameObject.BORDER;
+                    mMapGrid[x][y] = object;
                 }
                 else {
                     mMapGrid[x][y] = mTiler.getWallTile(x, y);
@@ -301,11 +302,23 @@ public class ProceduralGenerator {
             if (!adjacentCellsAreCarvable(north) || !adjacentCellsAreCarvable(south)) break;
 
             if (inBounds(north)) {
-                mMapGrid[north.x()][north.y()] = new Wall(north.x(), north.y(), themedTile);
+                GameObject object = new GameObject(north.x, north.y);
+                object.type = GameObject.WALL;
+                object.setSprite(themedTile);
+                object.setBlocking(true);
+                object.setTraversable(false);
+
+                mMapGrid[north.x()][north.y()] = object;
             }
 
             if (inBounds(south)) {
-                mMapGrid[south.x()][south.y()] = new Wall(south.x(), south.y(), themedTile);
+                GameObject object = new GameObject(south.x, south.y);
+                object.type = GameObject.WALL;
+                object.setSprite(themedTile);
+                object.setBlocking(true);
+                object.setTraversable(false);
+
+                mMapGrid[south.x()][south.y()] = object;
             }
         }
 
@@ -316,13 +329,60 @@ public class ProceduralGenerator {
             if (!adjacentCellsAreCarvable(east) || !adjacentCellsAreCarvable(west)) break;
 
             if (inBounds(east)) {
-                mMapGrid[east.x()][east.y()] = new Wall(east.x(), east.y(), themedTile);
+                GameObject object = new GameObject(east.x, east.y);
+                object.type = GameObject.WALL;
+                object.setSprite(themedTile);
+                object.setBlocking(true);
+                object.setTraversable(false);
+
+                mMapGrid[east.x()][east.y()] = object;
             }
 
             if (inBounds(west)) {
-                mMapGrid[west.x()][west.y()] = new Wall(west.x(), west.y(), themedTile);
+                GameObject object = new GameObject(west.x, west.y);
+                object.type = GameObject.WALL;
+                object.setSprite(themedTile);
+                object.setBlocking(true);
+                object.setTraversable(false);
+
+                mMapGrid[west.x()][west.y()] = object;
             }
         }
+    }
+
+    private ArrayList<Vector> getWallVectors(Room room) {
+        ArrayList<Vector> walls = new ArrayList<>();
+
+        int right = room.x() + room.width() + 1;
+        int top = room.y() + room.height();
+
+        for (int x = room.x() - 1; x <= right; x++) {
+            Vector north = new Vector(x, top);
+            Vector south = new Vector(x, room.y() - 1);
+
+            if (inBounds(north)) {
+                walls.add(north);
+            }
+
+            if (inBounds(south)) {
+                walls.add(south);
+            }
+        }
+
+        for (int y = room.y() - 1; y <= top; y++) {
+            Vector east = new Vector(room.x() - 1, y);
+            Vector west = new Vector(room.x() + room.width(), y);
+
+            if (inBounds(east)) {
+                walls.add(east);
+            }
+
+            if (inBounds(west)) {
+                walls.add(west);
+            }
+        }
+
+        return walls;
     }
 
     private void carveRoomFloor(Room room) {
@@ -345,9 +405,9 @@ public class ProceduralGenerator {
         Iterator it = mDoors.values().iterator();
 
         while (it.hasNext()) {
-            Door door = (Door) it.next();
+            GameObject door = (GameObject) it.next();
             Vector position = new Vector(door.x(), door.y());
-            if (getMapObjectForCell(position) instanceof Wall) {
+            if (getMapObjectForCell(position).type == GameObject.WALL) {
                 it.remove();
             }
         }
@@ -607,7 +667,7 @@ public class ProceduralGenerator {
             for (int y = 1; y < mMapHeight - 1; y++) {
                 Vector coords = new Vector(x, y);
 
-                if (getMapObjectForCell(coords) instanceof Wall && adjacentCellsAreCarvable(coords)) {
+                if (getMapObjectForCell(coords).type == GameObject.WALL && adjacentCellsAreCarvable(coords)) {
                     carveMaze(coords);
                 }
             }
@@ -677,7 +737,7 @@ public class ProceduralGenerator {
                 Vector cell = new Vector(x, y, "");
 
                 // Ignore everything but walls
-                if (!(getMapObjectForCell(cell) instanceof Wall)) continue;
+                if (!(getMapObjectForCell(cell).type == GameObject.WALL)) continue;
 
                 Set<Integer> regions = new HashSet<>();
 
@@ -785,7 +845,7 @@ public class ProceduralGenerator {
                 for (int y = 1; y < mMapHeight - 1; y++) {
                     Vector cell = new Vector(x, y);
 
-                    if (getMapObjectForCell(cell) instanceof Wall) continue;
+                    if (getMapObjectForCell(cell).type == GameObject.WALL) continue;
 
                     // If it only has one exit, it's a dead end.
                     int exits = 0;
@@ -793,7 +853,7 @@ public class ProceduralGenerator {
                     HashMap<String, Vector> adjacentCells = getAdjacentCells(cell, 1, CARVABLE);
 
                     for (Vector adjacentCell : adjacentCells.values()) {
-                        if (!(getMapObjectForCell(adjacentCell) instanceof Wall)) {
+                        if (!(getMapObjectForCell(adjacentCell).type == GameObject.WALL)) {
                             exits++;
                         }
                     }
@@ -812,9 +872,9 @@ public class ProceduralGenerator {
         setTile(cell, Mansion.DOORWAY);
 
         if (mRng.getRandomInt(0, 1) == 0) {
-            // mapData.doors.set(cell.toString(), new DoorObject(cell.x, cell.y, getOpenDoorTile(), getClosedDoorTile(), true));
+            // Chance for door to be open? Locked?
         } else {
-            Door door = new Door(cell.x(), cell.y(), mTiler.getOpenDoorTilePath(), mTiler.getClosedDoorTilePath());
+            GameObject door = WidgetFactory.createDoor(cell.x, cell.y, mTiler.getOpenDoorTilePath(), mTiler.getClosedDoorTilePath());
             mDoors.put(cell.toString(), door);
         }
     }
@@ -853,7 +913,7 @@ public class ProceduralGenerator {
                 if (!checked.containsKey(cell.toString())) {
                     GameObject tile = getMapObjectForCell(cell);
 
-                    if (tile instanceof Floor && cellIsInaccessible(cell)) {
+                    if (tile.type == GameObject.FLOOR && cellIsInaccessible(cell)) {
                         setTile(cell, Mansion.WALL);
                         checked.put(cell.toString(), true);
                         HashMap<String, Vector> adjacentCells = getAdjacentCells(cell, 1, true);
@@ -880,8 +940,15 @@ public class ProceduralGenerator {
 
                 if (!checked.contains(cell.toString())) {
 
-                    if (getMapObjectForCell(cell) instanceof Wall && cellIsInaccessible(cell)) {
-                        setTile(cell, new Border(x, y, All.DEFAULT_BORDER));
+                    if (getMapObjectForCell(cell).type == GameObject.WALL && cellIsInaccessible(cell)) {
+
+                        GameObject object = new GameObject(x, y);
+                        object.setSprite(All.DEFAULT_BORDER);
+                        object.setBlocking(true);
+                        object.setTraversable(false);
+                        object.type = GameObject.BORDER;
+
+                        setTile(cell, object);
                         checked.add(cell.toString());
                     }
                 }
@@ -910,7 +977,7 @@ public class ProceduralGenerator {
                 break;
 
             default:
-                mMapGrid[pos.x()][pos.y()] = new Decoration(pos.x(), pos.y(), type);
+                mMapGrid[pos.x()][pos.y()] = WidgetFactory.createDecoration(pos.x, pos.y, type);
         }
     }
 
@@ -972,8 +1039,8 @@ public class ProceduralGenerator {
 
         for (Vector adjacent : adjacentCells.values()) {
 
-            if (!inBounds(adjacent) || !(getMapObjectForCell(adjacent) instanceof Wall)
-                    || getMapObjectForCell(adjacent) instanceof Border) {
+            if (!inBounds(adjacent) || !(getMapObjectForCell(adjacent).type == GameObject.WALL)
+                    || getMapObjectForCell(adjacent).type == GameObject.BORDER) {
                 return false;
             }
         }
@@ -989,7 +1056,7 @@ public class ProceduralGenerator {
 
             GameObject tile = getMapObjectForCell(direction);
 
-            if (!(tile instanceof Wall) || !(tile instanceof Border)) {
+            if (tile.type != GameObject.WALL && tile.type != GameObject.BORDER) {
                 return false;
             }
         }

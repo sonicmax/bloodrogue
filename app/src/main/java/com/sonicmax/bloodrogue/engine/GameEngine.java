@@ -14,13 +14,10 @@ import com.sonicmax.bloodrogue.generator.ProceduralGenerator;
 import com.sonicmax.bloodrogue.utils.maths.Calculator;
 import com.sonicmax.bloodrogue.engine.objects.Actor;
 import com.sonicmax.bloodrogue.engine.factories.CorpseFactory;
-import com.sonicmax.bloodrogue.engine.objects.LightSource;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 import com.sonicmax.bloodrogue.engine.objects.GameObject;
 import com.sonicmax.bloodrogue.engine.factories.PlayerFactory;
-import com.sonicmax.bloodrogue.engine.objects.Room;
-import com.sonicmax.bloodrogue.engine.objects.Wall;
 import com.sonicmax.bloodrogue.renderer.text.TextColours;
 import com.sonicmax.bloodrogue.utils.Array2DHelper;
 
@@ -44,7 +41,6 @@ public class GameEngine {
     private ArrayList<GameObject>[][] animations;
     private int[][] playerDesireMap;
     private double[][] fieldOfVision;
-    private ArrayList<GameObject> lightSources;
     private GameObject player;
 
     private ArrayList<ActorTurn> turnQueue;
@@ -378,7 +374,6 @@ public class GameEngine {
 
     private void populateUsingSaveState() {
         enemies = new ArrayList<>();
-        lightSources = new ArrayList<>();
 
         for (int y = 0; y < mapHeight; y++) {
             for (int x = 0; x < mapWidth; x++) {
@@ -387,10 +382,6 @@ public class GameEngine {
                 for (GameObject object : objects) {
                     if (object instanceof Actor && !object.isPlayerControlled()) {
                         enemies.add(object);
-                    }
-
-                    else if (object instanceof LightSource) {
-                        lightSources.add(object);
                     }
                 }
             }
@@ -417,30 +408,6 @@ public class GameEngine {
         }
 
         addObjectToStack(player.x(), player.y(), player);
-
-        lightSources = new ArrayList<>();
-        addRoomObjects(mapData.getRooms());
-    }
-
-    private void addRoomObjects(ArrayList<GameObject> rooms) {
-        // int x = Math.round(player.x() - (mapWidth / 2));
-        // int y = Math.round(player.y() - (mapHeight / 2));
-        // Vector scrollOffset = new Vector(x, y);
-
-        // Room visibleArea = renderer.getVisibleArea();
-
-        for (GameObject room : rooms) {
-            ArrayList<GameObject> objects = ((Room) room).getObjects();
-            for (GameObject object : objects) {
-
-                // axisAlignedBoxTest(room, visibleArea)
-
-                if (object instanceof LightSource) {
-                    lightSources.add(object);
-                    addObjectToStack(object.x(), object.y(), object);
-                }
-            }
-        }
     }
 
     /*
@@ -975,7 +942,7 @@ public class GameEngine {
 
         GameObject mapTile = mapGrid[position.x()][position.y()];
 
-        if (mapTile instanceof Wall) {
+        if (mapTile.type == GameObject.WALL) {
             return true;
         }
 

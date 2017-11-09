@@ -3,7 +3,6 @@ package com.sonicmax.bloodrogue.engine.factories;
 import com.sonicmax.bloodrogue.engine.Directions;
 import com.sonicmax.bloodrogue.engine.objects.Actor;
 import com.sonicmax.bloodrogue.engine.objects.GameObject;
-import com.sonicmax.bloodrogue.engine.objects.Wall;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 import com.sonicmax.bloodrogue.tilesets.All;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
@@ -33,7 +32,7 @@ public class DecalFactory {
         splat.setBlocking(false);
         splat.setMutability(true);
 
-        if (!(mapGrid[x][y] instanceof Wall)) {
+        if (!(mapGrid[x][y].type == GameObject.WALL)) {
             splat.setSprite(blood[bloodIndex]);
             return splat;
         } else {

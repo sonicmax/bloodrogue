@@ -11,8 +11,6 @@ public class Room extends GameObject {
     private int height;
     private ArrayList<GameObject> objects;
     private boolean isEntrance = false;
-
-    // TODO: convert into private fields with getter/setters
     public boolean isAccessible = true;
     public boolean furnished = false;
 

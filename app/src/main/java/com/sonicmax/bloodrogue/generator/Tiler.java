@@ -1,7 +1,6 @@
 package com.sonicmax.bloodrogue.generator;
 
-import com.sonicmax.bloodrogue.engine.objects.Floor;
-import com.sonicmax.bloodrogue.engine.objects.Wall;
+import com.sonicmax.bloodrogue.engine.objects.GameObject;
 import com.sonicmax.bloodrogue.tilesets.All;
 import com.sonicmax.bloodrogue.tilesets.Mansion;
 import com.sonicmax.bloodrogue.tilesets.Ruins;
@@ -24,16 +23,24 @@ public class Tiler {
     ---------------------------------------------
     */
 
-    public Wall getWallTile(int x, int y) {
+    public GameObject getWallTile(int x, int y) {
+        GameObject object = new GameObject(x, y);
+        object.type = GameObject.WALL;
+        object.setBlocking(true);
+        object.setTraversable(false);
+
         switch (mTheme) {
             case Mansion.KEY:
-                return new Wall(x, y, Mansion.WALLPAPER_3);
+                object.setSprite(Mansion.WALLPAPER_3);
+                return object;
 
             case Ruins.KEY:
-                return new Wall(x, y, Ruins.WALL);
+                object.setSprite(Ruins.WALL);
+                return object;
 
             default:
-                return new Wall(x, y, Mansion.WALL);
+                object.setSprite(Mansion.WALLPAPER_3);
+                return object;
         }
     }
 
@@ -62,16 +69,24 @@ public class Tiler {
     ---------------------------------------------
     */
 
-    public Floor getFloorTile(int x, int y, int type) {
+    public GameObject getFloorTile(int x, int y, int type) {
+        GameObject floor = new GameObject(x, y);
+        floor.type = GameObject.FLOOR;
+        floor.setBlocking(false);
+        floor.setTraversable(true);
+
         switch (mTheme) {
             case Mansion.KEY:
-                return new Floor(x, y, getMansionFloorTilePath(type));
+                floor.setSprite(getMansionFloorTilePath(type));
+                return floor;
 
             case Ruins.KEY:
-                return new Floor(x, y, Ruins.FLOOR);
+                floor.setSprite(Ruins.FLOOR);
+                return floor;
 
             default:
-                return new Floor(x, y, Mansion.FLOOR);
+                floor.setSprite(Mansion.FLOOR);
+                return floor;
         }
     }
 
@@ -137,16 +152,24 @@ public class Tiler {
         }
     }
 
-    public Floor getDoorwayTile(int x, int y) {
+    public GameObject getDoorwayTile(int x, int y) {
+        GameObject doorway = new GameObject(x, y);
+        doorway.type = GameObject.DOORWAY;
+        doorway.setBlocking(false);
+        doorway.setTraversable(true);
+
         switch (mTheme) {
             case Mansion.KEY:
-                return new Floor(x, y, Mansion.WOOD_FLOOR_1, Floor.IS_DOORWAY);
+                doorway.setSprite(Mansion.WOOD_FLOOR_1);
+                return doorway;
 
             case Ruins.KEY:
-                return new Floor(x, y, Ruins.FLOOR, Floor.IS_DOORWAY);
+                doorway.setSprite(Ruins.FLOOR);
+                return doorway;
 
             default:
-                return new Floor(x, y, Mansion.WOOD_FLOOR_1, Floor.IS_DOORWAY);
+                doorway.setSprite(Mansion.WOOD_FLOOR_1);
+                return doorway;
         }
     }
 }
