@@ -2,7 +2,7 @@ package com.sonicmax.bloodrogue.renderer.ui;
 
 import android.util.Log;
 
-import com.sonicmax.bloodrogue.engine.factories.AnimationFactory;
+import com.sonicmax.bloodrogue.generator.factories.AnimationFactory;
 import com.sonicmax.bloodrogue.renderer.sprites.SpriteRenderer;
 
 import java.util.HashMap;

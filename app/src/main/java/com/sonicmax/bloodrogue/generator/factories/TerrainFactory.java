@@ -1,4 +1,4 @@
-package com.sonicmax.bloodrogue.engine.factories;
+package com.sonicmax.bloodrogue.generator.factories;
 
 import com.sonicmax.bloodrogue.engine.Entity;
 import com.sonicmax.bloodrogue.engine.Component;

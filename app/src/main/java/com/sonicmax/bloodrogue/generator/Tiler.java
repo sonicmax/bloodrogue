@@ -1,7 +1,7 @@
 package com.sonicmax.bloodrogue.generator;
 
 import com.sonicmax.bloodrogue.engine.Component;
-import com.sonicmax.bloodrogue.engine.factories.TerrainFactory;
+import com.sonicmax.bloodrogue.generator.factories.TerrainFactory;
 import com.sonicmax.bloodrogue.tilesets.All;
 import com.sonicmax.bloodrogue.tilesets.Mansion;
 import com.sonicmax.bloodrogue.tilesets.Ruins;
