@@ -4,7 +4,7 @@ import com.sonicmax.bloodrogue.utils.maths.Vector;
 
 import java.util.ArrayList;
 
-public class Room extends GameObject {
+public class Room {
     private int x;
     private int y;
     private int width;
@@ -15,12 +15,19 @@ public class Room extends GameObject {
     public boolean furnished = false;
 
     public Room(int x, int y, int width, int height) {
-        super(x, y);
         this.x = x;
         this.y = y;
         this.width = width;
         this.height = height;
         objects = new ArrayList<>();
+    }
+
+    public int x() {
+        return this.x;
+    }
+
+    public int y() {
+        return this.y;
     }
 
     public void setEntrance() {

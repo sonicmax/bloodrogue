@@ -1,0 +1,436 @@
+{
+	zombie1: {
+		position: {},
+		sprite: {
+			path: "sprites/zombie_1.png",
+			shader: "dynamic"
+		},
+		name: {
+			value: "Zombie"
+		},
+		dynamic: {},
+		ai: {
+			affinity: "enemy",
+			canInteract: false,
+			playerInterest: 15
+		},
+		experience: {
+			level: 1
+		},
+		damage: {
+			strength: 1
+		},
+		blood: {
+			type: "red"
+		},
+		vitality: {
+			endurance: 1
+		},
+		physics: {
+			blocking: false,
+			traversable: false,
+			gasOrLiquid: false,
+			activateOnCollide: true,
+			activateOnMove: false
+		},
+		energy: {
+			agility: 1
+		}
+	},
+	
+	zombie2: {
+		position: {},
+		sprite: {
+			path: "sprites/zombie_2.png",
+			shader: "dynamic"
+		},
+		name: {
+			value: "Zombie"
+		},
+		dynamic: {},
+		ai: {
+			affinity: "enemy",
+			canInteract: false,
+			playerInterest: 15
+		},
+		experience: {
+			level: 1
+		},
+		damage: {
+			strength: 1
+		},
+		blood: {
+			type: "red"
+		},
+		vitality: {
+			endurance: 1
+		},
+		physics: {
+			blocking: false,
+			traversable: false,
+			gasOrLiquid: false,
+			activateOnCollide: true,
+			activateOnMove: false
+		},
+		energy: {
+			agility: 1
+		}
+	},
+	
+	zombie3: {
+		position: {},
+		sprite: {
+			path: "sprites/zombie_3.png",
+			shader: "dynamic"
+		},
+		name: {
+			value: "Zombie"
+		},
+		dynamic: {},
+		ai: {
+			affinity: "enemy",
+			canInteract: false,
+			playerInterest: 15
+		},
+		experience: {
+			level: 1
+		},
+		damage: {
+			strength: 1
+		},
+		blood: {
+			type: "red"
+		},
+		vitality: {
+			endurance: 1
+		},
+		physics: {
+			blocking: false,
+			traversable: false,
+			gasOrLiquid: false,
+			activateOnCollide: true,
+			activateOnMove: false
+		},
+		energy: {
+			agility: 1
+		}
+	},
+	
+	giantRat: {
+		position: {},
+		sprite: {
+			path: "sprites/giant_rat.png",
+			shader: "dynamic"
+		},
+		name: {
+			value: "Giant Rat"
+		},
+		dynamic: {},
+		ai: {
+			affinity: "enemy",
+			canInteract: false,
+			playerInterest: 15
+		},
+		experience: {
+			level: 1
+		},
+		damage: {
+			strength: 1
+		},
+		blood: {
+			type: "red"
+		},
+		vitality: {
+			endurance: 1
+		},
+		physics: {
+			blocking: false,
+			traversable: false,
+			gasOrLiquid: false,
+			activateOnCollide: true,
+			activateOnMove: false
+		},
+		energy: {
+			agility: 2
+		}
+	},
+	
+	cockroach: {
+		position: {},
+		sprite: {
+			path: "sprites/cockroach.png",
+			shader: "dynamic"
+		},
+		name: {
+			value: "Giant Roach"
+		},
+		dynamic: {},
+		ai: {
+			affinity: "enemy",
+			canInteract: false,
+			playerInterest: 15
+		},
+		experience: {
+			level: 1
+		},
+		damage: {
+			strength: 1
+		},
+		blood: {
+			type: "green"
+		},
+		vitality: {
+			endurance: 1
+		},
+		physics: {
+			blocking: false,
+			traversable: false,
+			gasOrLiquid: false,
+			activateOnCollide: true,
+			activateOnMove: false
+		},
+		energy: {
+			agility: 2
+		}
+	},
+	
+	greenSlime: {
+		position: {},
+		sprite: {
+			path: "sprites/green_slime.png",
+			shader: "dynamic"
+		},
+		name: {
+			value: "Green Slime"
+		},
+		dynamic: {},
+		ai: {
+			affinity: "enemy",
+			canInteract: false,
+			playerInterest: 15
+		},
+		experience: {
+			level: 1
+		},
+		damage: {
+			strength: 2
+		},
+		blood: {
+			type: "green"
+		},
+		vitality: {
+			endurance: 1
+		},
+		physics: {
+			blocking: false,
+			traversable: false,
+			gasOrLiquid: false,
+			activateOnCollide: true,
+			activateOnMove: false
+		},
+		energy: {
+			agility: 1
+		},
+		selfreplicate: {
+			chance: 0.025
+		}
+	},
+	
+	purpleSlime: {
+		position: {},
+		sprite: {
+			path: "sprites/purple_slime.png",
+			shader: "dynamic"
+		},
+		name: {
+			value: "Purple Slime"
+		},
+		dynamic: {},
+		ai: {
+			affinity: "enemy",
+			canInteract: false,
+			playerInterest: 15
+		},
+		experience: {
+			level: 1
+		},
+		damage: {
+			strength: 1
+		},
+		blood: {
+			type: "green"
+		},
+		vitality: {
+			endurance: 2
+		},
+		physics: {
+			blocking: false,
+			traversable: false,
+			gasOrLiquid: false,
+			activateOnCollide: true,
+			activateOnMove: false
+		},
+		energy: {
+			agility: 1
+		},
+		selfreplicate: {
+			chance: 0.025
+		}
+	},
+	
+	ogre: {
+		position: {},
+		sprite: {
+			path: "sprites/ogre.png",
+			shader: "dynamic"
+		},
+		name: {
+			value: "Ogre"
+		},
+		dynamic: {},
+		ai: {
+			affinity: "enemy",
+			canInteract: false,
+			playerInterest: 10
+		},
+		experience: {
+			level: 1
+		},
+		damage: {
+			strength: 2
+		},
+		blood: {
+			type: "red"
+		},
+		vitality: {
+			endurance: 2
+		},
+		physics: {
+			blocking: false,
+			traversable: false,
+			gasOrLiquid: false,
+			activateOnCollide: true,
+			activateOnMove: false
+		},
+		energy: {
+			agility: 1
+		}
+	},
+	
+	greatOgre: {
+		position: {},
+		sprite: {
+			path: "sprites/ogre_2.png",
+			shader: "dynamic"
+		},
+		name: {
+			value: "Great Ogre"
+		},
+		dynamic: {},
+		ai: {
+			affinity: "enemy",
+			canInteract: false,
+			playerInterest: 10
+		},
+		experience: {
+			level: 1
+		},
+		damage: {
+			strength: 3
+		},
+		blood: {
+			type: "red"
+		},
+		vitality: {
+			endurance: 3
+		},
+		physics: {
+			blocking: false,
+			traversable: false,
+			gasOrLiquid: false,
+			activateOnCollide: true,
+			activateOnMove: false
+		},
+		energy: {
+			agility: 1
+		}
+	},
+	
+	spirit: {
+		position: {},
+		sprite: {
+			path: "sprites/ogre_spirit.png",
+			shader: "wave"
+		},
+		name: {
+			value: "Spirit"
+		},
+		dynamic: {},
+		ai: {
+			affinity: "enemy",
+			canInteract: false,
+			playerInterest: 15
+		},
+		experience: {
+			level: 1
+		},
+		damage: {
+			strength: 1
+		},
+		blood: {
+			type: "ectoplasm"
+		},
+		vitality: {
+			endurance: 1
+		},
+		physics: {
+			blocking: false,
+			traversable: false,
+			gasOrLiquid: true,
+			activateOnCollide: true,
+			activateOnMove: false
+		},
+		energy: {
+			agility: 2
+		}
+	},
+		
+	giantKomodo: {
+		position: {},
+		sprite: {
+			path: "sprites/giant_komodo.png",
+			shader: "dynamic"
+		},
+		name: {
+			value: "Giant Komodo"
+		},
+		dynamic: {},
+		ai: {
+			affinity: "enemy",
+			canInteract: false,
+			playerInterest: 15
+		},
+		experience: {
+			level: 1
+		},
+		damage: {
+			strength: 2
+		},
+		blood: {
+			type: "red"
+		},
+		vitality: {
+			endurance: 1
+		},
+		physics: {
+			blocking: false,
+			traversable: false,
+			gasOrLiquid: false,
+			activateOnCollide: true,
+			activateOnMove: false
+		},
+		energy: {
+			agility: 2
+		}
+	}
+}

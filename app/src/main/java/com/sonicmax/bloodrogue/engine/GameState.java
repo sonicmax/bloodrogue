@@ -1,9 +1,5 @@
 package com.sonicmax.bloodrogue.engine;
 
-import android.util.Log;
-
-import com.sonicmax.bloodrogue.engine.objects.GameObject;
-
 import java.io.Serializable;
 import java.util.ArrayList;
 
@@ -18,7 +14,7 @@ public class GameState implements Serializable {
 
     private ArrayList<FloorData> floors;
     private int currentFloor;
-    private GameObject player;
+    private Component[] player;
 
     public GameState() {}
 
@@ -26,7 +22,7 @@ public class GameState implements Serializable {
      *  GameState is initialised with starting player data and the terrain/objects generated for first floor.
      */
 
-    public GameState(GameObject player, FloorData firstFloor) {
+    public GameState(Component[] player, FloorData firstFloor) {
         this.floors = new ArrayList<>();
         this.floors.add(firstFloor);
         this.player = player;
@@ -69,7 +65,7 @@ public class GameState implements Serializable {
         return floors.get(currentFloor - 1);
     }
 
-    public GameObject getPlayer() {
+    public Component[] getPlayer() {
         return player;
     }
 }

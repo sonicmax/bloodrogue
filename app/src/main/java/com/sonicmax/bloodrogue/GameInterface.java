@@ -7,17 +7,17 @@ import android.util.Log;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 
-import com.sonicmax.bloodrogue.engine.FloorData;
 import com.sonicmax.bloodrogue.engine.GameEngine;
 import com.sonicmax.bloodrogue.engine.GameState;
+import com.sonicmax.bloodrogue.engine.components.Position;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
-import com.sonicmax.bloodrogue.engine.objects.GameObject;
 import com.sonicmax.bloodrogue.renderer.GameRenderer;
 import com.sonicmax.bloodrogue.renderer.text.NarrationManager;
 import com.sonicmax.bloodrogue.renderer.text.Status;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -45,6 +45,8 @@ public class GameInterface {
     private float scaleFactor;
     private boolean pathSelection;
 
+    private boolean startFresh = true; // This is just for debugging
+
     public GameInterface(Context context) {
         this.context = context;
         this.gameEngine = new GameEngine(this);
@@ -58,8 +60,6 @@ public class GameInterface {
         this.lastMapTouch = null;
         this.scaleFactor = 1f;
     }
-
-    private boolean startFresh = true;
 
     public void init() {
         GameState state = loadState();
@@ -93,7 +93,7 @@ public class GameInterface {
                 lastTouchX = x;
                 lastTouchY = y;
 
-                if (!inputLock && mapTouch.equals(gameEngine.getPlayer().getVector())) {
+                if (!inputLock && mapTouch.equals(gameEngine.getPlayerVector())) {
                     // Start path selection
                     lastMapTouch = mapTouch;
                     pathSelection = true;
@@ -134,7 +134,7 @@ public class GameInterface {
                 if (eventDuration > PATH_THRESHOLD) {
                     final ArrayList<Vector> path = gameEngine.onTouchPathComplete();
                     // Todo: if square is adjacent then we should just move to it
-                    if (path.size() > 0) {
+                    /*if (path.size() > 0) {
                         path.add(mapTouch);
 
                         // Execute in background thread to prevent queueAndFollowPath() from blocking touch events
@@ -144,7 +144,7 @@ public class GameInterface {
                                 gameEngine.queueAndFollowPath(path);
                             }
                         });
-                    }
+                    }*/
                 }
 
                 else {
@@ -178,7 +178,7 @@ public class GameInterface {
     }
 
     public void passDataToRenderer() {
-        gameRenderer.setFloorData(gameEngine.getCurrentFloorData());
+        gameRenderer.setFrame(gameEngine.getCurrentFrameData());
         gameRenderer.setHasGameData();
     }
 
@@ -203,8 +203,9 @@ public class GameInterface {
         return context.getAssets();
     }
 
-    public void displayStatus(GameObject object, String message, float[] color) {
-        float[] coords = gameRenderer.getRenderCoordsForObject(object.getVector());
+    public void displayStatus(Position position, String message, float[] color) {
+        Vector vector = new Vector(position.x, position.y);
+        float[] coords = gameRenderer.getRenderCoordsForObject(vector);
         Status status = new Status(message, coords[0], coords[1], color);
         gameRenderer.queueNewStatus(status);
     }
@@ -260,13 +261,24 @@ public class GameInterface {
             ois = new ObjectInputStream(fis);
             state = (GameState) ois.readObject();
 
+        } catch (FileNotFoundException notFound) {
+            // We don't really have to do anything here apart from notify the user?
+            Log.e(LOG_TAG, "Save file not found", notFound);
+
         } catch (ClassNotFoundException e1) {
-            Log.e(LOG_TAG, "Error while writing to disk", e1);
+            Log.e(LOG_TAG, "Error while loading state", e1);
             File file = new File(context.getFilesDir(), FILENAME);
             file.delete();
 
         } catch (IOException e2) {
-            Log.e(LOG_TAG, "Error while writing to disk", e2);
+            Log.e(LOG_TAG, "Error while loading from disk", e2);
+
+        } catch (IllegalArgumentException e3) {
+            // Probably made a change to the GameState class without incrementing serialVersionUID.
+            Log.e(LOG_TAG, "Error while loading state", e3);
+            File file = new File(context.getFilesDir(), FILENAME);
+            file.delete();
+
         } finally {
             try {
                 if (fis != null) {

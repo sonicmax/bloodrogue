@@ -1,20 +1,21 @@
 package com.sonicmax.bloodrogue.generator;
 
+import com.sonicmax.bloodrogue.engine.Component;
+import com.sonicmax.bloodrogue.engine.objects.Room;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
-import com.sonicmax.bloodrogue.engine.objects.GameObject;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 
 public class MapData {
-    private ArrayList<GameObject> rooms;
-    private HashMap<String, GameObject> doors;
-    private ArrayList<GameObject> objects;
-    private ArrayList<GameObject> enemies;
+    private ArrayList<Room> rooms;
+    private HashMap<String, Component[]> doors;
+    private ArrayList<Component[]> objects;
+    private ArrayList<Component[]> enemies;
     private Vector startPosition;
     private int type;
 
-    public MapData(ArrayList<GameObject> rooms, HashMap<String, GameObject> doors, ArrayList<GameObject> objects, ArrayList<GameObject> enemies, Vector start, int type) {
+    public MapData(ArrayList<Room> rooms, HashMap<String, Component[]> doors, ArrayList<Component[]> objects, ArrayList<Component[]> enemies, Vector start, int type) {
         this.rooms = rooms;
         this.doors = doors;
         this.objects = objects;
@@ -27,19 +28,19 @@ public class MapData {
         return this.startPosition;
     }
 
-    public ArrayList<GameObject> getObjects() {
+    public ArrayList<Component[]> getObjects() {
         return this.objects;
     }
 
-    public ArrayList<GameObject> getDoors() {
+    public ArrayList<Component[]> getDoors() {
         return new ArrayList<>(this.doors.values());
     }
 
-    public ArrayList<GameObject> getEnemies() {
+    public ArrayList<Component[]> getEnemies() {
         return this.enemies;
     }
 
-    public ArrayList<GameObject> getRooms() {
+    public ArrayList<Room> getRooms() {
         return this.rooms;
     }
 }

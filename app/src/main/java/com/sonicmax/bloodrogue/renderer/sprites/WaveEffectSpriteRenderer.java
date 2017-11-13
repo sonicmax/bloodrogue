@@ -67,9 +67,6 @@ public class WaveEffectSpriteRenderer {
     private FloatBuffer floatBuffer;
     private ShortBuffer drawListBuffer;
 
-    private int positionLocation;
-    private int texCoordLocation;
-    private int colorLocation;
     private int matrixLocation;
     private int textureLocation;
     private int waveDataLocation;
@@ -82,7 +79,7 @@ public class WaveEffectSpriteRenderer {
     public WaveEffectSpriteRenderer() {
         mUniformScale = 1f;
 
-        // How many bytes we need to skip in VBO to find new entry for same data type.
+        // How many bytes we need to skip in VBO to find new entry for same data shader.
         stride = (FLOATS_PER_POSITION + FLOATS_PER_COLOUR + FLOATS_PER_UV) * FLOAT_SIZE;
     }
 
@@ -98,9 +95,6 @@ public class WaveEffectSpriteRenderer {
     public void setShaderVariableLocations() {
         GLES20.glUseProgram(mWaveShaderHandle);
 
-        positionLocation = GLES20.glGetAttribLocation(mWaveShaderHandle, "a_Position");
-        texCoordLocation = GLES20.glGetAttribLocation(mWaveShaderHandle, "a_texCoord");
-        colorLocation = GLES20.glGetAttribLocation(mWaveShaderHandle, "a_Color");
         matrixLocation = GLES20.glGetUniformLocation(mWaveShaderHandle, "u_MVPMatrix");
         textureLocation = GLES20.glGetUniformLocation (mWaveShaderHandle, "u_Texture");
         waveDataLocation = GLES20.glGetUniformLocation(mWaveShaderHandle, "u_waveData");
@@ -400,8 +394,8 @@ public class WaveEffectSpriteRenderer {
         // Pass MVP matrix to shader
         GLES20.glUniformMatrix4fv(matrixLocation, 1, false, matrix, 0);
 
-        updateWaveVariables(dt);
         // Pass updated angle & amplitude to shader
+        updateWaveVariables(dt);
         GLES20.glUniform2f(waveDataLocation, angleWave, amplitudeWave);
 
         // Bind texture to unit 0 and render triangles

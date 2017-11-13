@@ -1,17 +1,16 @@
 package com.sonicmax.bloodrogue.engine;
 
+import com.sonicmax.bloodrogue.engine.components.Position;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
-import com.sonicmax.bloodrogue.engine.objects.Actor;
-import com.sonicmax.bloodrogue.engine.objects.GameObject;
 
 import java.util.concurrent.Delayed;
 import java.util.concurrent.TimeUnit;
 
-public class ActorTurn implements Delayed {
+public class EntityTurn implements Delayed {
     private final long DEFAULT_DURATION = 1000L;
     private long start;
 
-    private Actor actor;
+    private Position positionComponent;
 
     private Vector destination;
     private boolean hasMove;
@@ -19,14 +18,18 @@ public class ActorTurn implements Delayed {
     private Vector collision;
     private boolean hasCollision;
 
-    public ActorTurn(GameObject actor) {
+    public EntityTurn(Position positionComponent) {
         this.start = System.currentTimeMillis() + DEFAULT_DURATION;
-        this.actor = (Actor) actor;
+        this.positionComponent = positionComponent;
         this.hasMove = false;
     }
 
-    public Actor getActor() {
-        return this.actor;
+    public Position getPositionComponent() {
+        return this.positionComponent;
+    }
+
+    public long getEntity() {
+        return this.positionComponent.id;
     }
 
     public void setCollision(Vector collision) {

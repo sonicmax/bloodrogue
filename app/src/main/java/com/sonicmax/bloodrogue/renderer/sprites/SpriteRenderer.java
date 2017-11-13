@@ -64,6 +64,8 @@ public class SpriteRenderer {
     // Handles for OpenGL
     private int mSpriteSheetHandle;
     private int mBasicShaderHandle;
+    private int uniformMatrix;
+    private int uniformTexture;
 
     private FloatBuffer floatBuffer;
     private ShortBuffer drawListBuffer;
@@ -71,7 +73,7 @@ public class SpriteRenderer {
     public SpriteRenderer() {
         mUniformScale = 1f;
 
-        // How many bytes we need to skip in VBO to find new entry for same data type.
+        // How many bytes we need to skip in VBO to find new entry for same data shader.
         stride = (FLOATS_PER_POSITION + FLOATS_PER_COLOUR + FLOATS_PER_UV) * FLOAT_SIZE;
     }
 
@@ -79,8 +81,10 @@ public class SpriteRenderer {
         this.mUniformScale = uniformScale;
     }
 
-    public void setBasicShader(int handle) {
+    public void initShader(int handle) {
         mBasicShaderHandle = handle;
+        uniformMatrix = GLES20.glGetUniformLocation(mBasicShaderHandle, "u_MVPMatrix");
+        uniformTexture = GLES20.glGetUniformLocation(mBasicShaderHandle, "u_Texture");
     }
 
     public void setSpriteSheetHandle(int val) {
@@ -373,10 +377,6 @@ public class SpriteRenderer {
                 false,
                 stride,
                 floatBuffer.duplicate().position(FLOATS_PER_POSITION + FLOATS_PER_COLOUR));
-
-
-        int uniformMatrix = GLES20.glGetUniformLocation(mBasicShaderHandle, "u_MVPMatrix");
-        int uniformTexture = GLES20.glGetUniformLocation(mBasicShaderHandle, "u_Texture");
 
         // Pass MVP matrix to shader
         GLES20.glUniformMatrix4fv(uniformMatrix, 1, false, matrix, 0);

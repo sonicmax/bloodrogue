@@ -1,0 +1,107 @@
+{
+	entranceStairs: {
+		position: {},
+		stationary: {
+			type: "default"
+		},
+		sprite: {
+			path: "sprites/mansion_stairs_entrance.png",
+			shader: "static"
+		},
+		portal: {
+			activateOnStep: true
+		},
+		physics: {
+			activateOnMove: true,
+			blocking: false,
+			traversable: true
+		}
+	},
+	
+	exitStairs: {
+		position: {},
+		stationary: {
+			type: "default"
+		},
+		sprite: {
+			path: "sprites/mansion_stairs_entrance.png",
+			shader: "static"
+		},
+		portal: {
+			activateOnStep: true
+		},
+		physics: {
+			activateOnMove: true,
+			blocking: false,
+			traversable: true
+		}
+	},
+	
+	door: {
+		position: {},
+		sprite: {
+			path: "sprites/mansion_double_doors.png",
+			shader: "dynamic"
+		},
+		stationary: {
+			type: "default"
+		},
+		barrier: {
+			type: "door",
+			open: false
+		},
+		physics: {
+			blocking: true,
+			traversable: false,
+			activateOnCollide: true			
+		}
+	},
+	
+	chest: {
+		position: {},
+		sprite: {
+			path: "sprites/chest_closed.png",
+			shader: "dynamic"
+		},
+		stationary: {
+			type: "default"
+		},
+		container: {
+			type: "chest",
+			open: false,
+			empty: true
+		},
+		physics: {
+			blocking: false,
+			traversable: false,
+			activateOnCollide: true			
+		}
+	},
+	
+	trappedChest: {
+		position: {},
+		sprite: {
+			path: "sprites/chest_closed.png",
+			shader: "dynamic"
+		},
+		stationary: {
+			type: "default"
+		},
+		container: {
+			type: "chest",
+			open: false,
+			empty: true
+		},
+		physics: {
+			blocking: false,
+			traversable: false,
+			activateOnCollide: true			
+		},
+		trap: {
+			chanceToActivate: 0.05			
+		},
+		damage: {
+			strength: 5
+		}
+	}
+}

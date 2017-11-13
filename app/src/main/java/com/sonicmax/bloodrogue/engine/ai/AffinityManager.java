@@ -1,6 +1,6 @@
 package com.sonicmax.bloodrogue.engine.ai;
 
-import com.sonicmax.bloodrogue.engine.objects.Actor;
+import com.sonicmax.bloodrogue.engine.components.AI;
 
 /**
  *  Manages relationships between Actors with different affinities.
@@ -13,9 +13,9 @@ public class AffinityManager {
 
     }
 
-    public boolean actorsAreAggressive(Actor a, Actor b) {
-        int affinityA = a.getAffinity();
-        int affinityB = b.getAffinity();
+    public boolean actorsAreAggressive(AI a, AI b) {
+        int affinityA = a.affinity;
+        int affinityB = b.affinity;
 
         // Actors with the same affinity will not target each other
         if (affinityA == affinityB) {
@@ -24,18 +24,18 @@ public class AffinityManager {
 
         // Actors with neutral affinity will not be targeted, and won't target others.
         // (however, their affinity can be changed if accidentaly attacked)
-        if (affinityA == Actor.NEUTRAL || affinityB == Actor.NEUTRAL) {
+        if (affinityA == AI.NEUTRAL || affinityB == AI.NEUTRAL) {
             return false;
         }
 
         switch (affinityA) {
-            case Actor.PLAYER:
-                if (affinityB == Actor.ENEMY) {
+            case AI.PLAYER:
+                if (affinityB == AI.ENEMY) {
                     return true;
                 }
 
-            case Actor.ENEMY:
-                if (affinityB == Actor.PLAYER) {
+            case AI.ENEMY:
+                if (affinityB == AI.PLAYER) {
                     return true;
                 }
 

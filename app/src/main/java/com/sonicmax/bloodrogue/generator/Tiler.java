@@ -1,7 +1,7 @@
 package com.sonicmax.bloodrogue.generator;
 
+import com.sonicmax.bloodrogue.engine.Component;
 import com.sonicmax.bloodrogue.engine.factories.TerrainFactory;
-import com.sonicmax.bloodrogue.engine.objects.GameObject;
 import com.sonicmax.bloodrogue.tilesets.All;
 import com.sonicmax.bloodrogue.tilesets.Mansion;
 import com.sonicmax.bloodrogue.tilesets.Ruins;
@@ -24,7 +24,7 @@ public class Tiler {
     ---------------------------------------------
     */
 
-    public GameObject getWallTile(int x, int y) {
+    public Component[] getWallTile(int x, int y) {
         String sprite;
 
         switch (mTheme) {
@@ -69,7 +69,7 @@ public class Tiler {
     ---------------------------------------------
     */
 
-    public GameObject getFloorTile(int x, int y, int type) {
+    public Component[] getFloorTile(int x, int y, int type) {
         String sprite;
 
         switch (mTheme) {
@@ -98,6 +98,8 @@ public class Tiler {
                 return Mansion.TILED_FLOOR_1;
 
             case 2:
+                return Mansion.WOOD_FLOOR_2;
+
             case 3:
                 return Mansion.WOOD_FLOOR_1;
 
@@ -151,7 +153,7 @@ public class Tiler {
         }
     }
 
-    public GameObject getDoorwayTile(int x, int y) {
+    public Component[] getDoorwayTile(int x, int y) {
         String sprite;
 
         switch (mTheme) {

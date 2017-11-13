@@ -1,5 +1,9 @@
 package com.sonicmax.bloodrogue.engine;
 
+
+import com.sonicmax.bloodrogue.engine.components.Sprite;
+import com.sonicmax.bloodrogue.renderer.ui.Animation;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 
@@ -7,18 +11,18 @@ import java.util.ArrayList;
  * Container for all data required to update renderer
  */
 
-public class FloorData implements Serializable {
+public class Frame implements Serializable {
     private static final long serialVersionUID = 1L;
 
     public final int index;
-    public final Component[][][] terrain;
-    public final ArrayList<Component[]>[][] objects;
-    public final ArrayList<Component[]>[][] animations;
+    public final Sprite[][] terrain;
+    public final ArrayList<Sprite> objects;
+    public final ArrayList<Animation>[][] animations;
     public final double[][] fov;
     public final Component[] player;
 
-    public FloorData(int index, Component[][][] terrain, ArrayList<Component[]>[][] objects,
-                     ArrayList<Component[]>[][] animations, double[][] fov, Component[] player) {
+    public Frame(int index, Sprite[][] terrain, ArrayList<Sprite> objects,
+                 ArrayList<Animation>[][] animations, double[][] fov, Component[] player) {
 
         this.index = index;
         this.terrain = terrain;
@@ -28,15 +32,15 @@ public class FloorData implements Serializable {
         this.player = player;
     }
 
-    public Component[][][] getTerrain() {
+    public Sprite[][] getTerrain() {
         return this.terrain;
     }
 
-    public ArrayList<Component[]>[][] getObjects() {
+    public ArrayList<Sprite> getObjects() {
         return this.objects;
     }
 
-    public ArrayList<Component[]>[][] getAnimations() {
+    public ArrayList<Animation>[][] getAnimations() {
         return this.animations;
     }
 

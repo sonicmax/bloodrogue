@@ -1,13 +1,51 @@
 package com.sonicmax.bloodrogue.utils;
 
-import com.sonicmax.bloodrogue.engine.objects.GameObject;
+import com.sonicmax.bloodrogue.engine.Component;
+import com.sonicmax.bloodrogue.engine.components.Sprite;
+import com.sonicmax.bloodrogue.renderer.ui.Animation;
 
 import java.util.ArrayList;
 
 
 public class Array2DHelper {
-    public static ArrayList<GameObject>[][] createArrayList2D(int width, int height) {
-        ArrayList<GameObject>[][] array = new ArrayList[width][height];
+    public static ArrayList<Component[]>[][] createArrayList2D(int width, int height) {
+        ArrayList<Component[]>[][] array = new ArrayList[width][height];
+
+        for (int x = 0; x < width; x++) {
+            for (int y = 0; y < height; y++) {
+                array[x][y] = new ArrayList<>();
+            }
+        }
+
+        return array;
+    }
+
+    public static ArrayList<Sprite>[][] create2DSpriteArray(int width, int height) {
+        ArrayList<Sprite>[][] array = new ArrayList[width][height];
+
+        for (int x = 0; x < width; x++) {
+            for (int y = 0; y < height; y++) {
+                array[x][y] = new ArrayList<>();
+            }
+        }
+
+        return array;
+    }
+
+    public static ArrayList<Animation>[][] create2DAnimationArray(int width, int height) {
+        ArrayList<Animation>[][] array = new ArrayList[width][height];
+
+        for (int x = 0; x < width; x++) {
+            for (int y = 0; y < height; y++) {
+                array[x][y] = new ArrayList<>();
+            }
+        }
+
+        return array;
+    }
+
+    public static ArrayList<Long>[][] create2dLongStack(int width, int height) {
+        ArrayList<Long>[][] array = new ArrayList[width][height];
 
         for (int x = 0; x < width; x++) {
             for (int y = 0; y < height; y++) {

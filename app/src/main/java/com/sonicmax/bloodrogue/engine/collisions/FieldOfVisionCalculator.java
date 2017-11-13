@@ -1,16 +1,20 @@
 package com.sonicmax.bloodrogue.engine.collisions;
 
+import com.sonicmax.bloodrogue.engine.ComponentManager;
 import com.sonicmax.bloodrogue.engine.Directions;
+import com.sonicmax.bloodrogue.engine.components.Physics;
+import com.sonicmax.bloodrogue.engine.components.Stationary;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
-import com.sonicmax.bloodrogue.engine.objects.GameObject;
 
 import java.util.ArrayList;
 
 public class FieldOfVisionCalculator {
+    private final String LOG_TAG = this.getClass().getSimpleName();
     private double darknessFactor; // Lower value = darker lighting. Has to be > 0
 
-    private GameObject[][] mapGrid;
-    private ArrayList<GameObject>[][] objectGrid;
+    private long[][] mapGrid;
+    private ArrayList<Long>[][] objectGrid;
+    private ComponentManager componentManager;
     private int startX;
     private int startY;
     private int fovRadius;
@@ -24,18 +28,21 @@ public class FieldOfVisionCalculator {
         directions = new ArrayList<>(Directions.Diagonal.values());
     }
 
-    public void setValues(GameObject[][] mapGrid, ArrayList<GameObject>[][] objectGrid, int x, int y, int radius) {
+    public void setValues(long[][] mapGrid, ArrayList<Long>[][] objectGrid,
+                          ComponentManager componentManager, int x, int y, int radius) {
+
         this.mapGrid = mapGrid;
         this.objectGrid = objectGrid;
-        startX = x;
-        startY = y;
-        fovRadius = radius;
+        this.componentManager = componentManager;
+        this.startX = x;
+        this.startY = y;
+        this.fovRadius = radius;
 
-        width = mapGrid.length;
-        height = mapGrid[0].length;
-        lightMap = new double[width][height];
+        this.width = mapGrid.length;
+        this.height = mapGrid[0].length;
+        this.lightMap = new double[width][height];
 
-        darknessFactor = 1;
+        this.darknessFactor = 1;
     }
 
     public double[][] calculate() {
@@ -130,9 +137,10 @@ public class FieldOfVisionCalculator {
         int x = position.x();
         int y = position.y();
 
-        GameObject mapTile = mapGrid[x][y];
+        long terrainEntity = mapGrid[x][y];
+        Stationary stat = (Stationary) componentManager.getEntityComponent(terrainEntity, Stationary.class.getSimpleName());
 
-        if (mapTile.type == GameObject.WALL) {
+        if (stat != null && stat.type == Stationary.WALL) {
             return true;
         }
 
@@ -140,7 +148,10 @@ public class FieldOfVisionCalculator {
 
         for (int i = 0; i < objectsSize; i++) {
 
-            if (objectGrid[x][y].get(i).isBlocking()) {
+            long objectEntity = objectGrid[x][y].get(i);
+            Physics physics = (Physics) componentManager.getEntityComponent(objectEntity, Physics.class.getSimpleName());
+
+            if (physics != null && physics.isBlocking) {
                 return true;
             }
         }

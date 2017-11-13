@@ -1,6 +1,5 @@
 package com.sonicmax.bloodrogue.renderer;
 
-
 import android.opengl.GLES20;
 
 import com.sonicmax.bloodrogue.utils.BufferUtils;
@@ -9,10 +8,10 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
-import java.security.InvalidParameterException;
 
 /**
  *  Class which creates a VBO and provides various convenience methods for copying data, binding/unbinding, etc
+ *  Currently only supports GL_STATIC_DRAW usage pattern
  */
 
 public class VertexBufferObject {

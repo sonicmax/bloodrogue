@@ -3,22 +3,38 @@ package com.sonicmax.bloodrogue.engine;
 import android.util.Log;
 
 import com.sonicmax.bloodrogue.GameInterface;
+import com.sonicmax.bloodrogue.data.JSONLoader;
 import com.sonicmax.bloodrogue.engine.ai.AffinityManager;
 import com.sonicmax.bloodrogue.engine.ai.EnemyState;
-import com.sonicmax.bloodrogue.engine.ai.PlayerState;
 import com.sonicmax.bloodrogue.engine.collisions.FieldOfVisionCalculator;
+import com.sonicmax.bloodrogue.engine.components.AI;
+import com.sonicmax.bloodrogue.engine.components.Barrier;
+import com.sonicmax.bloodrogue.engine.components.Blood;
+import com.sonicmax.bloodrogue.engine.components.Container;
+import com.sonicmax.bloodrogue.engine.components.Damage;
+import com.sonicmax.bloodrogue.engine.components.Energy;
+import com.sonicmax.bloodrogue.engine.components.Experience;
+import com.sonicmax.bloodrogue.engine.components.Input;
+import com.sonicmax.bloodrogue.engine.components.Name;
+import com.sonicmax.bloodrogue.engine.components.Physics;
+import com.sonicmax.bloodrogue.engine.components.Position;
+import com.sonicmax.bloodrogue.engine.components.Sprite;
+import com.sonicmax.bloodrogue.engine.components.Stationary;
+import com.sonicmax.bloodrogue.engine.components.Trap;
+import com.sonicmax.bloodrogue.engine.components.Vitality;
 import com.sonicmax.bloodrogue.engine.factories.AnimationFactory;
 import com.sonicmax.bloodrogue.engine.factories.DecalFactory;
+import com.sonicmax.bloodrogue.engine.systems.ComponentFinder;
 import com.sonicmax.bloodrogue.generator.MapData;
 import com.sonicmax.bloodrogue.generator.ProceduralGenerator;
+import com.sonicmax.bloodrogue.renderer.text.TextColours;
+import com.sonicmax.bloodrogue.renderer.ui.Animation;
+import com.sonicmax.bloodrogue.tilesets.Mansion;
 import com.sonicmax.bloodrogue.utils.maths.Calculator;
-import com.sonicmax.bloodrogue.engine.objects.Actor;
-import com.sonicmax.bloodrogue.engine.factories.CorpseFactory;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 import com.sonicmax.bloodrogue.engine.objects.GameObject;
 import com.sonicmax.bloodrogue.engine.factories.PlayerFactory;
-import com.sonicmax.bloodrogue.renderer.text.TextColours;
 import com.sonicmax.bloodrogue.utils.Array2DHelper;
 
 import java.util.ArrayList;
@@ -33,23 +49,19 @@ public class GameEngine {
     private GameInterface gameInterface;
     private FieldOfVisionCalculator fovCalculator;
     private AffinityManager affinityManager;
+    private ComponentManager componentManager;
 
+    private GameState gameState;
     private MapData mapData;
-    private ArrayList<GameObject>[][] objectGrid;
-    private GameObject[][] mapGrid;
-    private ArrayList<GameObject> enemies;
-    private ArrayList<GameObject>[][] animations;
+    private ArrayList<Component[]>[][] rawObjectComponents;
+    private Component[][][] rawTerrainComponents;
+    private ArrayList<Component[]>[][] rawAnimationComponents;
     private int[][] playerDesireMap;
     private double[][] fieldOfVision;
-    private GameObject player;
+    private Component[] player;
 
-    private ArrayList<ActorTurn> turnQueue;
-    private ArrayList<GameObject> objectQueue;
-
-    private int score;
-    private int totalKilled;
-    private int totalAttack;
-    private int totalDefence;
+    private ArrayList<EntityTurn> turnQueue;
+    private ArrayList<Component[]> objectQueue;
 
     private int mapWidth;
     private int mapHeight;
@@ -59,41 +71,70 @@ public class GameEngine {
     private boolean playerMoveLock;
     private boolean inventoryOpen;
 
-    private GameState gameState;
+    private Vector pathDestination;
+
+    public Sprite[][] terrain;
+    public ArrayList<Sprite> objects;
+    public ArrayList<Animation>[][] animations;
+
+    // ECS storage and management
+    private long [][] terrainEntities;
+    private ArrayList<Long>[][] objectEntities;
+    private ArrayList<Long> computerEntities;
+    private long playerEntity;
 
     public GameEngine(GameInterface gameInterface) {
         this.playerMoveLock = false;
         this.inventoryOpen = false;
+
         this.sightRadius = 10;
         this.mapWidth = 32;
         this.mapHeight = 32;
         this.currentFloor = 1;
+
         this.gameInterface = gameInterface;
         this.fovCalculator = new FieldOfVisionCalculator();
         this.affinityManager = new AffinityManager();
+        this.componentManager = new ComponentManager();
+
+        this.terrain = new Sprite[mapWidth][mapHeight];
+        this.objects = new ArrayList<>();
+        this.animations = Array2DHelper.create2DAnimationArray(mapWidth, mapHeight);
+
+        this.terrainEntities = new long[mapWidth][mapHeight];
+        this.computerEntities = new ArrayList<>();
+        this.objectEntities = Array2DHelper.create2dLongStack(mapWidth, mapHeight);
+
         this.turnQueue = new ArrayList<>();
         this.objectQueue = new ArrayList<>();
+
+        JSONLoader.loadEnemies(gameInterface.getAssets());
     }
 
-    /**
-     *  Generates new dungeon floor, updates game state and advances frame.
-     *  This is only called when first starting game.
-     */
+    /*
+    ---------------------------------------------
+     Game initialisation
+    ---------------------------------------------
+    */
 
     public void startFromScratch() {
-        ProceduralGenerator generator = new ProceduralGenerator(mapWidth, mapHeight);
+        ProceduralGenerator generator = new ProceduralGenerator(mapWidth, mapHeight, gameInterface.getAssets());
         generator.setFloor(currentFloor);
         generator.generate(ProceduralGenerator.MANSION);
 
-        mapGrid = generator.getMapGrid();
+        rawTerrainComponents = generator.getMapGrid();
         mapData = generator.getMapData();
-        enemies = mapData.getEnemies();
 
         Vector startPosition = mapData.getStartPosition();
         player = PlayerFactory.getPlayer(startPosition.x(), startPosition.y());
+        playerEntity = player[0].id;
+        componentManager.sortComponentArray(player);
 
-        objectGrid = Array2DHelper.createArrayList2D(mapWidth, mapHeight);
-        animations = Array2DHelper.createArrayList2D(mapWidth, mapHeight);
+        // For saving purposes, we keep a 2d array of component arrays (organised by grid position).
+        // For game logic, we use the entities to look up specific components using ComponentManager
+        rawObjectComponents = Array2DHelper.createArrayList2D(mapWidth, mapHeight);
+        rawAnimationComponents = Array2DHelper.createArrayList2D(mapWidth, mapHeight);
+
         populateUsingNewData();
 
         // Once we have populated object grid and placed player object, we can save data.
@@ -101,6 +142,16 @@ public class GameEngine {
 
         playerDesireMap = Array2DHelper.fillIntArray(mapWidth, mapHeight, DIJKSTRA_MAX);
         turnQueue = new ArrayList<>();
+
+        sortComponentsAndStoreEntities();
+        prebuildSprites();
+
+        // We should nullify arrays of raw components returned from generator once they've been sorted.
+        // It would be a nightmare to try and manage entity lifecycle with so many references
+        rawTerrainComponents = null;
+        mapData = null;
+        rawObjectComponents = null;
+        rawAnimationComponents = null;
 
         advanceFrame();
     }
@@ -110,20 +161,19 @@ public class GameEngine {
 
         if (!gameState.hasFloor(currentFloor)) {
 
-            ProceduralGenerator generator = new ProceduralGenerator(mapWidth, mapHeight);
+            ProceduralGenerator generator = new ProceduralGenerator(mapWidth, mapHeight, gameInterface.getAssets());
             generator.setFloor(currentFloor);
             generator.generate(ProceduralGenerator.MANSION);
 
-            mapGrid = generator.getMapGrid();
+            rawTerrainComponents = generator.getMapGrid();
             mapData = generator.getMapData();
-            enemies = mapData.getEnemies();
 
             Vector startPosition = mapData.getStartPosition();
             player = PlayerFactory.getPlayer(startPosition.x(), startPosition.y());
             // moveObjectToNewStack(player, player.getVector(), startPosition);
 
-            objectGrid = Array2DHelper.createArrayList2D(mapWidth, mapHeight);
-            animations = Array2DHelper.createArrayList2D(mapWidth, mapHeight);
+            rawObjectComponents = Array2DHelper.createArrayList2D(mapWidth, mapHeight);
+            rawAnimationComponents = Array2DHelper.createArrayList2D(mapWidth, mapHeight);
             populateUsingNewData();
 
             gameState.updateFloorIndex(currentFloor);
@@ -134,9 +184,9 @@ public class GameEngine {
             gameState.updateFloorIndex(currentFloor);
             FloorData nextFloor = gameState.getCurrentFloor();
 
-            mapGrid = nextFloor.getTerrain();
-            objectGrid = nextFloor.getObjects();
-            animations = nextFloor.getAnimations();
+            rawTerrainComponents = nextFloor.getTerrain();
+            rawObjectComponents = nextFloor.getObjects();
+            // rawAnimationComponents = nextFloor.getAnimations();
             fieldOfVision = nextFloor.getFov();
             player = nextFloor.getPlayer();
 
@@ -154,9 +204,9 @@ public class GameEngine {
         gameState.updateFloorIndex(currentFloor);
         FloorData previousFloor = gameState.getCurrentFloor();
 
-        mapGrid = previousFloor.getTerrain();
-        objectGrid = previousFloor.getObjects();
-        animations = previousFloor.getAnimations();
+        rawTerrainComponents = previousFloor.getTerrain();
+        rawObjectComponents = previousFloor.getObjects();
+        // rawAnimationComponents = previousFloor.getAnimations();
         fieldOfVision = previousFloor.getFov();
         player = previousFloor.getPlayer();
 
@@ -166,14 +216,12 @@ public class GameEngine {
         turnQueue = new ArrayList<>();
     }
 
-    /*
-    ---------------------------------------------
-     Getters and setters
-    ---------------------------------------------
-    */
+    public Frame getCurrentFrameData() {
+        return new Frame(currentFloor, terrain, objects, animations, fieldOfVision, player);
+    }
 
     public FloorData getCurrentFloorData() {
-        return new FloorData(currentFloor, mapGrid, objectGrid, animations, fieldOfVision, player);
+        return new FloorData(currentFloor, rawTerrainComponents, rawObjectComponents, rawAnimationComponents, fieldOfVision, player);
     }
 
     public GameState getGameState() {
@@ -183,9 +231,9 @@ public class GameEngine {
     public void loadState(GameState state) {
         currentFloor = state.getFloorIndex();
         FloorData floor = state.getCurrentFloor();
-        mapGrid = floor.getTerrain();
-        objectGrid = floor.getObjects();
-        animations = floor.getAnimations();
+        rawTerrainComponents = floor.getTerrain();
+        rawObjectComponents = floor.getObjects();
+        rawAnimationComponents = floor.getAnimations();
         fieldOfVision = floor.getFov();
         player = floor.getPlayer();
         populateUsingSaveState();
@@ -195,18 +243,67 @@ public class GameEngine {
         return new int[] {mapWidth, mapHeight};
     }
 
-    public ArrayList<GameObject>[][] getObjects() {
-        return objectGrid;
-    }
-
-    public GameObject getPlayer() {
+    public Component[] getPlayer() {
         return player;
     }
 
-    private Vector pathDestination;
-
     public void setPathDestination(Vector dest) {
         this.pathDestination = dest;
+    }
+
+    private void populateUsingSaveState() {
+        /*enemies = new ArrayList<>();
+
+        for (int y = 0; y < mapHeight; y++) {
+            for (int x = 0; x < mapWidth; x++) {
+                ArrayList<Component[]> objects = rawObjectComponents[x][y];
+
+                for (Component[] object : objects) {
+                    if (object instanceof Actor && !object.isPlayerControlled()) {
+                        enemies.add(object);
+                    }
+                }
+            }
+        }*/
+    }
+
+    private void populateUsingNewData() {
+        for (Component[] object : mapData.getObjects()) {
+            Position pos = ComponentFinder.getPositionComponent(object);
+            addObjectToStack(pos.x, pos.y, object);
+        }
+
+        for (Component[] door : mapData.getDoors()) {
+            Position pos = ComponentFinder.getPositionComponent(door);
+            addObjectToStack(pos.x, pos.y, door);
+        }
+
+        for (Component[] enemy : mapData.getEnemies()) {
+            Position pos = ComponentFinder.getPositionComponent(enemy);
+            addObjectToStack(pos.x, pos.y, enemy);
+            computerEntities.add(pos.id);
+        }
+
+        Position playerPosition = (Position) componentManager.getEntityComponent(playerEntity, Position.class.getSimpleName());
+        addObjectToStack(playerPosition.x, playerPosition.y, player);
+    }
+
+    private void prebuildSprites() {
+        for (int y = 0; y < mapHeight; y++) {
+            for (int x = 0; x < mapWidth; x++) {
+                Component[] t = rawTerrainComponents[x][y];
+                terrain[x][y] = ComponentFinder.getSpriteComponent(t);
+
+                ArrayList<Long> entities = objectEntities[x][y];
+
+                for (Long entity : entities) {
+                    Sprite sprite = (Sprite) componentManager.getEntityComponent(entity, Sprite.class.getSimpleName());
+                    sprite.x = x;
+                    sprite.y = y;
+                    objects.add(sprite);
+                }
+            }
+        }
     }
 
     /*
@@ -217,62 +314,66 @@ public class GameEngine {
 
     public void advanceFrame() {
         updatePreCombatData();
-        determineEnemyMoves();
+        determineAiMoves();
         gameInterface.passDataToRenderer();
     }
 
-    private void updatePreCombatData() {
-        fovCalculator.setValues(mapGrid, objectGrid, player.x(), player.y(), sightRadius);
-        fieldOfVision = fovCalculator.calculate();
-        generateDesireMaps();
-        handlePlayerMetabolism();
+    private Position getPlayerPosition() {
+        return (Position) componentManager.getEntityComponent(playerEntity, Position.class.getSimpleName());
     }
 
-    private void determineEnemyMoves() {
-        if (player.getState() == PlayerState.DEAD) {
-            return;
-        }
+    public Vector getPlayerVector() {
+        Position position = (Position) componentManager.getEntityComponent(playerEntity, Position.class.getSimpleName());
+        return new Vector(position.x, position.y);
+    }
 
-        int enemySize = enemies.size();
+    private void updatePreCombatData() {
+        Position playerPosition = getPlayerPosition();
+        fovCalculator.setValues(terrainEntities, objectEntities, componentManager, playerPosition.x, playerPosition.y, sightRadius);
+        fieldOfVision = fovCalculator.calculate();
+        generatePlayerDesireMap();
+        handleMetabolism();
+    }
 
-        ArrayList<GameObject> newObjects = new ArrayList<>();
+    private void determineAiMoves() {
+        int enemySize = computerEntities.size();
 
         for (int i = 0; i < enemySize; i++) {
-            GameObject enemy = enemies.get(i);
-            switch (enemy.getState()) {
+            long entity = computerEntities.get(i);
+            AI ai = (AI) componentManager.getEntityComponent(entity, AI.class.getSimpleName());
+
+            if (ai == null) {
+                // Mark for deletion?
+                continue;
+            }
+
+            switch (ai.state) {
 
                 case EnemyState.IDLE:
-                    takeComputerTurn(enemy);
+                    takeAiTurn(entity);
                     break;
 
                 case EnemyState.SEEKING:
-                    takeComputerTurn(enemy);
+                    takeAiTurn(entity);
                     break;
 
                 case EnemyState.PATHFINDING:
-                    seekActorWhilePathBlocked(enemy, player);
+                    seekActorWhilePathBlocked(entity, playerEntity);
                     break;
 
                 default:
-                    takeComputerTurn(enemy);
+                    takeAiTurn(entity);
                     break;
             }
 
-            if (enemy.getSelfReplicateChance() > 0f) {
-                GameObject clone = handleSelfReplication(enemy);
-                if (clone != null) {
-                    newObjects.add(clone);
-                }
-            }
+            // Todo: handle self-replicating enemies by operating on SelfReplicate components
         }
-
-        enemies.addAll(newObjects);
 
         playerMoveLock = false;
     }
 
     private GameObject handleSelfReplication(GameObject object) {
-        float random = new RandomNumberGenerator().getRandomFloat(0f, 1f);
+        /*float random = new RandomNumberGenerator().getRandomFloat(0f, 1f);
         if (random < object.getSelfReplicateChance()) {
 
             // Find nearest adjacent free square
@@ -290,7 +391,7 @@ public class GameEngine {
             if (newPos == null) return null;
 
 
-            // Make sure we clone right type of object.
+            // Make sure we clone right shader of object.
             if (object instanceof Actor) {
                 // Make sure Actor is in field of vision before cloning.
                 // (this is to prevent the map from filling up with cloned Actors)
@@ -309,7 +410,7 @@ public class GameEngine {
                 addObjectToStack(clone.x(), clone.y(), clone);
                 return clone;
             }
-        }
+        }*/
 
         return null;
     }
@@ -321,10 +422,11 @@ public class GameEngine {
     */
 
     public void checkUserInput(Vector destination) {
-        boolean adjacent = isAdjacent(destination, player.getVector());
+        Position playerPosition = (Position) componentManager.getEntityComponent(playerEntity, Position.class.getSimpleName());
+        boolean adjacent = isAdjacent(destination, new Vector(playerPosition.x, playerPosition.y));
 
         if (adjacent) {
-            ActorTurn turn = new ActorTurn(player);
+            EntityTurn turn = new EntityTurn(playerPosition);
             turn.setMove(destination);
             turnQueue.add(turn);
 
@@ -336,7 +438,7 @@ public class GameEngine {
             }*/
         }
 
-        takeTurns();
+        takeQueuedTurns();
         advanceFrame();
     }
 
@@ -347,67 +449,78 @@ public class GameEngine {
 
     /*
     ---------------------------------------------
-     Object manipulation
+     Entity and component management
     ---------------------------------------------
     */
 
-    private void addObjectToStack(int x, int y, GameObject object) {
-        // Note: we can assume that x and y will be in bounds
-        objectGrid[x][y].add(object);
-    }
+    /**
+     *  In ProceduralGenerator, we kept components for each entity in a Component[] sorted by grid.
+     *
+     *  To improve performance in GameEngine, we should sort the components by class into HashMaps
+     *  associated with each entity, and keep 2D arrays of the entities in GameEngine: one for
+     *  terrain (ie. single entity per cell), and one for objects (multiple entities per cell)
+     */
 
-    private void moveObjectToNewStack(GameObject object, Vector oldPos, Vector newPos) {
-        ArrayList<GameObject> oldStack = objectGrid[oldPos.x()][oldPos.y()];
-        ArrayList<GameObject> newStack = objectGrid[newPos.x()][newPos.y()];
-
-        if (oldStack.contains(object)) {
-            oldStack.remove(object);
-            newStack.add(object);
-        }
-        else {
-            Log.e(LOG_TAG, "Object " + object.getSprite() + " not present in stack");
-            newStack.add(object);
-        }
-
-        object.setLastMove(new Vector(oldPos.x(), oldPos.y()));
-    }
-
-    private void populateUsingSaveState() {
-        enemies = new ArrayList<>();
-
+    private void sortComponentsAndStoreEntities() {
         for (int y = 0; y < mapHeight; y++) {
             for (int x = 0; x < mapWidth; x++) {
-                ArrayList<GameObject> objects = objectGrid[x][y];
+                Component[] terrain = rawTerrainComponents[x][y];
 
-                for (GameObject object : objects) {
-                    if (object instanceof Actor && !object.isPlayerControlled()) {
-                        enemies.add(object);
+                terrainEntities[x][y] = terrain[0].id;
+                componentManager.sortComponentArray(terrain);
+
+                ArrayList<Component[]> objects = rawObjectComponents[x][y];
+
+                for (Component[] object : objects) {
+                    if (object != null) {
+                        objectEntities[x][y].add(object[0].id);
+                        componentManager.sortComponentArray(object);
                     }
                 }
+
             }
         }
     }
 
-    private void populateUsingNewData() {
-        ArrayList<GameObject> objects = mapData.getObjects();
+    private void sortComponentsAndStoreEntities(Component[] components) {
+        long entity = components[0].id;
+        componentManager.sortComponentArray(components);
+        Position position = (Position) componentManager.getEntityComponent(entity, Position.class.getSimpleName());
+        objectEntities[position.x][position.y].add(entity);
+    }
 
-        for (GameObject object : objects) {
-            addObjectToStack(object.x(), object.y(), object);
+    private void addObjectToStack(int x, int y, Component[] object) {
+        // Note: we can assume that x and y will be in bounds
+        rawObjectComponents[x][y].add(object);
+    }
+
+    private void addEntityToStack(int x, int y, long entity) {
+        objectEntities[x][y].add(entity);
+    }
+
+    private void moveObjectToNewStack(long entity, int oldX, int oldY, int newX, int newY) {
+        ArrayList<Long> oldStack = objectEntities[oldX][oldY];
+        ArrayList<Long> newStack = objectEntities[newX][newY];
+
+        if (oldStack.contains(entity)) {
+            oldStack.remove(entity);
+            newStack.add(entity);
+        }
+        else {
+            Log.e(LOG_TAG, "Object not present in old stack. Adding to new stack");
+            newStack.add(entity);
         }
 
-        ArrayList<GameObject> doors = mapData.getDoors();
+        Sprite sprite = (Sprite) componentManager.getEntityComponent(entity, Sprite.class.getSimpleName());
+        sprite.x = newX;
+        sprite.y = newY;
+        sprite.lastX = oldX;
+        sprite.lastY = oldY;
+    }
 
-        for (GameObject door : doors) {
-            addObjectToStack(door.x(), door.y(), door);
-        }
-
-        ArrayList<GameObject> enemies = mapData.getEnemies();
-
-        for (GameObject enemy : enemies) {
-            addObjectToStack(enemy.x(), enemy.y(), enemy);
-        }
-
-        addObjectToStack(player.x(), player.y(), player);
+    private void changeSpritePath(Sprite sprite, String path) {
+        sprite.path = path;
+        sprite.spriteIndex = -1;
     }
 
     /*
@@ -416,19 +529,21 @@ public class GameEngine {
     ---------------------------------------------
     */
 
-    private void generateDesireMaps() {
-        String[] tilesToCheck = {"Wall", "Floor"};
+    private void generatePlayerDesireMap() {
+        int[] tilesToCheck = {Stationary.WALL, Stationary.FLOOR};
         int[][] desireGrid = Array2DHelper.fillIntArray(mapWidth, mapHeight, DIJKSTRA_MAX);
         ArrayList<Vector> desireLocations = new ArrayList<>();
 
-        desireGrid[player.x()][player.y()] = player.getDijkstra();
-        desireLocations.add(new Vector(player.x(), player.y()));
+        Position playerPosition = getPlayerPosition();
+        AI ai = (AI) componentManager.getEntityComponent(playerEntity, AI.class.getSimpleName());
 
-        // Player desire is blocked by collision, player radius goes through walls/etc
+        desireGrid[playerPosition.x][playerPosition.y] = ai.dijkstra;
+        desireLocations.add(new Vector(playerPosition.x, playerPosition.y));
+
         playerDesireMap = populateDijkstraGrid(Directions.All.values(), desireGrid, desireLocations, tilesToCheck, false);
     }
 
-    private int[][] populateDijkstraGrid(Collection<Vector> directions, int[][] desireGrid, ArrayList<Vector> desireLocations, String[] tilesToCheck, boolean ignoreCollisions) {
+    private int[][] populateDijkstraGrid(Collection<Vector> directions, int[][] desireGrid, ArrayList<Vector> desireLocations, int[] typesToCheck, boolean ignoreCollisions) {
         int desireSize = desireLocations.size();
         for (int i = 0; i < desireSize; i++) {
             Vector desire = desireLocations.get(i);
@@ -447,15 +562,17 @@ public class GameEngine {
                     if (!inBounds(neighbour)) continue;
                     if (fieldOfVision[neighbour.x()][neighbour.y()] == 0) continue;
 
-                    GameObject tile = mapGrid[neighbour.x()][neighbour.y()];
+                    long terrainEntity = terrainEntities[neighbour.x][neighbour.y];
+                    Stationary stat = (Stationary) componentManager.getEntityComponent(terrainEntity, Stationary.class.getSimpleName());
+
                     int value = desireGrid[neighbour.x()][neighbour.y()];
 
                     if (!ignoreCollisions && detectCollisions(neighbour)) continue;
 
-                    else if (value >= initialValue + 2 && (objectInstanceInArray(tile, tilesToCheck))) {
+                    else if (value >= initialValue + 2 && (entityTypeInArray(stat, typesToCheck))) {
                         desireGrid[neighbour.x()][neighbour.y()] = initialValue + 1;
 
-                        if (objectInstanceInArray(tile, tilesToCheck)) {
+                        if (entityTypeInArray(stat, typesToCheck)) {
                             queue.add(neighbour);
                         }
                     }
@@ -472,9 +589,12 @@ public class GameEngine {
     ---------------------------------------------
     */
 
-    private void takeComputerTurn(GameObject actor) {
-        Vector position = new Vector(actor.x(), actor.y());
-        Vector playerPos = new Vector(player.x(), player.y());
+    private void takeAiTurn(long entity) {
+        Position actorPosComp = (Position) componentManager.getEntityComponent(entity, Position.class.getSimpleName());
+        Vector position = new Vector(actorPosComp.x, actorPosComp.y);
+
+        Position playerPosComp = getPlayerPosition();
+        Vector playerPos = new Vector(playerPosComp.x, playerPosComp.y);
 
         int bestDesire = DIJKSTRA_MAX + 1;
 
@@ -487,21 +607,24 @@ public class GameEngine {
             }
         }
 
-        if (actor.getState() == EnemyState.IDLE) {
-            if (bestDesire > actor.getPlayerInterest()) {
+        AI ai = (AI) componentManager.getEntityComponent(entity, AI.class.getSimpleName());
+
+        if (ai.state == EnemyState.IDLE) {
+            if (bestDesire > ai.playerInterest) {
                 // Ignore until player is closer
                 return;
             } else {
-                gameInterface.addNarration(actor.getName() + " is looking for blood!", TextColours.RED);
-                actor.setState(EnemyState.SEEKING);
+                Name nameComponent = (Name) componentManager.getEntityComponent(entity, Name.class.getSimpleName());
+                gameInterface.addNarration(nameComponent.value + " is looking for blood!", TextColours.RED);
+                ai.state = EnemyState.SEEKING;
             }
         }
 
 
-        // Check whether actor is directly adjacent to player & queue attack for next turn
+        // Check whether actor is directly adjacent to player & queue doDamage for next turn
         if (bestDesire == 0) {
-            ActorTurn turn = new ActorTurn(actor);
-            turn.setMove(player.getVector());
+            EntityTurn turn = new EntityTurn(actorPosComp);
+            turn.setMove(playerPos);
             turnQueue.add(turn);
             return;
         }
@@ -549,23 +672,24 @@ public class GameEngine {
         }
 
         if (blocked) {
-            actor.setState(EnemyState.PATHFINDING);
-            return;
+            ai.state = EnemyState.PATHFINDING;
         }
 
         else if (closestTile != null) {
-            ActorTurn turn = new ActorTurn(actor);
+            EntityTurn turn = new EntityTurn(actorPosComp);
             turn.setMove(closestTile);
             turnQueue.add(turn);
         }
     }
 
-    private void seekActorWhilePathBlocked(GameObject enemy, GameObject target) {
-        Vector position = new Vector(enemy.x(), enemy.y());
-        ArrayList<Vector> path = enemy.getPath();
+    private void seekActorWhilePathBlocked(long seekingEntity, long targetEntity) {
+        Position position = (Position) componentManager.getEntityComponent(seekingEntity, Position.class.getSimpleName());
+        AI ai = (AI) componentManager.getEntityComponent(seekingEntity, AI.class.getSimpleName());
 
-        if (path == null) {
-            enemy.setPath(findShortestPath(enemy, target));
+        ArrayList<Vector> path = ai.path;
+
+        if (path == null || path.size() == 0) {
+            ai.path = findShortestPath(seekingEntity, targetEntity);
         }
 
         else if (path.size() > 0) {
@@ -576,9 +700,11 @@ public class GameEngine {
             int nextDesire = playerDesireMap[nextCell.x()][nextCell.y()];
             int bestDesire = Integer.MAX_VALUE;
 
+            Vector posVec = new Vector(position.x, position.y);
+
             // Check adjacent tiles and find one with lowest desire score
             for (Vector direction : Directions.All.values()) {
-                Vector adjacent = position.add(direction);
+                Vector adjacent = posVec.add(direction);
                 int desire = playerDesireMap[adjacent.x()][adjacent.y()];
                 if (desire < bestDesire) {
                     bestDesire = desire;
@@ -587,23 +713,23 @@ public class GameEngine {
 
             if (bestDesire <= nextDesire) {
                 // We should stop following this path & go back to following dijkstra map
-                enemy.setPath(null);
-                enemy.setState(EnemyState.SEEKING);
-                takeComputerTurn(enemy);
+                ai.path.clear();
+                ai.state = EnemyState.SEEKING;
+                takeAiTurn(seekingEntity);
             }
 
             else {
-                nextCell = enemy.removeFromPath(0);
-                ActorTurn turn = new ActorTurn(enemy);
+                nextCell = ai.path.remove(0);
+                EntityTurn turn = new EntityTurn(position);
                 turn.setMove(nextCell);
                 turnQueue.add(turn);
-                generateDesireMaps();
+                generatePlayerDesireMap();
             }
         }
 
         else {
-            enemy.setState(EnemyState.SEEKING);
-            takeComputerTurn(enemy);
+            ai.state = EnemyState.SEEKING;
+            takeAiTurn(seekingEntity);
         }
     }
 
@@ -663,8 +789,11 @@ public class GameEngine {
         return optimalPath;
     }
 
-    private ArrayList<Vector> findShortestPath(GameObject a, GameObject b) {
-        return findShortestPath(a.getVector(), b.getVector());
+    private ArrayList<Vector> findShortestPath(long entityA, long entityB) {
+        Position posA = (Position) componentManager.getEntityComponent(entityA, Position.class.getSimpleName());
+        Position posB = (Position) componentManager.getEntityComponent(entityB, Position.class.getSimpleName());
+
+        return findShortestPath(new Vector(posA.x, posA.y), new Vector(posB.x, posB.y));
     }
 
     public ArrayList<Vector> onTouchPathComplete() {
@@ -675,16 +804,22 @@ public class GameEngine {
         }
 
         else {
-            return findShortestPath(player.getVector(), this.pathDestination);
+            Position playerPos = (Position) componentManager.getEntityComponent(player[0].id,
+                    Position.class.getSimpleName());
+
+            return findShortestPath(new Vector(playerPos.x, playerPos.y), this.pathDestination);
         }
     }
 
     public void queueAndFollowPath(ArrayList<Vector> path) {
-        DelayQueue<ActorTurn> queue = new DelayQueue<>();
+        DelayQueue<EntityTurn> queue = new DelayQueue<>();
         long start = 500L;
 
+        Position playerPos = (Position) componentManager.getEntityComponent(player[0].id,
+                Position.class.getSimpleName());
+
         for (int i = 0; i < path.size(); i++) {
-            ActorTurn turn = new ActorTurn(player);
+            EntityTurn turn = new EntityTurn(playerPos);
             Vector vector = path.get(i);
             turn.setMove(vector);
             turn.setStart(start * (long) i);
@@ -696,9 +831,9 @@ public class GameEngine {
         while (!queue.isEmpty()) {
 
             try {
-                ActorTurn turn = queue.take();
+                EntityTurn turn = queue.take();
                 turnQueue.add(turn);
-                takeTurns();
+                takeQueuedTurns();
                 advanceFrame();
 
             } catch (InterruptedException e) {
@@ -717,31 +852,31 @@ public class GameEngine {
     ---------------------------------------------
     */
 
-    /**
-     *  Iterates over queued turns and decide which actions to take.
-     *  Player will be first in queue, followed by enemies.
-     */
-
-    private void takeTurns() {
+    private void takeQueuedTurns() {
         updatePreCombatData();
 
-        Iterator<ActorTurn> iterator = turnQueue.iterator();
+        Iterator<EntityTurn> iterator = turnQueue.iterator();
 
         while (iterator.hasNext()) {
-            ActorTurn turn = iterator.next();
+            EntityTurn turn = iterator.next();
 
             if (turn.hasMove()) {
                 Vector destination = turn.getDestination();
-                Actor actor = turn.getActor();
+                Position actor = turn.getPositionComponent();
+                long entity = turn.getEntity();
 
                 if (!detectCollisions(destination)) {
-                    moveObjectToNewStack(actor, actor.getVector(), destination);
-                    actor.move(destination);
-                    handleMovementInteractions(actor, destination);
+                    moveObjectToNewStack(entity, actor.x, actor.y, destination.x, destination.y);
+                    // Update position component after messing around with stacks to make sure that
+                    // lastX and lastY in Sprite are set correctly
+                    actor.x = destination.x;
+                    actor.y = destination.y;
+
+                    handleMovementInteractions(entity, destination);
                 }
 
                 else {
-                    handleCollisionInteractions(actor, destination);
+                    checkCollisions(entity, destination);
                 }
             }
 
@@ -752,21 +887,186 @@ public class GameEngine {
     }
 
     /**
-     * Called after player moves to a new tile. Checks whether any of the objects occupying
+     *  Called before entity moves to a new tile. Iterates over entities occupying position and
+     *  checks for potential collisions.
+     */
+
+    private void checkCollisions(long initiator, Vector position) {
+        ArrayList<Long> entityStack = objectEntities[position.x()][position.y()];
+
+        Iterator<Long> it = entityStack.iterator();
+
+        while (it.hasNext()) {
+            long target = it.next();
+
+            Physics targetPhysics = (Physics) componentManager.getEntityComponent(target, Physics.class.getSimpleName());
+
+            if (targetPhysics != null && targetPhysics.activateOnCollide) {
+                int result = doCollision(target, initiator);
+                performEntityAction(initiator, target, result);
+
+                // Todo: why did i do this
+                /*if (target.hasDeathAnimation()) {
+                    rawAnimationComponents[target.x()][target.y()].add(target.getDeathAnimation());
+                }*/
+
+                AI attackerAi = (AI) componentManager.getEntityComponent(initiator, AI.class.getSimpleName());
+                AI defenderAi = (AI) componentManager.getEntityComponent(target, AI.class.getSimpleName());
+
+                if (attackerAi != null && defenderAi != null) {
+                    if (affinityManager.actorsAreAggressive(attackerAi, defenderAi)) {
+                        engageInCombat(initiator, target);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     *  Checks components of colliding entities and performs all possible actions.
+     */
+
+    private int doCollision(long target, long actor) {
+        // Check for relevant components and perform actions on them
+        Container containerComponent = (Container) componentManager.getEntityComponent(target, Container.class.getSimpleName());
+        Barrier barrierComponent = (Barrier) componentManager.getEntityComponent(target, Barrier.class.getSimpleName());
+        Trap trapComponent = (Trap) componentManager.getEntityComponent(target, Trap.class.getSimpleName());
+
+        if (containerComponent != null) {
+            checkContainer(target, actor, containerComponent);
+        }
+
+        if (barrierComponent != null) {
+            openBarrier(target, barrierComponent);
+        }
+
+        if (trapComponent != null) {
+            float chance = new RandomNumberGenerator().getRandomFloat(0f, 1f);
+            if (chance < trapComponent.chanceToActivate) {
+                activateTrap(target, actor);
+            }
+        }
+
+        return Actions.NONE;
+    }
+
+    private void activateTrap(long trap, long victim) {
+        Damage damage = (Damage) componentManager.getEntityComponent(trap, Damage.class.getSimpleName());
+        Vitality vitality = (Vitality) componentManager.getEntityComponent(victim, Vitality.class.getSimpleName());
+
+        if (damage == null) {
+            Log.e(LOG_TAG, "Trap activated but had no damage component. Skipping");
+            return;
+        }
+        if (vitality == null) {
+            Log.e(LOG_TAG, "Trap activated but victim had no vitality component. Skipping");
+            return;
+        }
+
+        int damageDealt = doDamage(damage, vitality);
+
+        Position defenderPosition = (Position) componentManager.getEntityComponent(victim, Position.class.getSimpleName());
+        int x = defenderPosition.x;
+        int y = defenderPosition.y;
+
+        Blood blood = (Blood) componentManager.getEntityComponent(victim, Blood.class.getSimpleName());
+        Component[] splat = DecalFactory.createBloodSplat(defenderPosition, blood, terrainEntities, componentManager);
+        if (splat != null) {
+            objectQueue.add(splat);
+        }
+
+        gameInterface.displayStatus(defenderPosition, Integer.toString(damageDealt), TextColours.STATUS_RED);
+
+        if (vitality.hp <= 0) {
+            Name defenderName = (Name) componentManager.getEntityComponent(victim, Name.class.getSimpleName());
+
+            animations[x][y].add(AnimationFactory.getDeathAnimation(blood, x, y));
+
+            ArrayList<Component[]> spray = DecalFactory.createBloodSpray(defenderPosition, blood, terrainEntities, componentManager);
+            for (Component[] components : spray) {
+                sortComponentsAndStoreEntities(components);
+            }
+
+            gameInterface.addNarration(defenderName.value + " killed by trap!", TextColours.RED);
+
+            makeDead(victim);
+
+            AI defenderAi = (AI) componentManager.getEntityComponent(victim, AI.class.getSimpleName());
+
+            if (defenderAi == null || !defenderAi.computerControlled) {
+                // Check for other controllable characters, or end game
+            }
+        }
+
+        else {
+            animations[x][y].add(AnimationFactory.getHitAnimation(blood, x, y));
+        }
+    }
+
+    private void openBarrier(long target, Barrier barrier) {
+        switch (barrier.type) {
+            case Barrier.DOOR:
+                if (!barrier.open) {
+                    barrier.open = true;
+
+                    // We also have to update physics component and sprite
+                    Physics physicsComponent = (Physics) componentManager.getEntityComponent(target, Physics.class.getSimpleName());
+                    physicsComponent.isBlocking = false;
+                    physicsComponent.isTraversable = true;
+
+                    Sprite spriteComponent = (Sprite) componentManager.getEntityComponent(target, Sprite.class.getSimpleName());
+                    spriteComponent.path = Mansion.DOUBLE_DOORS_OPEN;
+                    spriteComponent.spriteIndex = -1;
+                }
+                break;
+
+            default:
+                Log.e(LOG_TAG, "No shader associated with Barrier - can't act");
+                break;
+        }
+    }
+
+    private void checkContainer(long target, long actor, Container containerComponent) {
+        switch (containerComponent.type) {
+            case Container.CHEST:
+                if (!containerComponent.open) {
+                    Sprite sprite = (Sprite) componentManager.getEntityComponent(target, Sprite.class.getSimpleName());
+
+                    if (containerComponent.contents.size() > 0) {
+                        changeSpritePath(sprite, "sprites/chest_open.png");
+                    } else {
+                        changeSpritePath(sprite, "sprites/chest_empty.png");
+                    }
+
+                    containerComponent.open = true;
+                }
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    /**
+     * Called after entity moves to a new tile. Checks whether any of the entities occupying
      * this position have a movement action that needs to be performed (eg. moving to new floor,
      * traps, environment damage, etc)
      */
 
-    private void handleMovementInteractions(Actor actor, Vector position) {
-        ArrayList<GameObject> objectStack = objectGrid[position.x()][position.y()];
+    private void handleMovementInteractions(long actorEntity, Vector position) {
+        ArrayList<Long> targetStack = objectEntities[position.x()][position.y()];
 
-        Iterator<GameObject> it = objectStack.iterator();
+        Iterator<Long> it = targetStack.iterator();
 
         while (it.hasNext()) {
-            GameObject target = it.next();
-            if (target.activateOnMove()) {
-                int result = target.collide(actor);
-                performActorAction(actor, target, result);
+            long target = it.next();
+
+            Physics targetPhysics = (Physics) componentManager.getEntityComponent(target, Physics.class.getSimpleName());
+
+            if (targetPhysics != null && targetPhysics.activateOnMove) {
+                int result = activateTarget(target, actorEntity);
+                performEntityAction(actorEntity, target, result);
+
                 if (result == Actions.EXIT_FLOOR || result == Actions.EXIT_PREVIOUS_FLOOR) {
                     // At this point, continuing iteration will cause exception.
                     // (and even if we could, we shouldn't)
@@ -776,49 +1076,19 @@ public class GameEngine {
         }
     }
 
-    /**
-     * Called after player collides with an object in a tile. Checks whether any of the objects
-     * occupying this position have a collision action that needs to be performed (eg opening doors,
-     * opening chests, attacking enemies).
-     */
-
-    private void handleCollisionInteractions(Actor actor, Vector position) {
-        ArrayList<GameObject> objectStack = objectGrid[position.x()][position.y()];
-
-        Iterator<GameObject> it = objectStack.iterator();
-
-        while (it.hasNext()) {
-            GameObject target = it.next();
-            if (target.activateOnCollide()) {
-                int result = target.collide(actor);
-                performActorAction(actor, target, result);
-
-                // Todo: why did i do this
-                if (target.hasDeathAnimation()) {
-                    animations[target.x()][target.y()].add(target.getDeathAnimation());
-                }
-
-                if (target instanceof Actor) {
-                    Actor targetActor = (Actor) target;
-                    attack(actor, targetActor);
-
-                    if (targetActor.getHp() <= 0) {
-                        it.remove();
-                        enemies.remove(target);
-                    }
-                }
-            }
-        }
+    private int activateTarget(long activatedEntity, long targetEntity) {
+        // Check known activation behaviours and perform result on actor.
+        return -1;
     }
 
     /**
-     *  Checks result of GameObject.collide() method to see if we need to perform any extra actions.
-     *  Most are handled within the GameObject, but some require a higher scope to work.
+     *  Checks result of activateTarget() method to see if we need to do anything.
+     *  This will generally be things that change the state of the game (eg. changing floors) rather
+     *  than more simple actions (eg. activating traps)
      */
 
-    private void performActorAction(Actor actor, GameObject target, int code) {
+    private void performEntityAction(long activatedEntity, long targetEntity, int code) {
         switch (code) {
-
             case Actions.EXIT_FLOOR:
                 // Tell renderer to fade out content and display loading screen, generate
                 // terrain for new floor and fade in with new content
@@ -846,88 +1116,218 @@ public class GameEngine {
         }
     }
 
+    /**
+     *  Iterates over objectQueue and adds entities and components to game.
+     */
+
     private void addQueuedObjects() {
-        Iterator<GameObject> iterator = objectQueue.iterator();
+        for (Component[] object : objectQueue) {
+            long entity = object[0].id;
+            sortComponentsAndStoreEntities(object);
 
-        while (iterator.hasNext()) {
-            GameObject object = iterator.next();
-            addObjectToStack(object.x(), object.y(), object);
-            iterator.remove();
-        }
-    }
+            Position position = (Position) componentManager.getEntityComponent(entity, Position.class.getSimpleName());
 
-    private void handlePlayerMetabolism() {}
+            if (position != null) {
+                addEntityToStack(position.x, position.y, entity);
 
-    private void attack(Actor attacker, Actor defender) {
-        // Prevent Actors from attacking themselves. (Todo: may implement this later on)
-        if (attacker.getId().equals(defender.getId())) return;
-
-        // Prevent Actors from attacking other Actors with the same affinity. (Todo: this should be implemented in AI, not here)
-        if (!affinityManager.actorsAreAggressive(attacker, defender)) return;
-
-        int damage = attacker.attack(defender);
-
-        if (defender.getSprite().equals("sprites/dude.png")) {
-            totalDefence += damage;
-        }
-
-        else {
-           totalAttack += damage;
-        }
-
-        GameObject splat = DecalFactory.createBloodSplat(defender, mapGrid);
-
-        if (splat != null) {
-            addObjectToStack(splat.x(), splat.y(), splat);
-        }
-
-        // Update combat log and display hit animations
-        if (!defender.isPlayerControlled()) {
-            gameInterface.displayStatus(defender, Integer.toString(damage), TextColours.STATUS_RED);
-        }
-
-        // renderer.addAnimation(target.getDamageAnimation());
-
-        int x = defender.x();
-        int y = defender.y();
-
-        if (defender.getHp() <= 0) {
-            animations[x][y].add(AnimationFactory.getDeathAnimation(defender, x, y));
-            DecalFactory.createBloodSpray(defender, mapGrid, objectGrid);
-
-            gameInterface.addNarration(attacker.getName() + " killed " + defender.getName() + "!", TextColours.RED);
-
-            int reward = defender.getXpReward(attacker.getLevel());
-            int currentXp = attacker.getXp();
-            attacker.setXp(currentXp + reward);
-
-            checkPlayerLevel();
-
-            // We have to add object to stack after we've finished iterating in handleInteractions()
-            // otherwise it will throw ConcurrentModificationException
-            objectQueue.add(CorpseFactory.getCorpse(x, y, defender.getSprite()));
-
-            if (defender.isPlayerControlled()) {
-                // Stop gamei guess lol
+                // If entity has sprite component, we should add it to rendering grid
+                Sprite sprite = (Sprite) componentManager.getEntityComponent(entity, Sprite.class.getSimpleName());
+                sprite.x = position.x;
+                sprite.y = position.y;
+                objects.add(sprite);
             }
 
             else {
-                totalKilled++;
+                Log.d(LOG_TAG, "Couldn't add queued entity - no position component");
+            }
+        }
+
+        objectQueue.clear();
+    }
+
+    /**
+     *  Iterates over components which act on metabolism (Energy, Poison, etc) and makes whatever
+     *  modifications we need for this turn.
+     */
+
+    private void handleMetabolism() {}
+
+    /**
+     *  Calculates results of combat between two entities. Does some sanity checks to make sure
+     *  that entities should be fighting, gets damage and checks whether entity is still alive.
+     *  Also adds blood decals and handles UI stuff (displaying damage, narrations, etc)
+     */
+
+    private void engageInCombat(long aggressor, long defender) {
+        // Prevent entities from engaging in combat with themselves.
+        if (aggressor == defender) return;
+
+        AI defenderAi = (AI) componentManager.getEntityComponent(defender, AI.class.getSimpleName());
+
+        Damage damage = (Damage) componentManager.getEntityComponent(aggressor, Damage.class.getSimpleName());
+        Vitality vitality = (Vitality) componentManager.getEntityComponent(defender, Vitality.class.getSimpleName());
+
+        if (damage == null || vitality == null) {
+            Log.e(LOG_TAG, aggressor + " attempted combat with " + defender + " but required components were missing.");
+            return;
+        }
+
+        int damageDealt = doDamage(damage, vitality);
+
+        Position defenderPosition = (Position) componentManager.getEntityComponent(defender, Position.class.getSimpleName());
+        int x = defenderPosition.x;
+        int y = defenderPosition.y;
+
+        Blood blood = (Blood) componentManager.getEntityComponent(defender, Blood.class.getSimpleName());
+        Component[] splat = DecalFactory.createBloodSplat(defenderPosition, blood, terrainEntities, componentManager);
+        if (splat != null) {
+            objectQueue.add(splat);
+        }
+
+        // Update combat log and display hit rawAnimationComponents
+        if (defenderAi != null && defenderAi.computerControlled) {
+            gameInterface.displayStatus(defenderPosition, Integer.toString(damageDealt), TextColours.STATUS_RED);
+        }
+
+        if (vitality.hp <= 0) {
+            Name attackerName = (Name) componentManager.getEntityComponent(aggressor, Name.class.getSimpleName());
+            Name defenderName = (Name) componentManager.getEntityComponent(defender, Name.class.getSimpleName());
+
+            animations[x][y].add(AnimationFactory.getDeathAnimation(blood, x, y));
+
+            ArrayList<Component[]> spray = DecalFactory.createBloodSpray(defenderPosition, blood, terrainEntities, componentManager);
+            for (Component[] components : spray) {
+                sortComponentsAndStoreEntities(components);
+            }
+
+            gameInterface.addNarration(attackerName.value + " killed " + defenderName.value + "!", TextColours.RED);
+
+            applyXpReward(aggressor, defender);
+
+            makeDead(defender);
+
+            if (defenderAi == null || !defenderAi.computerControlled) {
+                // Check for other controllable characters, or end game
             }
         }
 
         else {
-            animations[x][y].add(AnimationFactory.getHitAnimation(defender, x, y));
+            animations[x][y].add(AnimationFactory.getHitAnimation(blood, x, y));
         }
     }
 
-    private void checkPlayerLevel() {
-        Actor player = (Actor) this.player;
+    /**
+     *  Calculates effects of Damage component on target Vitality component.
+     */
 
-        if (player.getXp() >= player.getXpToNextLevel()) {
-            player.levelUp();
-            // renderer.addAnimation(new PlayerLevelUp(player.x, player.y));
-            gameInterface.addNarration("You have now reached level " + player.getLevel() + "!");
+    private int doDamage(Damage attacker, Vitality defender) {
+        int damage = getDamage(attacker.strength, defender.endurance);
+
+        int defenderHp = defender.hp;
+
+        // Make sure that hp doesn't drop below 0. (at least for now)
+        if (defenderHp - damage >= 0) {
+            defender.hp -= damage;
+        }
+        else {
+            defender.hp = 0;
+        }
+
+        return damage;
+    }
+
+    private void makeDead(long entity) {
+        // Alter physics of entity so that it does not activate on collisions & is traversable.
+        Physics physComponent = (Physics) componentManager.getEntityComponent(entity, Physics.class.getSimpleName());
+        physComponent.activateOnCollide = false;
+        physComponent.isTraversable = true;
+
+        // Remove components that make entity "alive".
+        componentManager.removeEntityComponent(entity, AI.class.getSimpleName());
+        componentManager.removeEntityComponent(entity, Input.class.getSimpleName());
+        componentManager.removeEntityComponent(entity, Damage.class.getSimpleName());
+        componentManager.removeEntityComponent(entity, Vitality.class.getSimpleName());
+        componentManager.removeEntityComponent(entity, Experience.class.getSimpleName());
+        componentManager.removeEntityComponent(entity, Energy.class.getSimpleName());
+
+        // Replace current sprite with corpse
+        Name nameComponent = (Name) componentManager.getEntityComponent(entity, Name.class.getSimpleName());
+        Sprite sprite = (Sprite) componentManager.getEntityComponent(entity, Sprite.class.getSimpleName());
+        sprite.shader = Sprite.DYNAMIC;
+        sprite.lastX = -1;
+        sprite.lastY = -1;
+
+        switch (nameComponent.value) {
+            case "Zombie":
+                sprite.path = "sprites/zombie_corpse.png";
+                break;
+
+            case "Giant Rat":
+                sprite.path = "sprites/giant_rat_corpse.png";
+                break;
+
+            case "Ogre":
+            case "Great Ogre":
+                sprite.path = "sprites/ogre_corpse.png";
+                break;
+
+            case "Giant Komodo":
+                sprite.path = "sprites/giant_komodo_corpse.png";
+                break;
+
+            case "Green Slime":
+                sprite.path = "sprites/green_slime_corpse.png";
+                break;
+
+            case "Purple Slime":
+                sprite.path = "sprites/purple_slime_corpse.png";
+                break;
+
+            case "Giant Bug":
+                sprite.path = "sprites/cockroach_corpse.png";
+                break;
+
+            case "Spirit":
+                sprite.path = "sprites/ogre_spirit_corpse.png";
+                break;
+
+            default:
+                sprite.path = "sprites/transparent.png";
+                break;
+        }
+    }
+
+    private void applyXpReward(long attacker, long defender) {
+        Experience attackerExp = (Experience) componentManager.getEntityComponent(attacker, Experience.class.getSimpleName());
+        Experience defenderExp = (Experience) componentManager.getEntityComponent(defender, Experience.class.getSimpleName());
+        Vitality defenderVitality = (Vitality) componentManager.getEntityComponent(defender, Vitality.class.getSimpleName());
+        Damage defenderThreat = (Damage) componentManager.getEntityComponent(defender, Damage.class.getSimpleName());
+
+        int reward = getXpReward(defenderVitality, defenderThreat.strength, defenderExp.level, attackerExp.level);
+
+        attackerExp.xp += reward;
+
+        checkLevel(attackerExp);
+    }
+
+    public int getXpReward(Vitality defender, int defenderThreat, int defenderLevel, int attackerLevel) {
+        return Math.round((defender.maxHp + defenderThreat + defender.endurance) * defenderLevel / (attackerLevel + 1));
+    }
+
+    private int getDamage(int attack, int defence) {
+        int criticalChance = 0; // Todo: work out critical hit chance
+        int baseDamage = attack * attack / (attack + defence);
+
+        return baseDamage;
+
+        // Todo: need to fix this properly.
+        // return Math.max(baseDamage, 1);
+    }
+
+    private void checkLevel(Experience xpComponent) {
+        if (xpComponent.xp >= xpComponent.xpToNextLevel) {
+            xpComponent.level++;
+            gameInterface.addNarration("You have now reached level " + xpComponent.level + "!");
         }
     }
 
@@ -938,21 +1338,30 @@ public class GameEngine {
     */
 
     private boolean detectCollisions(Vector position) {
+        // Map *should* be surrounded by border tiles which prevent player from moving out of bounds.
+        // But just in case;
         if (!inBounds(position)) return true;
-
-        GameObject mapTile = mapGrid[position.x()][position.y()];
-
-        if (mapTile.type == GameObject.WALL) {
-            return true;
-        }
 
         int x = position.x();
         int y = position.y();
 
-        int objectSize = objectGrid[x][y].size();
+        // Check stationary component for blocking types
+        long entity = terrainEntities[x][y];
+        Stationary stationary = (Stationary) componentManager.getEntityComponent(entity, Stationary.class.getSimpleName());
+
+        // Walls and borders will always prevent movement.
+        if (stationary != null && (stationary.type == Stationary.WALL || stationary.type == Stationary.BORDER)) {
+            return true;
+        }
+
+        // Now iterate over object entities in position and check physics component for properties
+
+        int objectSize = objectEntities[x][y].size();
 
         for (int i = 0; i < objectSize; i++) {
-            if (!objectGrid[x][y].get(i).isTraversable()) {
+            long object = objectEntities[x][y].get(i);
+            Physics component = (Physics) componentManager.getEntityComponent(object, Physics.class.getSimpleName());
+            if (component != null && !component.isTraversable) {
                 return true;
             }
         }
@@ -960,9 +1369,9 @@ public class GameEngine {
         return false;
     }
 
-    private boolean objectInstanceInArray(GameObject tile, String[] tilesToCheck) {
-        for (int i = 0; i < tilesToCheck.length; i++) {
-            if (tile.getClass().getSimpleName().equals(tilesToCheck[i])) {
+    private boolean entityTypeInArray(Stationary stat, int[] typesToCheck) {
+        for (int i = 0; i < typesToCheck.length; i++) {
+            if (typesToCheck[i] == stat.type) {
                 return true;
             }
         }

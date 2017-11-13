@@ -3,7 +3,6 @@ package com.sonicmax.bloodrogue.renderer.ui;
 import android.util.Log;
 
 import com.sonicmax.bloodrogue.engine.factories.AnimationFactory;
-import com.sonicmax.bloodrogue.engine.objects.Animation;
 import com.sonicmax.bloodrogue.renderer.sprites.SpriteRenderer;
 
 import java.util.HashMap;
@@ -119,13 +118,13 @@ public class UserInterfaceBuilder {
             case INVENTORY_OPEN:
                 inventoryOpenAnim = true;
                 inventoryClosed = false;
-                inventoryAnimation = (Animation) AnimationFactory.getInventoryOpenAnimation(mGridWidth - 1, 0);
+                inventoryAnimation = AnimationFactory.getInventoryOpenAnimation(mGridWidth - 1, 0);
                 break;
 
             case INVENTORY_CLOSED:
                 inventoryCloseAnim = true;
                 inventoryOpen = false;
-                inventoryAnimation = (Animation) AnimationFactory.getInventoryCloseAnimation(mGridWidth - 1, 0);
+                inventoryAnimation = AnimationFactory.getInventoryCloseAnimation(mGridWidth - 1, 0);
                 break;
 
             default:

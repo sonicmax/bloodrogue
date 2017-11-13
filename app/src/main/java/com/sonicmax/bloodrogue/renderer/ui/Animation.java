@@ -1,23 +1,31 @@
-package com.sonicmax.bloodrogue.engine.objects;
+package com.sonicmax.bloodrogue.renderer.ui;
 
 import java.util.ArrayList;
 
 /**
- * Wrapper for GameObject which allows for animations to be displayed in renderer.
- * Frame array is ordered in reverse (so first frame is last)
+ *  Just a container for animation data so we don't have to mess around with managing entities
+ *  and components for pure visual effects.
  */
 
-public class Animation extends GameObject {
+public class Animation  {
+    public static int DEFAULT = 0;
+    public static int WAVE = 1;
+
     private String TRANSPARENT = "sprites/transparent.png";
     private ArrayList<String> frames;
     private int currentFrame;
     private int length;
-    public boolean finished;
     private int renderCount;
     private boolean repeating;
 
+    public int x;
+    public int y;
+    public boolean finished;
+    public int type;
+
     public Animation(int x, int y) {
-        super(x, y);
+        this.x = x;
+        this.y = y;
         this.frames = new ArrayList<>();
         this.frames.add(TRANSPARENT);
         this.finished = false;

@@ -68,12 +68,14 @@ public class TerrainRenderer {
     // Handles for OpenGL
     private int mSpriteSheetHandle;
     private int mBasicShaderHandle;
+    private int uniformMatrix;
+    private int uniformTexture;
 
     private VertexBufferObject packedBuffer;
     private VertexBufferObject indicesBuffer;
 
     public TerrainRenderer() {
-        // How many bytes we need to skip in VBO to find new entry for same data type.
+        // How many bytes we need to skip in VBO to find new entry for same data shader.
         stride = (FLOATS_PER_POSITION + FLOATS_PER_UV) * FLOAT_SIZE;
         mUniformScale = 1f;
     }
@@ -82,8 +84,10 @@ public class TerrainRenderer {
         this.mUniformScale = uniformScale;
     }
 
-    public void setBasicShader(int handle) {
+    public void initShader(int handle) {
         mBasicShaderHandle = handle;
+        uniformMatrix = GLES20.glGetUniformLocation(mBasicShaderHandle, "u_MVPMatrix");
+        uniformTexture = GLES20.glGetUniformLocation(mBasicShaderHandle, "u_Texture");
     }
 
     public void setSpriteSheetHandle(int val) {
@@ -333,11 +337,9 @@ public class TerrainRenderer {
 
 
         // Pass MVP matrix to shader
-        int uniformMatrix = GLES20.glGetUniformLocation(mBasicShaderHandle, "u_MVPMatrix");
         GLES20.glUniformMatrix4fv(uniformMatrix, 1, false, matrix, 0);
 
         // Bind texture to unit 0 and render triangles
-        int uniformTexture = GLES20.glGetUniformLocation(mBasicShaderHandle, "u_Texture");
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mSpriteSheetHandle);
         GLES20.glUniform1i(uniformTexture, 0);
