@@ -17,12 +17,12 @@ public class Frame implements Serializable {
     public final int index;
     public final Sprite[][] terrain;
     public final ArrayList<Sprite> objects;
-    public final ArrayList<Animation>[][] animations;
+    public final ArrayList<Animation> animations;
     public final double[][] fov;
     public final Component[] player;
 
     public Frame(int index, Sprite[][] terrain, ArrayList<Sprite> objects,
-                 ArrayList<Animation>[][] animations, double[][] fov, Component[] player) {
+                 ArrayList<Animation> animations, double[][] fov, Component[] player) {
 
         this.index = index;
         this.terrain = terrain;
@@ -40,7 +40,7 @@ public class Frame implements Serializable {
         return this.objects;
     }
 
-    public ArrayList<Animation>[][] getAnimations() {
+    public ArrayList<Animation> getAnimations() {
         return this.animations;
     }
 

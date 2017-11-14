@@ -616,20 +616,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         int uiCount = 0;
 
         ArrayList<Sprite> objects = currentFloorData.getObjects();
-        ArrayList<Animation>[][] animations = currentFloorData.getAnimations();
+        ArrayList<Animation> animations = currentFloorData.getAnimations();
 
         objectCount = objects.size();
-
-        for (int x = chunkOriginX; x < chunkWidth; x++) {
-            for (int y = chunkOriginY; y < chunkHeight; y++) {
-                if (!inBounds(x, y)) continue;
-
-                // Note: to get true object count, we would have to iterate over objects
-                // and separate solid objects from gas/liquid (which use a different renderer).
-                // However, we can safely use the total count without breaking anything.
-                animationCount += animations[x][y].size();
-            }
-        }
+        animationCount = animations.size();
 
         if (currentPathSelection != null) {
             uiCount += currentPathSelection.size();
@@ -700,7 +690,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     private void addSprites() {
         ArrayList<Sprite> objects = currentFloorData.getObjects();
-        ArrayList<Animation>[][] animations = currentFloorData.getAnimations();
+        ArrayList<Animation> animations = currentFloorData.getAnimations();
 
         for (int y = chunkOriginY; y < chunkHeight; y++) {
             for (int x = chunkOriginX; x < chunkWidth; x++) {
@@ -709,31 +699,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 float lighting = (float) getLightingForGrid(x, y);
 
                 terrainRenderer.addLightingUpdate(x, y, lighting);
-
-                int animationsSize = animations[x][y].size();
-                for (int i = 0; i < animationsSize; i++) {
-                    Animation animation = animations[x][y].get(i);
-
-                    int frameIndex = processAnimation(animation);
-
-                    if (animation.type == Animation.WAVE) {
-                        waveRenderer.addSpriteData(
-                                x, y,
-                                frameIndex,
-                                lighting,
-                                DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
-                    }
-
-                    else {
-                        spriteRenderer.addSpriteData(
-                                x, y,
-                                frameIndex,
-                                lighting,
-                                DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
-                    }
-                }
-
-                handleFinishedAnimations(animations[x][y]);
             }
         }
 
@@ -790,8 +755,36 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             }
         }
 
-
+        // Render moving objects after terrain/static objects, but before animation layer
         handleMovingObjects();
+
+        for (int i = 0; i < animations.size(); i++) {
+            Animation animation = animations.get(i);
+            int x = animation.x;
+            int y = animation.y;
+
+            float lighting = (float) getLightingForGrid(x, y);
+
+            int frameIndex = processAnimation(animation);
+
+            if (animation.type == Animation.WAVE) {
+                waveRenderer.addSpriteData(
+                        x, y,
+                        frameIndex,
+                        lighting,
+                        DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+            }
+
+            else {
+                spriteRenderer.addSpriteData(
+                        x, y,
+                        frameIndex,
+                        lighting,
+                        DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+            }
+        }
+
+        handleFinishedAnimations(animations);
     }
 
     /**

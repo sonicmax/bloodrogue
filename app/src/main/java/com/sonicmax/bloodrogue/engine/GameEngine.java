@@ -70,13 +70,12 @@ public class GameEngine {
     private int currentFloor;
 
     private boolean playerMoveLock;
-    private boolean inventoryOpen;
 
     private Vector pathDestination;
 
-    public Sprite[][] terrain;
-    public ArrayList<Sprite> objects;
-    public ArrayList<Animation>[][] animations;
+    private Sprite[][] terrain;
+    private ArrayList<Sprite> objects;
+    private ArrayList<Animation> animations;
 
     // ECS storage and management
     private long [][] terrainEntities;
@@ -86,7 +85,6 @@ public class GameEngine {
 
     public GameEngine(GameInterface gameInterface) {
         this.playerMoveLock = false;
-        this.inventoryOpen = false;
 
         this.sightRadius = 10;
         this.mapWidth = 32;
@@ -100,7 +98,7 @@ public class GameEngine {
 
         this.terrain = new Sprite[mapWidth][mapHeight];
         this.objects = new ArrayList<>();
-        this.animations = Array2DHelper.create2DAnimationArray(mapWidth, mapHeight);
+        this.animations = new ArrayList<>();
 
         this.terrainEntities = new long[mapWidth][mapHeight];
         this.computerEntities = new ArrayList<>();
@@ -906,21 +904,13 @@ public class GameEngine {
 
             if (targetPhysics != null && targetPhysics.activateOnCollide) {
                 int result = doCollision(target, initiator);
-                performEntityAction(initiator, target, result);
 
-                // Todo: why did i do this
-                /*if (target.hasDeathAnimation()) {
-                    rawAnimationComponents[target.x()][target.y()].add(target.getDeathAnimation());
-                }*/
-
-                AI attackerAi = (AI) componentManager.getEntityComponent(initiator, AI.class.getSimpleName());
-                AI defenderAi = (AI) componentManager.getEntityComponent(target, AI.class.getSimpleName());
-
-                if (attackerAi != null && defenderAi != null) {
-                    if (affinityManager.actorsAreAggressive(attackerAi, defenderAi)) {
-                        engageInCombat(initiator, target);
-                    }
+                if (result == Actions.REMOVE_FROM_ITERATOR) {
+                    it.remove();
+                    continue;
                 }
+
+                performEntityAction(initiator, target, result);
             }
         }
     }
@@ -1040,7 +1030,7 @@ public class GameEngine {
         if (vitality.hp <= 0) {
             Name defenderName = (Name) componentManager.getEntityComponent(victim, Name.class.getSimpleName());
 
-            animations[x][y].add(AnimationFactory.getDeathAnimation(blood, x, y));
+            animations.add(AnimationFactory.getDeathAnimation(blood, x, y));
 
             ArrayList<Component[]> spray = DecalFactory.createBloodSpray(defenderPosition, blood, terrainEntities, componentManager);
             for (Component[] components : spray) {
@@ -1059,7 +1049,7 @@ public class GameEngine {
         }
 
         else {
-            animations[x][y].add(AnimationFactory.getHitAnimation(blood, x, y));
+            animations.add(AnimationFactory.getHitAnimation(blood, x, y));
         }
     }
 
@@ -1253,7 +1243,7 @@ public class GameEngine {
             Name attackerName = (Name) componentManager.getEntityComponent(aggressor, Name.class.getSimpleName());
             Name defenderName = (Name) componentManager.getEntityComponent(defender, Name.class.getSimpleName());
 
-            animations[x][y].add(AnimationFactory.getDeathAnimation(blood, x, y));
+            animations.add(AnimationFactory.getDeathAnimation(blood, x, y));
 
             ArrayList<Component[]> spray = DecalFactory.createBloodSpray(defenderPosition, blood, terrainEntities, componentManager);
             for (Component[] components : spray) {
@@ -1272,7 +1262,7 @@ public class GameEngine {
         }
 
         else {
-            animations[x][y].add(AnimationFactory.getHitAnimation(blood, x, y));
+            animations.add(AnimationFactory.getHitAnimation(blood, x, y));
         }
     }
 
