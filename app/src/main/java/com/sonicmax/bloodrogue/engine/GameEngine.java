@@ -46,6 +46,9 @@ import java.util.concurrent.DelayQueue;
 public class GameEngine {
     private final String LOG_TAG = this.getClass().getSimpleName();
     private final int DIJKSTRA_MAX = 20;
+    private final int HIGH_PRIORITY = 0;
+    private final int MEDIUM_PRIORITY = 1;
+    private final int LOW_PRIORITY = 2;
 
     private GameInterface gameInterface;
     private FieldOfVisionCalculator fovCalculator;
@@ -61,7 +64,7 @@ public class GameEngine {
     private double[][] fieldOfVision;
     private Component[] player;
 
-    private ArrayList<EntityTurn> turnQueue;
+    private ArrayList<EntityTurn>[] priorityQueue;
     private ArrayList<Component[]> objectQueue;
 
     private int mapWidth;
@@ -104,7 +107,7 @@ public class GameEngine {
         this.computerEntities = new ArrayList<>();
         this.objectEntities = Array2DHelper.create2dLongStack(mapWidth, mapHeight);
 
-        this.turnQueue = new ArrayList<>();
+        initPriorityQueue();
         this.objectQueue = new ArrayList<>();
 
         JSONLoader.loadEnemies(gameInterface.getAssets());
@@ -115,6 +118,13 @@ public class GameEngine {
      Game initialisation
     ---------------------------------------------
     */
+
+    private void initPriorityQueue() {
+        this.priorityQueue = new ArrayList[3];
+        this.priorityQueue[0] = new ArrayList<>();
+        this.priorityQueue[1] = new ArrayList<>();
+        this.priorityQueue[2] = new ArrayList<>();
+    }
 
     public void startFromScratch() {
         ProceduralGenerator generator = new ProceduralGenerator(mapWidth, mapHeight, gameInterface.getAssets());
@@ -140,7 +150,6 @@ public class GameEngine {
         gameState = new GameState(player, getCurrentFloorData());
 
         playerDesireMap = Array2DHelper.fillIntArray(mapWidth, mapHeight, DIJKSTRA_MAX);
-        turnQueue = new ArrayList<>();
 
         sortComponentsAndStoreEntities();
         prebuildSprites();
@@ -193,7 +202,7 @@ public class GameEngine {
         }
 
         playerDesireMap = Array2DHelper.fillIntArray(mapWidth, mapHeight, DIJKSTRA_MAX);
-        turnQueue = new ArrayList<>();
+        initPriorityQueue();
     }
 
     private void moveToPreviousFloor() {
@@ -212,7 +221,7 @@ public class GameEngine {
         populateUsingSaveState();
 
         playerDesireMap = Array2DHelper.fillIntArray(mapWidth, mapHeight, DIJKSTRA_MAX);
-        turnQueue = new ArrayList<>();
+        initPriorityQueue();
     }
 
     public Frame getCurrentFrameData() {
@@ -429,7 +438,7 @@ public class GameEngine {
         if (adjacent) {
             EntityTurn turn = new EntityTurn(playerPosition);
             turn.setMove(destination);
-            turnQueue.add(turn);
+            priorityQueue[MEDIUM_PRIORITY].add(turn);
 
         } else {
             /*if (fieldOfVision[destination.x()][destination.y()] > 0) {
@@ -610,6 +619,10 @@ public class GameEngine {
 
         AI ai = (AI) componentManager.getEntityComponent(entity, AI.class.getSimpleName());
 
+        if (ai.state == EnemyState.INACTIVE) {
+            return;
+        }
+
         if (ai.state == EnemyState.IDLE) {
             if (bestDesire > ai.playerInterest) {
                 // Ignore until player is closer
@@ -622,11 +635,11 @@ public class GameEngine {
         }
 
 
-        // Check whether actor is directly adjacent to player & queue doDamage for next turn
+        // Check whether actor is directly adjacent to player & queue attack for next turn
         if (bestDesire == 0) {
             EntityTurn turn = new EntityTurn(actorPosComp);
             turn.setMove(playerPos);
-            turnQueue.add(turn);
+            priorityQueue[HIGH_PRIORITY].add(turn);
             return;
         }
 
@@ -679,7 +692,7 @@ public class GameEngine {
         else if (closestTile != null) {
             EntityTurn turn = new EntityTurn(actorPosComp);
             turn.setMove(closestTile);
-            turnQueue.add(turn);
+            priorityQueue[LOW_PRIORITY].add(turn);
         }
     }
 
@@ -723,7 +736,7 @@ public class GameEngine {
                 nextCell = ai.path.remove(0);
                 EntityTurn turn = new EntityTurn(position);
                 turn.setMove(nextCell);
-                turnQueue.add(turn);
+                priorityQueue[LOW_PRIORITY].add(turn);
                 generatePlayerDesireMap();
             }
         }
@@ -833,7 +846,7 @@ public class GameEngine {
 
             try {
                 EntityTurn turn = queue.take();
-                turnQueue.add(turn);
+                priorityQueue[MEDIUM_PRIORITY].add(turn);
                 takeQueuedTurns();
                 advanceFrame();
 
@@ -856,7 +869,8 @@ public class GameEngine {
     private void takeQueuedTurns() {
         updatePreCombatData();
 
-        Iterator<EntityTurn> iterator = turnQueue.iterator();
+        for (int i = HIGH_PRIORITY; i <= LOW_PRIORITY; i++) {
+            Iterator<EntityTurn> iterator = priorityQueue[i].iterator();
 
         while (iterator.hasNext()) {
             EntityTurn turn = iterator.next();
@@ -874,14 +888,14 @@ public class GameEngine {
                     actor.y = destination.y;
 
                     handleMovementInteractions(entity, destination);
-                }
-
-                else {
+                    } else {
                     checkCollisions(entity, destination);
                 }
             }
 
+                // Make sure to remove turns from queue after we're finished
             iterator.remove();
+        }
         }
 
         addQueuedObjects();
