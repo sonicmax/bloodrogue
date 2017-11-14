@@ -8,6 +8,7 @@ import com.sonicmax.bloodrogue.engine.components.Blood;
 import com.sonicmax.bloodrogue.engine.components.Collectable;
 import com.sonicmax.bloodrogue.engine.components.Container;
 import com.sonicmax.bloodrogue.engine.components.Damage;
+import com.sonicmax.bloodrogue.engine.components.Dexterity;
 import com.sonicmax.bloodrogue.engine.components.Dynamic;
 import com.sonicmax.bloodrogue.engine.components.Energy;
 import com.sonicmax.bloodrogue.engine.components.Experience;
@@ -22,6 +23,7 @@ import com.sonicmax.bloodrogue.engine.components.Sprite;
 import com.sonicmax.bloodrogue.engine.components.Stationary;
 import com.sonicmax.bloodrogue.engine.components.Trap;
 import com.sonicmax.bloodrogue.engine.components.Vitality;
+import com.sonicmax.bloodrogue.engine.components.Wieldable;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -41,6 +43,7 @@ public class ComponentManager {
     private HashMap<Long, Collectable> collectableComponents;
     private HashMap<Long, Container> containerComponents;
     private HashMap<Long, Damage> damageComponents;
+    private HashMap<Long, Dexterity> dexterityComponents;
     private HashMap<Long, Dynamic> dynamicComponents;
     private HashMap<Long, Energy> energyComponents;
     private HashMap<Long, Input> inputComponents;
@@ -55,6 +58,7 @@ public class ComponentManager {
     private HashMap<Long, Stationary> staticComponents;
     private HashMap<Long, Trap> trapComponents;
     private HashMap<Long, Vitality> vitalityComponents;
+    private HashMap<Long, Wieldable> wieldableComponents;
 
     public ComponentManager() {
         animationComponents = new HashMap<>();
@@ -63,6 +67,7 @@ public class ComponentManager {
         collectableComponents = new HashMap<>();
         containerComponents = new HashMap<>();
         damageComponents = new HashMap<>();
+        dexterityComponents = new HashMap<>();
         dynamicComponents = new HashMap<>();
         energyComponents = new HashMap<>();
         inputComponents = new HashMap<>();
@@ -77,6 +82,7 @@ public class ComponentManager {
         staticComponents = new HashMap<>();
         trapComponents = new HashMap<>();
         vitalityComponents = new HashMap<>();
+        wieldableComponents = new HashMap<>();
     }
 
     /**
@@ -123,6 +129,10 @@ public class ComponentManager {
 
             case "Damage":
                 damageComponents.put(component.id, (Damage) component);
+                break;
+
+            case "Dexterity":
+                dexterityComponents.put(component.id, (Dexterity) component);
                 break;
 
             case "Dynamic":
@@ -181,6 +191,10 @@ public class ComponentManager {
                 vitalityComponents.put(component.id, (Vitality) component);
                 break;
 
+            case "Wieldable":
+                wieldableComponents.put(component.id, (Wieldable) component);
+                break;
+
             default:
                 Log.e(LOG_TAG, "No bucket found for component shader \"" + component.TAG + "\"");
         }
@@ -212,6 +226,9 @@ public class ComponentManager {
 
             case "Damage":
                 return new ArrayList<>(damageComponents.values());
+
+            case "Dexterity":
+                return new ArrayList<>(dexterityComponents.values());
 
             case "Dynamic":
                 return new ArrayList<>(dynamicComponents.values());
@@ -255,6 +272,9 @@ public class ComponentManager {
             case "Vitality":
                 return new ArrayList<>(vitalityComponents.values());
 
+            case "Wieldable":
+                return new ArrayList<>(wieldableComponents.values());
+
             default:
                 Log.e(LOG_TAG, "No bucket found for component shader \"" + type + "\"");
                 return new ArrayList();
@@ -277,6 +297,7 @@ public class ComponentManager {
         array.add(collectableComponents.get(entity));
         array.add(containerComponents.get(entity));
         array.add(damageComponents.get(entity));
+        array.add(dexterityComponents.get(entity));
         array.add(dynamicComponents.get(entity));
         array.add(energyComponents.get(entity));
         array.add(inputComponents.get(entity));
@@ -291,6 +312,7 @@ public class ComponentManager {
         array.add(staticComponents.get(entity));
         array.add(trapComponents.get(entity));
         array.add(vitalityComponents.get(entity));
+        array.add(wieldableComponents.get(entity));
 
         Iterator<Component> iterator = array.iterator();
         while (iterator.hasNext()) {
@@ -329,6 +351,9 @@ public class ComponentManager {
 
             case "Damage":
                 return damageComponents.get(entity);
+
+            case "Dexterity":
+                return dexterityComponents.get(entity);
 
             case "Dynamic":
                 return dynamicComponents.get(entity);
@@ -372,6 +397,9 @@ public class ComponentManager {
             case "Vitality":
                 return vitalityComponents.get(entity);
 
+            case "Wieldable":
+                return wieldableComponents.get(entity);
+
             default:
                 Log.e(LOG_TAG, "No bucket found for component shader \"" + type + "\"");
                 return null;
@@ -409,6 +437,10 @@ public class ComponentManager {
 
             case "Damage":
                 damageComponents.remove(entity);
+                break;
+
+            case "Dexterity":
+                dexterityComponents.remove(entity);
                 break;
 
             case "Dynamic":
@@ -467,6 +499,10 @@ public class ComponentManager {
                 vitalityComponents.remove(entity);
                 break;
 
+            case "Wieldable":
+                wieldableComponents.remove(entity);
+                break;
+
             default:
                 Log.e(LOG_TAG, "No bucket found for component shader \"" + type + "\"");
         }
@@ -486,6 +522,7 @@ public class ComponentManager {
         collectableComponents.remove(entity);
         containerComponents.remove(entity);
         damageComponents.remove(entity);
+        dexterityComponents.remove(entity);
         dynamicComponents.remove(entity);
         energyComponents.remove(entity);
         inputComponents.remove(entity);
@@ -500,5 +537,6 @@ public class ComponentManager {
         staticComponents.remove(entity);
         trapComponents.remove(entity);
         vitalityComponents.remove(entity);
+        wieldableComponents.remove(entity);
     }
 }

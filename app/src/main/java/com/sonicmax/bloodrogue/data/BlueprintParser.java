@@ -11,6 +11,7 @@ import com.sonicmax.bloodrogue.engine.components.Blood;
 import com.sonicmax.bloodrogue.engine.components.Collectable;
 import com.sonicmax.bloodrogue.engine.components.Container;
 import com.sonicmax.bloodrogue.engine.components.Damage;
+import com.sonicmax.bloodrogue.engine.components.Dexterity;
 import com.sonicmax.bloodrogue.engine.components.Dynamic;
 import com.sonicmax.bloodrogue.engine.components.Energy;
 import com.sonicmax.bloodrogue.engine.components.Experience;
@@ -23,6 +24,7 @@ import com.sonicmax.bloodrogue.engine.components.SelfReplicate;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
 import com.sonicmax.bloodrogue.engine.components.Stationary;
 import com.sonicmax.bloodrogue.engine.components.Vitality;
+import com.sonicmax.bloodrogue.engine.components.Wieldable;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -155,6 +157,14 @@ public class BlueprintParser {
             case "damage":
                 return new Damage(entity);
 
+            case "dexterity":
+                Dexterity dex = new Dexterity(entity);
+
+                if (object.has("skill"))
+                    dex.skill = object.getInt("skill");
+
+                return dex;
+
             case "dynamic":
                 return new Dynamic(entity);
 
@@ -274,6 +284,14 @@ public class BlueprintParser {
 
             case "vitality":
                 return new Vitality(entity);
+
+            case "wieldable":
+                Wieldable wieldable = new Wieldable(entity);
+
+                if (object.has("type"))
+                    wieldable.type = object.getInt("type");
+
+                return wieldable;
 
             default:
                 Log.e(LOG_TAG, "No component for key \"" + key + "\"");

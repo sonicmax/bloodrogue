@@ -13,6 +13,7 @@ import com.sonicmax.bloodrogue.engine.components.Blood;
 import com.sonicmax.bloodrogue.engine.components.Collectable;
 import com.sonicmax.bloodrogue.engine.components.Container;
 import com.sonicmax.bloodrogue.engine.components.Damage;
+import com.sonicmax.bloodrogue.engine.components.Dexterity;
 import com.sonicmax.bloodrogue.engine.components.Energy;
 import com.sonicmax.bloodrogue.engine.components.Experience;
 import com.sonicmax.bloodrogue.engine.components.Input;
@@ -1236,7 +1237,19 @@ public class GameEngine {
             return;
         }
 
-        int damageDealt = doDamage(damage, vitality);
+        Dexterity aggressorDex = (Dexterity) componentManager.getEntityComponent(aggressor, Dexterity.class.getSimpleName());
+
+        int damageDealt;
+
+        if (aggressorDex != null && aggressorDex.weaponEntity != -1) {
+            // Apply weapon modifier to base strength
+            Damage weaponDamage = (Damage) componentManager.getEntityComponent(aggressorDex.weaponEntity, Damage.class.getSimpleName());
+            damageDealt = doDamage(weaponDamage.strength + damage.strength, vitality);
+        }
+
+        else {
+            damageDealt = doDamage(damage, vitality);
+        }
 
         Position defenderPosition = (Position) componentManager.getEntityComponent(defender, Position.class.getSimpleName());
         int x = defenderPosition.x;
@@ -1286,6 +1299,22 @@ public class GameEngine {
 
     private int doDamage(Damage attacker, Vitality defender) {
         int damage = getDamage(attacker.strength, defender.endurance);
+
+        int defenderHp = defender.hp;
+
+        // Make sure that hp doesn't drop below 0. (at least for now)
+        if (defenderHp - damage >= 0) {
+            defender.hp -= damage;
+        }
+        else {
+            defender.hp = 0;
+        }
+
+        return damage;
+    }
+
+    private int doDamage(int strength, Vitality defender) {
+        int damage = getDamage(strength, defender.endurance);
 
         int defenderHp = defender.hp;
 
