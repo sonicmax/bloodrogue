@@ -10,11 +10,14 @@ import java.util.ArrayList;
  */
 
 public class Container extends Component {
-    public static final int DEFAULT = 0; // Use default when we don't need any special behaviours
+    public static final int DEFAULT = 0; // No special behaviours. Used for inventories
     public static final int CHEST = 1;
 
     public final int type;
-    public final ArrayList<Entity> contents;
+    public final ArrayList<Sprite> contents;
+
+    public int totalWeight;
+    public int capacity;
     public boolean open;
     public boolean empty;
 

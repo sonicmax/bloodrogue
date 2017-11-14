@@ -13,29 +13,33 @@ public class AffinityManager {
 
     }
 
-    public boolean actorsAreAggressive(AI a, AI b) {
-        int affinityA = a.affinity;
-        int affinityB = b.affinity;
-
-        // Actors with the same affinity will not target each other
-        if (affinityA == affinityB) {
+    public boolean entitiesAreAggressive(AI attacker, AI defender) {
+        if (attacker.state == EnemyState.INACTIVE || defender.state == EnemyState.INACTIVE) {
+            // Probably a mistake - don't let entities engage in combat
             return false;
         }
 
-        // Actors with neutral affinity will not be targeted, and won't target others.
-        // (however, their affinity can be changed if accidentaly attacked)
-        if (affinityA == AI.NEUTRAL || affinityB == AI.NEUTRAL) {
+        int attackerAffinity = attacker.affinity;
+        int defenderAffinity = defender.affinity;
+
+        // Entities with the same affinity will not target each other
+        if (attackerAffinity == defenderAffinity) {
             return false;
         }
 
-        switch (affinityA) {
+        // Entities with neutral affinity won't attack others, but will become aggressive when attacked
+        if (attackerAffinity == AI.NEUTRAL) {
+            return false;
+        }
+
+        switch (attackerAffinity) {
             case AI.PLAYER:
-                if (affinityB == AI.ENEMY) {
+                if (defenderAffinity == AI.ENEMY) {
                     return true;
                 }
 
             case AI.ENEMY:
-                if (affinityB == AI.PLAYER) {
+                if (defenderAffinity == AI.PLAYER) {
                     return true;
                 }
 

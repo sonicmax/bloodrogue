@@ -2,9 +2,12 @@ package com.sonicmax.bloodrogue.renderer.ui;
 
 import android.util.Log;
 
+import com.sonicmax.bloodrogue.engine.components.Container;
+import com.sonicmax.bloodrogue.engine.components.Sprite;
 import com.sonicmax.bloodrogue.generator.factories.AnimationFactory;
 import com.sonicmax.bloodrogue.renderer.sprites.SpriteRenderer;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 
 public class UserInterfaceBuilder {
@@ -36,15 +39,15 @@ public class UserInterfaceBuilder {
     private boolean inventoryCloseAnim;
     private Animation inventoryAnimation;
 
-    private HashMap<String, Integer> mSpriteIndexes;
+    private HashMap<String, Integer> spriteIndexes;
 
-    private int mGridWidth;
-    private int mGridHeight;
+    private int gridWidth;
+    private int gridHeight;
 
     public UserInterfaceBuilder(HashMap<String, Integer> spriteIndexes, int width, int height) {
-        mSpriteIndexes = spriteIndexes;
-        mGridWidth = width;
-        mGridHeight = height;
+        this.spriteIndexes = spriteIndexes;
+        this.gridWidth = width;
+        this.gridHeight = height;
         getSpriteIndexesForUi(spriteIndexes);
         setDefaultIconState();
     }
@@ -88,7 +91,7 @@ public class UserInterfaceBuilder {
             }
 
             else {
-                uiRenderer.addSpriteData(mGridWidth - 1, 0, frame, DEFAULT_LIGHTING, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                uiRenderer.addSpriteData(gridWidth - 1, 0, frame, DEFAULT_LIGHTING, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
             }
         }
 
@@ -101,15 +104,15 @@ public class UserInterfaceBuilder {
             }
 
             else {
-                uiRenderer.addSpriteData(mGridWidth - 1, 0, frame, DEFAULT_LIGHTING, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                uiRenderer.addSpriteData(gridWidth - 1, 0, frame, DEFAULT_LIGHTING, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
             }
         }
 
         if (inventoryOpen) {
-            uiRenderer.addSpriteData(mGridWidth - 1, 0, openInventoryIcon, DEFAULT_LIGHTING, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+            uiRenderer.addSpriteData(gridWidth - 1, 0, openInventoryIcon, DEFAULT_LIGHTING, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
         }
         else if (inventoryClosed) {
-            uiRenderer.addSpriteData(mGridWidth - 1, 0, closedInventoryIcon, DEFAULT_LIGHTING, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+            uiRenderer.addSpriteData(gridWidth - 1, 0, closedInventoryIcon, DEFAULT_LIGHTING, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
         }
     }
 
@@ -118,13 +121,13 @@ public class UserInterfaceBuilder {
             case INVENTORY_OPEN:
                 inventoryOpenAnim = true;
                 inventoryClosed = false;
-                inventoryAnimation = AnimationFactory.getInventoryOpenAnimation(mGridWidth - 1, 0);
+                inventoryAnimation = AnimationFactory.getInventoryOpenAnimation(gridWidth - 1, 0);
                 break;
 
             case INVENTORY_CLOSED:
                 inventoryCloseAnim = true;
                 inventoryOpen = false;
-                inventoryAnimation = AnimationFactory.getInventoryCloseAnimation(mGridWidth - 1, 0);
+                inventoryAnimation = AnimationFactory.getInventoryCloseAnimation(gridWidth - 1, 0);
                 break;
 
             default:
@@ -145,7 +148,7 @@ public class UserInterfaceBuilder {
             return TRANSPARENT;
         }
 
-        return mSpriteIndexes.get(animation.getNextFrame());
+        return spriteIndexes.get(animation.getNextFrame());
     }
 
 
@@ -157,7 +160,7 @@ public class UserInterfaceBuilder {
         float lighting = 1f;
 
         int x = 0;
-        int width = mGridWidth;
+        int width = gridWidth;
         int y = 1;
 
         // Add bottom row sprites
@@ -176,7 +179,7 @@ public class UserInterfaceBuilder {
         x = 0;
         y++;
 
-        while (y < mGridHeight - 1) {
+        while (y < gridHeight - 1) {
             uiRenderer.addSpriteData(x, y, left, DEFAULT_LIGHTING, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
             x++;
 
@@ -203,5 +206,32 @@ public class UserInterfaceBuilder {
         }
 
         uiRenderer.addSpriteData(x, y, topRight, DEFAULT_LIGHTING, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+    }
+
+    public void populateInventory(Container container, SpriteRenderer uiRenderer) {
+        ArrayList<Sprite> items = container.contents;
+        int itemSize = items.size();
+        int itemIndex = 0;
+
+        if (itemSize == 0) return;
+
+        int x = 1;
+        int width = gridWidth;
+        int y = gridHeight - 2;
+
+        while (itemIndex < itemSize && y > 2) {
+            while (itemIndex < itemSize && x < width - 1) {
+                if (items.get(itemIndex).spriteIndex == -1) {
+                    items.get(itemIndex).spriteIndex = spriteIndexes.get(items.get(itemIndex).path);
+                }
+                uiRenderer.addSpriteData(x, y, items.get(itemIndex).spriteIndex, DEFAULT_LIGHTING, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                x++;
+                itemIndex++;
+            }
+
+            // Reset x after each row
+            x = 1;
+            y--;
+        }
     }
 }

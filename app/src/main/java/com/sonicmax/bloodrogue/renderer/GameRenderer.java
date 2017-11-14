@@ -9,6 +9,7 @@ import android.util.Log;
 import com.sonicmax.bloodrogue.GameInterface;
 import com.sonicmax.bloodrogue.engine.Component;
 import com.sonicmax.bloodrogue.engine.Frame;
+import com.sonicmax.bloodrogue.engine.components.Container;
 import com.sonicmax.bloodrogue.engine.components.Position;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
 import com.sonicmax.bloodrogue.engine.systems.ComponentFinder;
@@ -643,8 +644,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     private int countUiSprites() {
         int windowSize = visibleGridWidth * visibleGridHeight;
+        int inventoryCount = ((Container) currentFloorData.getPlayer()[12]).contents.size();
         int iconCount = 1;
-        return windowSize + iconCount;
+        return windowSize + inventoryCount + iconCount;
     }
 
     /**
@@ -740,6 +742,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             int x = object.x;
             int y = object.y;
 
+            if (object.shader == Sprite.NONE) continue;
             if (!inVisibleBounds(x, y, true)) continue;
 
             float lighting = (float) getLightingForGrid(x, y);
@@ -870,6 +873,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         if (inventoryDisplayed) {
             uiBuilder.addWindow(uiRenderer);
+            uiBuilder.populateInventory((Container) currentFloorData.getPlayer()[12], uiRenderer);
         }
 
         uiBuilder.buildUi(uiRenderer);

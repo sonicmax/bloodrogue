@@ -4,4 +4,5 @@ public class Actions {
     public static final int NONE = -1;
     public static final int EXIT_FLOOR = 0;
     public static final int EXIT_PREVIOUS_FLOOR = 1;
+    public static final int REMOVE_FROM_ITERATOR = 2;
 }

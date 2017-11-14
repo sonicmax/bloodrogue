@@ -5,6 +5,7 @@ import android.util.Log;
 import com.sonicmax.bloodrogue.engine.components.Animation;
 import com.sonicmax.bloodrogue.engine.components.Barrier;
 import com.sonicmax.bloodrogue.engine.components.Blood;
+import com.sonicmax.bloodrogue.engine.components.Collectable;
 import com.sonicmax.bloodrogue.engine.components.Container;
 import com.sonicmax.bloodrogue.engine.components.Damage;
 import com.sonicmax.bloodrogue.engine.components.Dynamic;
@@ -37,6 +38,7 @@ public class ComponentManager {
     private HashMap<Long, Animation> animationComponents;
     private HashMap<Long, Barrier> barrierComponents;
     private HashMap<Long, Blood> bloodComponents;
+    private HashMap<Long, Collectable> collectableComponents;
     private HashMap<Long, Container> containerComponents;
     private HashMap<Long, Damage> damageComponents;
     private HashMap<Long, Dynamic> dynamicComponents;
@@ -58,6 +60,7 @@ public class ComponentManager {
         animationComponents = new HashMap<>();
         barrierComponents = new HashMap<>();
         bloodComponents = new HashMap<>();
+        collectableComponents = new HashMap<>();
         containerComponents = new HashMap<>();
         damageComponents = new HashMap<>();
         dynamicComponents = new HashMap<>();
@@ -108,6 +111,10 @@ public class ComponentManager {
 
             case "Blood":
                 bloodComponents.put(component.id, (Blood) component);
+                break;
+
+            case "Collectable":
+                collectableComponents.put(component.id, (Collectable) component);
                 break;
 
             case "Container":
@@ -197,6 +204,9 @@ public class ComponentManager {
             case "Blood":
                 return new ArrayList<>(bloodComponents.values());
 
+            case "Collectable":
+                return new ArrayList<>(collectableComponents.values());
+
             case "Container":
                 return new ArrayList<>(containerComponents.values());
 
@@ -264,6 +274,7 @@ public class ComponentManager {
         array.add(animationComponents.get(entity));
         array.add(barrierComponents.get(entity));
         array.add(bloodComponents.get(entity));
+        array.add(collectableComponents.get(entity));
         array.add(containerComponents.get(entity));
         array.add(damageComponents.get(entity));
         array.add(dynamicComponents.get(entity));
@@ -309,6 +320,9 @@ public class ComponentManager {
 
             case "Blood":
                return bloodComponents.get(entity);
+
+            case "Collectable":
+                return collectableComponents.get(entity);
 
             case "Container":
                 return containerComponents.get(entity);
@@ -383,6 +397,10 @@ public class ComponentManager {
 
             case "Blood":
                 bloodComponents.remove(entity);
+                break;
+
+            case "Collectable":
+                collectableComponents.remove(entity);
                 break;
 
             case "Container":
@@ -465,6 +483,7 @@ public class ComponentManager {
         animationComponents.remove(entity);
         barrierComponents.remove(entity);
         bloodComponents.remove(entity);
+        collectableComponents.remove(entity);
         containerComponents.remove(entity);
         damageComponents.remove(entity);
         dynamicComponents.remove(entity);

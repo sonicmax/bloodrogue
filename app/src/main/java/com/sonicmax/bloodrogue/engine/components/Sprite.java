@@ -9,6 +9,7 @@ import com.sonicmax.bloodrogue.engine.Component;
 
 public class Sprite extends Component {
     // Tells game how to render sprite.
+    public static int NONE = -1; // When we want to hide sprite
     public static int STATIC = 0; // Sprite never changes or moves position
     public static int DYNAMIC = 1; // Sprite can change and move
     public static int WAVE = 2; // Same as dynamic, but rendered using wave shader

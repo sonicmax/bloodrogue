@@ -8,6 +8,7 @@ import com.sonicmax.bloodrogue.engine.components.AI;
 import com.sonicmax.bloodrogue.engine.components.Animation;
 import com.sonicmax.bloodrogue.engine.components.Barrier;
 import com.sonicmax.bloodrogue.engine.components.Blood;
+import com.sonicmax.bloodrogue.engine.components.Collectable;
 import com.sonicmax.bloodrogue.engine.components.Container;
 import com.sonicmax.bloodrogue.engine.components.Damage;
 import com.sonicmax.bloodrogue.engine.components.Dynamic;
@@ -117,6 +118,14 @@ public class BlueprintParser {
                     default:
                         return new Blood(Blood.RED, entity);
                 }
+
+            case "collectable":
+                Collectable collectable = new Collectable(entity);
+
+                if (object.has("weight"))
+                    collectable.weight = object.getInt("weight");
+
+                return collectable;
 
             case "container":
                 Container container;

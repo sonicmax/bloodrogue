@@ -10,6 +10,7 @@ import com.sonicmax.bloodrogue.engine.collisions.FieldOfVisionCalculator;
 import com.sonicmax.bloodrogue.engine.components.AI;
 import com.sonicmax.bloodrogue.engine.components.Barrier;
 import com.sonicmax.bloodrogue.engine.components.Blood;
+import com.sonicmax.bloodrogue.engine.components.Collectable;
 import com.sonicmax.bloodrogue.engine.components.Container;
 import com.sonicmax.bloodrogue.engine.components.Damage;
 import com.sonicmax.bloodrogue.engine.components.Energy;
@@ -348,6 +349,8 @@ public class GameEngine {
             }
 
             switch (ai.state) {
+                case EnemyState.INACTIVE:
+                    break;
 
                 case EnemyState.IDLE:
                     takeAiTurn(entity);
@@ -928,17 +931,33 @@ public class GameEngine {
 
     private int doCollision(long target, long actor) {
         // Check for relevant components and perform actions on them
+        Collectable collectableComponent = (Collectable) componentManager.getEntityComponent(target, Collectable.class.getSimpleName());
+
+        if (collectableComponent != null) {
+            Container actorContainer = (Container) componentManager.getEntityComponent(actor, Container.class.getSimpleName());
+            if (actorContainer != null) {
+                boolean success = addToContainer(collectableComponent, actorContainer);
+                if (success) {
+                    // Remove entity from object stack - it is now located inside container.
+                    // Otherwise, continue with execution
+                    return Actions.REMOVE_FROM_ITERATOR;
+                }
+            }
+        }
+
         Container containerComponent = (Container) componentManager.getEntityComponent(target, Container.class.getSimpleName());
-        Barrier barrierComponent = (Barrier) componentManager.getEntityComponent(target, Barrier.class.getSimpleName());
-        Trap trapComponent = (Trap) componentManager.getEntityComponent(target, Trap.class.getSimpleName());
 
         if (containerComponent != null) {
             checkContainer(target, actor, containerComponent);
         }
 
+        Barrier barrierComponent = (Barrier) componentManager.getEntityComponent(target, Barrier.class.getSimpleName());
+
         if (barrierComponent != null) {
             openBarrier(target, barrierComponent);
         }
+
+        Trap trapComponent = (Trap) componentManager.getEntityComponent(target, Trap.class.getSimpleName());
 
         if (trapComponent != null) {
             float chance = new RandomNumberGenerator().getRandomFloat(0f, 1f);
@@ -947,7 +966,48 @@ public class GameEngine {
             }
         }
 
+        AI attackerAi = (AI) componentManager.getEntityComponent(actor, AI.class.getSimpleName());
+        AI defenderAi = (AI) componentManager.getEntityComponent(target, AI.class.getSimpleName());
+
+        if (attackerAi != null && defenderAi != null) {
+            if (affinityManager.entitiesAreAggressive(attackerAi, defenderAi)) {
+                engageInCombat(actor, target);
+            }
+        }
+
         return Actions.NONE;
+    }
+
+    private boolean addToContainer(Collectable collectable, Container container) {
+        if (container.totalWeight + collectable.weight <= container.capacity) {
+            Sprite sprite = (Sprite) componentManager.getEntityComponent(collectable.id, Sprite.class.getSimpleName());
+            container.contents.add(sprite);
+            container.totalWeight += collectable.weight;
+            hideEntity(collectable.id);
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    /**
+     * To hide an entity, we need to tell the renderer to ignore the sprite component, move the entity to [0, 0]
+     * and disable the AI component. To reactivate we just have to reverse these changes
+     */
+
+    private void hideEntity(long entity) {
+        Sprite sprite = (Sprite) componentManager.getEntityComponent(entity, Sprite.class.getSimpleName());
+        sprite.shader = Sprite.NONE;
+
+        Position position = (Position) componentManager.getEntityComponent(entity, Position.class.getSimpleName());
+        position.x = 0;
+        position.y = 0;
+
+        AI ai = (AI) componentManager.getEntityComponent(entity, AI.class.getSimpleName());
+        if (ai != null) {
+            ai.state = EnemyState.INACTIVE;
+        }
     }
 
     private void activateTrap(long trap, long victim) {
