@@ -432,10 +432,10 @@ public class ProceduralGenerator {
         startPosition = startRoom.roundedCentre();
 
         Component[] entrance = BlueprintParser.getComponentArrayForBlueprint(furnitureBlueprints, "entranceStairs");
-        Position position = (Position) entrance[0];
+        Position position = ComponentFinder.getPositionComponent(entrance);
         position.x = startPosition.x;
         position.y = startPosition.y;
-        Portal portal = (Portal) entrance[3];
+        Portal portal = ComponentFinder.getPortalComponent(entrance);
         portal.destFloor = currentFloor - 1;
 
         objects.add(entrance);
@@ -456,10 +456,10 @@ public class ProceduralGenerator {
         if (furthestRoom != null) {
             Component[] exit = BlueprintParser.getComponentArrayForBlueprint(furnitureBlueprints, "exitStairs");
 
-            position = (Position) exit[0];
+            position = ComponentFinder.getPositionComponent(exit);
             position.x = furthestRoom.x;
             position.y = furthestRoom.y;
-            portal = (Portal) exit[3];
+            portal = ComponentFinder.getPortalComponent(exit);
             portal.destFloor = currentFloor + 1;
 
             objects.add(exit);
@@ -898,10 +898,10 @@ public class ProceduralGenerator {
             return;
         }
 
-        Position position = (Position) door[0];
+        Position position = ComponentFinder.getPositionComponent(door);
         position.x = cell.x;
         position.y = cell.y;
-        Sprite sprite = (Sprite) door[1];
+        Sprite sprite = ComponentFinder.getSpriteComponent(door);
         sprite.path = tiler.getClosedDoorTilePath();
 
         doors.put(cell.toString(), door);

@@ -2,6 +2,7 @@ package com.sonicmax.bloodrogue.engine.systems;
 
 import com.sonicmax.bloodrogue.engine.Component;
 import com.sonicmax.bloodrogue.engine.components.Physics;
+import com.sonicmax.bloodrogue.engine.components.Portal;
 import com.sonicmax.bloodrogue.engine.components.Position;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
 import com.sonicmax.bloodrogue.engine.components.Stationary;
@@ -45,6 +46,16 @@ public class ComponentFinder {
         for (int i = 0; i < components.length; i++) {
             if (components[i] instanceof Physics) {
                 return (Physics) components[i];
+            }
+        }
+
+        return null;
+    }
+
+    public static Portal getPortalComponent(Component[] components) {
+        for (int i = 0; i < components.length; i++) {
+            if (components[i] instanceof Portal) {
+                return (Portal) components[i];
             }
         }
 

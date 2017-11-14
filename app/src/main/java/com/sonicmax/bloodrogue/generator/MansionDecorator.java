@@ -714,7 +714,7 @@ public class MansionDecorator {
 
             if (chest == null) return;
 
-            Position position = (Position) chest[0];
+            Position position = ComponentFinder.getPositionComponent(chest);
             position.x = cell.x;
             position.y = cell.y;
 
