@@ -11,7 +11,7 @@ import com.sonicmax.bloodrogue.engine.components.Position;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
 import com.sonicmax.bloodrogue.engine.components.Stationary;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
-import com.sonicmax.bloodrogue.tilesets.All;
+import com.sonicmax.bloodrogue.tilesets.GenericTileset;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 
 import java.util.ArrayList;
@@ -165,24 +165,24 @@ public class DecalFactory {
     public static String[] getWallBloodForActor(Blood blood) {
         switch(blood.type) {
             case Blood.RED:
-                return All.BLOOD_DROPS_WALL;
+                return GenericTileset.BLOOD_DROPS_WALL;
             case Blood.GREEN:
-                return All.GREEN_DROPS_WALL;
+                return GenericTileset.GREEN_DROPS_WALL;
             case Blood.ECTOPLASM:
             default:
-                return All.BLOOD_DROPS_WALL;
+                return GenericTileset.BLOOD_DROPS_WALL;
         }
     }
 
     public static String[] getBloodForActor(Blood blood) {
         switch(blood.type) {
             case Blood.RED:
-                return All.BLOOD_DROPS;
+                return GenericTileset.BLOOD_DROPS;
             case Blood.GREEN:
-                return All.GREEN_DROPS;
+                return GenericTileset.GREEN_DROPS;
             case Blood.ECTOPLASM:
             default:
-                return All.BLOOD_DROPS;
+                return GenericTileset.BLOOD_DROPS;
         }
     }
 

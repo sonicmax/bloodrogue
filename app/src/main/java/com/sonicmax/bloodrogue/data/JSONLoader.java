@@ -1,7 +1,6 @@
 package com.sonicmax.bloodrogue.data;
 
 import android.content.res.AssetManager;
-import android.util.Log;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -40,6 +39,18 @@ public class JSONLoader {
     public static JSONObject loadFurniture(AssetManager assetManager) {
 
         final String file = "blueprints/furniture.json";
+
+        try  {
+            return new JSONObject(loadFile(assetManager, file));
+
+        } catch (JSONException e) {
+            throw new Error("Error parsing furniture blueprints - can't continue", e);
+        }
+    }
+
+    public static JSONObject loadWeapons(AssetManager assetManager) {
+
+        final String file = "blueprints/weapons.json";
 
         try  {
             return new JSONObject(loadFile(assetManager, file));

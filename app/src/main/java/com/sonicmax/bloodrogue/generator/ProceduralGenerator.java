@@ -17,12 +17,12 @@ import com.sonicmax.bloodrogue.engine.components.Stationary;
 import com.sonicmax.bloodrogue.generator.factories.DecalFactory;
 import com.sonicmax.bloodrogue.generator.factories.TerrainFactory;
 import com.sonicmax.bloodrogue.engine.systems.ComponentFinder;
-import com.sonicmax.bloodrogue.tilesets.Ruins;
+import com.sonicmax.bloodrogue.tilesets.MansionTileset;
+import com.sonicmax.bloodrogue.tilesets.RuinsTileset;
 import com.sonicmax.bloodrogue.utils.maths.Calculator;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 import com.sonicmax.bloodrogue.engine.objects.Room;
-import com.sonicmax.bloodrogue.tilesets.All;
-import com.sonicmax.bloodrogue.tilesets.Mansion;
+import com.sonicmax.bloodrogue.tilesets.GenericTileset;
 import com.sonicmax.bloodrogue.utils.Array2DHelper;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 
@@ -189,7 +189,7 @@ public class ProceduralGenerator {
 
     private void setThemeAsDungeon() {
         theme = RoomStyles.MANSION;
-        themeKey = Mansion.KEY;
+        themeKey = MansionTileset.KEY;
         minRoomWidth = 3;
         maxRoomWidth = 7;
         minRoomHeight = 3;
@@ -200,7 +200,7 @@ public class ProceduralGenerator {
 
     private void setThemeAsMansion() {
         theme = RoomStyles.MANSION;
-        themeKey = Mansion.KEY;
+        themeKey = MansionTileset.KEY;
         minRoomWidth = 3;
         maxRoomWidth = 7;
         minRoomHeight = 3;
@@ -211,7 +211,7 @@ public class ProceduralGenerator {
 
     private void setThemeAsRuins() {
         theme = RoomStyles.RUINS;
-        themeKey = Ruins.KEY;
+        themeKey = RuinsTileset.KEY;
         minRoomWidth = 3;
         maxRoomWidth = 7;
         minRoomHeight = 3;
@@ -584,7 +584,7 @@ public class ProceduralGenerator {
         for (int x = 1; x < mapWidth - 1; x++) {
             for (int y = 1; y < mapHeight - 1; y++) {
                 if (cellMap[x][y]) {
-                    carve(new Vector(x, y), Ruins.FLOOR);
+                    carve(new Vector(x, y), RuinsTileset.FLOOR);
                 }
             }
         }
@@ -694,7 +694,7 @@ public class ProceduralGenerator {
         ArrayList<Vector> cells = new ArrayList<>();
         Vector lastCell = null;
         startRegion();
-        carve(start, Mansion.WOOD_FLOOR_1);
+        carve(start, MansionTileset.WOOD_FLOOR_1);
         cells.add(start);
 
         while (cells.size() > 0) {
@@ -725,8 +725,8 @@ public class ProceduralGenerator {
 
                 Vector secondCarve = firstCarve.add(getVectorForDirection(firstCarve.getDirection()));
 
-                carve(firstCarve, Mansion.WOOD_FLOOR_1);
-                carve(secondCarve, Mansion.WOOD_FLOOR_1);
+                carve(firstCarve, MansionTileset.WOOD_FLOOR_1);
+                carve(secondCarve, MansionTileset.WOOD_FLOOR_1);
 
                 cells.add(secondCarve);
                 lastCell = firstCarve;
@@ -880,14 +880,14 @@ public class ProceduralGenerator {
 
                     done = false;
 
-                    setTile(cell, Mansion.WALL);
+                    setTile(cell, MansionTileset.WALL);
                 }
             }
         }
     }
 
     private void addJunction(Vector cell) {
-        setTile(cell, Mansion.DOORWAY);
+        setTile(cell, MansionTileset.DOORWAY);
 
         // Todo: chance to do something else here?
 
@@ -945,7 +945,7 @@ public class ProceduralGenerator {
                     if (stat == null) continue;
 
                     if (stat.type == Stationary.FLOOR && cellIsInaccessible(cell)) {
-                        setTile(cell, Mansion.WALL);
+                        setTile(cell, MansionTileset.WALL);
                         checked.put(cell.toString(), true);
                         HashMap<String, Vector> adjacentCells = getAdjacentCells(cell, 1, true);
                         for (Vector adjacentCell : adjacentCells.values()) {
@@ -976,7 +976,7 @@ public class ProceduralGenerator {
                     if (stat == null) continue;
 
                     if (stat.type == Stationary.WALL && cellIsInaccessible(cell)) {
-                        setTile(cell, TerrainFactory.createBorder(x, y, All.DEFAULT_BORDER));
+                        setTile(cell, TerrainFactory.createBorder(x, y, GenericTileset.DEFAULT_BORDER));
                         checked.add(cell.toString());
                     }
                 }
@@ -992,15 +992,15 @@ public class ProceduralGenerator {
 
     private void setTile(Vector pos, String type) {
         switch(type) {
-            case Mansion.FLOOR:
+            case MansionTileset.FLOOR:
                 mapGrid[pos.x()][pos.y()] = tiler.getFloorTile(pos.x(), pos.y(), currentRoomTheme);
                 break;
 
-            case Mansion.WALL:
+            case MansionTileset.WALL:
                 mapGrid[pos.x()][pos.y()] = tiler.getWallTile(pos.x(), pos.y());
                 break;
 
-            case Mansion.DOORWAY:
+            case MansionTileset.DOORWAY:
                 mapGrid[pos.x()][pos.y()] = tiler.getDoorwayTile(pos.x(), pos.y());
                 break;
 

@@ -66,7 +66,7 @@ public class PlayerFactory {
         Blood bloodComponent = new Blood(Blood.RED, entity.id);
 
         Container containerComponent = new Container(Container.DEFAULT, entity.id);
-        containerComponent.capacity = 10;
+        containerComponent.capacity = 25;
 
         Dexterity dexterityComponent = new Dexterity(entity.id);
         dexterityComponent.skill = 1;

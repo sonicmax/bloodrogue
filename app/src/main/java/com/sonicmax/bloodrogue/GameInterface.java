@@ -10,6 +10,7 @@ import android.view.ScaleGestureDetector;
 import com.sonicmax.bloodrogue.engine.GameEngine;
 import com.sonicmax.bloodrogue.engine.GameState;
 import com.sonicmax.bloodrogue.engine.components.Position;
+import com.sonicmax.bloodrogue.renderer.ui.InventoryCard;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 import com.sonicmax.bloodrogue.renderer.GameRenderer;
 import com.sonicmax.bloodrogue.renderer.text.NarrationManager;
@@ -166,6 +167,14 @@ public class GameInterface {
         }
 
         return true;
+    }
+
+    public long processInventoryClick(int index) {
+        return gameEngine.getInventoryEntity(index);
+    }
+
+    public InventoryCard getEntityDetails(long entity) {
+        return gameEngine.getEntityDetails(entity);
     }
 
     public boolean handleScaleEvent(ScaleGestureDetector detector) {

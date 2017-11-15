@@ -107,8 +107,8 @@ public class BlueprintParser {
             case "blood":
                 String type = "";
 
-                if (object.has("shader"))
-                    type = object.getString("shader");
+                if (object.has("type"))
+                    type = object.getString("type");
 
                 switch (type) {
                     case "red":
@@ -155,7 +155,12 @@ public class BlueprintParser {
                 return container;
 
             case "damage":
-                return new Damage(entity);
+                Damage damage = new Damage(entity);
+
+                if (object.has("strength"))
+                    damage.strength = object.getInt("strength");
+
+                return damage;
 
             case "dexterity":
                 Dexterity dex = new Dexterity(entity);

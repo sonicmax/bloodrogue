@@ -1,0 +1,116 @@
+{
+	shortSword: {
+		position: {},
+		sprite: {
+			path: "sprites/shortsword.png",
+			shader: "dynamic"
+		},
+		name: {
+			value: "Shortsword"
+		},
+		damage: {
+			strength: 3,
+			type: "slash",
+			bonus: "short"
+		},
+		physics: {
+			blocking: false,
+			traversable: true,
+			gasOrLiquid: false,
+			activateOnCollide: false,
+			activateOnMove: true
+		},
+		collectable: {
+			weight: 2
+		},
+		wieldable: {
+			type: 1
+		}
+	},
+	
+	longSword: {
+		position: {},
+		sprite: {
+			path: "sprites/longsword.png",
+			shader: "dynamic"
+		},
+		name: {
+			value: "Longsword"
+		},
+		damage: {
+			strength: 4,
+			type: "slash"
+		},
+		physics: {
+			blocking: false,
+			traversable: true,
+			gasOrLiquid: false,
+			activateOnCollide: false,
+			activateOnMove: true
+		},
+		collectable: {
+			weight: 3
+		},
+		wieldable: {
+			type: 1
+		}
+	},
+	
+	spear: {
+		position: {},
+		sprite: {
+			path: "sprites/spear.png",
+			shader: "dynamic"
+		},
+		name: {
+			value: "Spear"
+		},
+		damage: {
+			strength: 3,
+			type: "pierce"
+		},
+		physics: {
+			blocking: false,
+			traversable: true,
+			gasOrLiquid: false,
+			activateOnCollide: false,
+			activateOnMove: true
+		},
+		collectable: {
+			weight: 2
+		},
+		wieldable: {
+			type: 1
+		}
+	},
+	
+	demonSword: {
+		position: {},
+		sprite: {
+			path: "sprites/demon_sword.png",
+			shader: "dynamic"
+		},
+		name: {
+			value: "Demon's Sword"
+		},
+		damage: {
+			strength: 10,
+			type: "slash",
+			bonus: "chaos"
+		},
+		physics: {
+			blocking: false,
+			traversable: true,
+			gasOrLiquid: false,
+			activateOnCollide: false,
+			activateOnMove: true
+		},
+		collectable: {
+			weight: 4
+		},
+		wieldable: {
+			type: 1
+		}
+	}
+	
+}

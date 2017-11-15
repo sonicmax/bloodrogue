@@ -24,6 +24,9 @@ import com.sonicmax.bloodrogue.engine.components.Sprite;
 import com.sonicmax.bloodrogue.engine.components.Stationary;
 import com.sonicmax.bloodrogue.engine.components.Trap;
 import com.sonicmax.bloodrogue.engine.components.Vitality;
+import com.sonicmax.bloodrogue.engine.components.Wieldable;
+import com.sonicmax.bloodrogue.engine.systems.EntitySystem;
+import com.sonicmax.bloodrogue.engine.systems.WeaponsSystem;
 import com.sonicmax.bloodrogue.generator.factories.AnimationFactory;
 import com.sonicmax.bloodrogue.generator.factories.DecalFactory;
 import com.sonicmax.bloodrogue.engine.systems.ComponentFinder;
@@ -31,7 +34,10 @@ import com.sonicmax.bloodrogue.generator.MapData;
 import com.sonicmax.bloodrogue.generator.ProceduralGenerator;
 import com.sonicmax.bloodrogue.renderer.text.TextColours;
 import com.sonicmax.bloodrogue.renderer.ui.Animation;
-import com.sonicmax.bloodrogue.tilesets.Mansion;
+import com.sonicmax.bloodrogue.renderer.ui.InventoryCard;
+import com.sonicmax.bloodrogue.tilesets.CorpseTileset;
+import com.sonicmax.bloodrogue.tilesets.MansionTileset;
+import com.sonicmax.bloodrogue.tilesets.WeaponTileset;
 import com.sonicmax.bloodrogue.utils.maths.Calculator;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
@@ -87,6 +93,8 @@ public class GameEngine {
     private ArrayList<Long> computerEntities;
     private long playerEntity;
 
+    private StringBuilder stringBuilder;
+
     public GameEngine(GameInterface gameInterface) {
         this.playerMoveLock = false;
 
@@ -110,6 +118,7 @@ public class GameEngine {
 
         initPriorityQueue();
         this.objectQueue = new ArrayList<>();
+        this.stringBuilder = new StringBuilder();
 
         JSONLoader.loadEnemies(gameInterface.getAssets());
     }
@@ -226,6 +235,19 @@ public class GameEngine {
     }
 
     public Frame getCurrentFrameData() {
+        /*Sprite[][] terrainCopy = new Sprite[mapWidth][mapHeight];
+        ArrayList<Sprite> objectsCopy = new ArrayList<>();
+
+        for (int y = 0; y < mapHeight; y++) {
+            for (int x = 0; x < mapWidth; x++) {
+                terrainCopy[x][y] = new Sprite(terrain[x][y]);
+            }
+        }
+
+        for (int i = 0; i < objects.size(); i++) {
+            objectsCopy.add(new Sprite(objects.get(i)));
+        }*/
+
         return new Frame(currentFloor, terrain, objects, animations, fieldOfVision, player);
     }
 
@@ -390,7 +412,7 @@ public class GameEngine {
             // Find nearest adjacent free square
             Vector pos = object.getVector();
             Vector newPos = null;
-            for (Vector direction : Directions.All.values()) {
+            for (Vector direction : Directions.GenericTileset.values()) {
                 Vector test = pos.add(direction);
                 if (!detectCollisions(test)) {
                     newPos = test;
@@ -437,9 +459,15 @@ public class GameEngine {
         boolean adjacent = isAdjacent(destination, new Vector(playerPosition.x, playerPosition.y));
 
         if (adjacent) {
-            EntityTurn turn = new EntityTurn(playerPosition);
-            turn.setMove(destination);
-            priorityQueue[MEDIUM_PRIORITY].add(turn);
+            // Iterate through all player-controlled entities and queue movements
+            ArrayList<Input> playerControlled = componentManager.getComponents(Input.class.getSimpleName());
+            for (int i = 0; i < playerControlled.size(); i++) {
+                long entity = playerControlled.get(i).id;
+                Position position = (Position) componentManager.getEntityComponent(entity, Position.class.getSimpleName());
+                EntityTurn turn = new EntityTurn(position);
+                turn.setMove(destination);
+                priorityQueue[MEDIUM_PRIORITY].add(turn);
+            }
 
         } else {
             /*if (fieldOfVision[destination.x()][destination.y()] > 0) {
@@ -873,30 +901,32 @@ public class GameEngine {
         for (int i = HIGH_PRIORITY; i <= LOW_PRIORITY; i++) {
             Iterator<EntityTurn> iterator = priorityQueue[i].iterator();
 
-        while (iterator.hasNext()) {
-            EntityTurn turn = iterator.next();
+            while (iterator.hasNext()) {
+                EntityTurn turn = iterator.next();
 
-            if (turn.hasMove()) {
-                Vector destination = turn.getDestination();
-                Position actor = turn.getPositionComponent();
-                long entity = turn.getEntity();
+                if (turn.hasMove()) {
+                    Vector destination = turn.getDestination();
+                    Position actor = turn.getPositionComponent();
+                    long entity = turn.getEntity();
 
-                if (!detectCollisions(destination)) {
-                    moveObjectToNewStack(entity, actor.x, actor.y, destination.x, destination.y);
-                    // Update position component after messing around with stacks to make sure that
-                    // lastX and lastY in Sprite are set correctly
-                    actor.x = destination.x;
-                    actor.y = destination.y;
+                    Physics physics = (Physics) componentManager.getEntityComponent(entity, Physics.class.getSimpleName());
 
-                    handleMovementInteractions(entity, destination);
+                    if (physics.isTraversable || !detectCollisions(destination)) {
+                        moveObjectToNewStack(entity, actor.x, actor.y, destination.x, destination.y);
+                        // Update position component after messing around with stacks to make sure that
+                        // lastX and lastY in Sprite are set correctly
+                        actor.x = destination.x;
+                        actor.y = destination.y;
+
+                        handleMovementInteractions(entity, destination);
                     } else {
-                    checkCollisions(entity, destination);
+                        checkCollisions(entity, destination);
+                    }
                 }
-            }
 
                 // Make sure to remove turns from queue after we're finished
-            iterator.remove();
-        }
+                iterator.remove();
+            }
         }
 
         addQueuedObjects();
@@ -908,9 +938,12 @@ public class GameEngine {
      */
 
     private void checkCollisions(long initiator, Vector position) {
-        ArrayList<Long> entityStack = objectEntities[position.x()][position.y()];
+        // Early exit if initator entity doesn't have collidable physics
+        Physics physics = (Physics) componentManager.getEntityComponent(initiator, Physics.class.getSimpleName());
 
-        Iterator<Long> it = entityStack.iterator();
+        if (physics == null || !physics.activateOnCollide) return;
+
+        Iterator<Long> it = objectEntities[position.x()][position.y()].iterator();
 
         while (it.hasNext()) {
             long target = it.next();
@@ -925,7 +958,7 @@ public class GameEngine {
                     continue;
                 }
 
-                performEntityAction(initiator, target, result);
+                performAction(initiator, target, result);
             }
         }
     }
@@ -988,30 +1021,17 @@ public class GameEngine {
             Sprite sprite = (Sprite) componentManager.getEntityComponent(collectable.id, Sprite.class.getSimpleName());
             container.contents.add(sprite);
             container.totalWeight += collectable.weight;
-            hideEntity(collectable.id);
+            EntitySystem.hide(componentManager, collectable.id);
+
+            // Todo: should this be default behaviour when picking up weapons?
+            if (!WeaponsSystem.hasEqupped(componentManager, playerEntity, Wieldable.WEAPON)) {
+                WeaponsSystem.wieldWeapon(componentManager, container.id, collectable.id);
+            }
+
             return true;
         }
         else {
             return false;
-        }
-    }
-
-    /**
-     * To hide an entity, we need to tell the renderer to ignore the sprite component, move the entity to [0, 0]
-     * and disable the AI component. To reactivate we just have to reverse these changes
-     */
-
-    private void hideEntity(long entity) {
-        Sprite sprite = (Sprite) componentManager.getEntityComponent(entity, Sprite.class.getSimpleName());
-        sprite.shader = Sprite.NONE;
-
-        Position position = (Position) componentManager.getEntityComponent(entity, Position.class.getSimpleName());
-        position.x = 0;
-        position.y = 0;
-
-        AI ai = (AI) componentManager.getEntityComponent(entity, AI.class.getSimpleName());
-        if (ai != null) {
-            ai.state = EnemyState.INACTIVE;
         }
     }
 
@@ -1080,7 +1100,7 @@ public class GameEngine {
                     physicsComponent.isTraversable = true;
 
                     Sprite spriteComponent = (Sprite) componentManager.getEntityComponent(target, Sprite.class.getSimpleName());
-                    spriteComponent.path = Mansion.DOUBLE_DOORS_OPEN;
+                    spriteComponent.path = MansionTileset.DOUBLE_DOORS_OPEN;
                     spriteComponent.spriteIndex = -1;
                 }
                 break;
@@ -1118,19 +1138,25 @@ public class GameEngine {
      * traps, environment damage, etc)
      */
 
-    private void handleMovementInteractions(long actorEntity, Vector position) {
+    private void handleMovementInteractions(long entity, Vector position) {
         ArrayList<Long> targetStack = objectEntities[position.x()][position.y()];
 
         Iterator<Long> it = targetStack.iterator();
 
         while (it.hasNext()) {
-            long target = it.next();
+            long entityToCheck = it.next();
 
-            Physics targetPhysics = (Physics) componentManager.getEntityComponent(target, Physics.class.getSimpleName());
+            Physics targetPhysics = (Physics) componentManager.getEntityComponent(entityToCheck, Physics.class.getSimpleName());
 
             if (targetPhysics != null && targetPhysics.activateOnMove) {
-                int result = activateTarget(target, actorEntity);
-                performEntityAction(actorEntity, target, result);
+                int result = checkMovementActions(entityToCheck, entity);
+
+                if (result == Actions.REMOVE_FROM_ITERATOR) {
+                    it.remove();
+                    continue;
+                }
+
+                performAction(entity, entityToCheck, result);
 
                 if (result == Actions.EXIT_FLOOR || result == Actions.EXIT_PREVIOUS_FLOOR) {
                     // At this point, continuing iteration will cause exception.
@@ -1141,18 +1167,31 @@ public class GameEngine {
         }
     }
 
-    private int activateTarget(long activatedEntity, long targetEntity) {
-        // Check known activation behaviours and perform result on actor.
-        return -1;
+    private int checkMovementActions(long target, long actor) {
+        Collectable collectableComponent = (Collectable) componentManager.getEntityComponent(target, Collectable.class.getSimpleName());
+
+        if (collectableComponent != null) {
+            Container actorContainer = (Container) componentManager.getEntityComponent(actor, Container.class.getSimpleName());
+            if (actorContainer != null) {
+                boolean success = addToContainer(collectableComponent, actorContainer);
+                if (success) {
+                    // Remove entity from object stack - it is now located inside container.
+                    // Otherwise, continue with execution
+                    return Actions.REMOVE_FROM_ITERATOR;
+                }
+            }
+        }
+
+        return Actions.NONE;
     }
 
     /**
-     *  Checks result of activateTarget() method to see if we need to do anything.
+     *  Checks result of checkMovementActions() method to see if we need to do anything.
      *  This will generally be things that change the state of the game (eg. changing floors) rather
      *  than more simple actions (eg. activating traps)
      */
 
-    private void performEntityAction(long activatedEntity, long targetEntity, int code) {
+    private void performAction(long activatedEntity, long targetEntity, int code) {
         switch (code) {
             case Actions.EXIT_FLOOR:
                 // Tell renderer to fade out content and display loading screen, generate
@@ -1349,45 +1388,7 @@ public class GameEngine {
         sprite.shader = Sprite.DYNAMIC;
         sprite.lastX = -1;
         sprite.lastY = -1;
-
-        switch (nameComponent.value) {
-            case "Zombie":
-                sprite.path = "sprites/zombie_corpse.png";
-                break;
-
-            case "Giant Rat":
-                sprite.path = "sprites/giant_rat_corpse.png";
-                break;
-
-            case "Ogre":
-            case "Great Ogre":
-                sprite.path = "sprites/ogre_corpse.png";
-                break;
-
-            case "Giant Komodo":
-                sprite.path = "sprites/giant_komodo_corpse.png";
-                break;
-
-            case "Green Slime":
-                sprite.path = "sprites/green_slime_corpse.png";
-                break;
-
-            case "Purple Slime":
-                sprite.path = "sprites/purple_slime_corpse.png";
-                break;
-
-            case "Giant Bug":
-                sprite.path = "sprites/cockroach_corpse.png";
-                break;
-
-            case "Spirit":
-                sprite.path = "sprites/ogre_spirit_corpse.png";
-                break;
-
-            default:
-                sprite.path = "sprites/transparent.png";
-                break;
-        }
+        sprite.path = CorpseTileset.getCorpseForEntity(nameComponent.value);
     }
 
     private void applyXpReward(long attacker, long defender) {
@@ -1422,6 +1423,40 @@ public class GameEngine {
             xpComponent.level++;
             gameInterface.addNarration("You have now reached level " + xpComponent.level + "!");
         }
+    }
+
+    public long getInventoryEntity(int index) {
+        Container inventory = (Container) componentManager.getEntityComponent(playerEntity, Container.class.getSimpleName());
+
+        if (index >= inventory.contents.size()) return -1;
+
+        Sprite item = inventory.contents.get(index);
+
+        Wieldable wieldable = (Wieldable) componentManager.getEntityComponent(item.id, Wieldable.class.getSimpleName());
+        Dexterity equipment = (Dexterity) componentManager.getEntityComponent(playerEntity, Dexterity.class.getSimpleName());
+
+        if (wieldable.id == equipment.weaponEntity) {
+            WeaponsSystem.unwieldCurrentWeapon(componentManager, playerEntity);
+            return -1;
+        }
+
+        else if (wieldable.type == Wieldable.WEAPON) {
+            WeaponsSystem.wieldWeapon(componentManager, playerEntity, item.id);
+            return item.id;
+        }
+
+        else {
+            return -1;
+        }
+    }
+
+    public InventoryCard getEntityDetails(long entity) {
+        Name nameComponent = (Name) componentManager.getEntityComponent(entity, Name.class.getSimpleName());
+        String desc = "i dunno lol";
+        Damage damageComponent = (Damage) componentManager.getEntityComponent(entity, Damage.class.getSimpleName());
+        String stats = "STR: " + damageComponent.strength;
+        Collectable collectable = (Collectable) componentManager.getEntityComponent(entity, Collectable.class.getSimpleName());
+        return new InventoryCard(nameComponent.value, desc, stats, collectable.weight);
     }
 
     /*

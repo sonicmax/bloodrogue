@@ -10,6 +10,7 @@ import com.sonicmax.bloodrogue.GameInterface;
 import com.sonicmax.bloodrogue.engine.Component;
 import com.sonicmax.bloodrogue.engine.Frame;
 import com.sonicmax.bloodrogue.engine.components.Container;
+import com.sonicmax.bloodrogue.engine.components.Dexterity;
 import com.sonicmax.bloodrogue.engine.components.Position;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
 import com.sonicmax.bloodrogue.engine.systems.ComponentFinder;
@@ -18,6 +19,7 @@ import com.sonicmax.bloodrogue.renderer.sprites.SpriteRenderer;
 import com.sonicmax.bloodrogue.renderer.sprites.TerrainRenderer;
 import com.sonicmax.bloodrogue.renderer.sprites.WaveEffectSpriteRenderer;
 import com.sonicmax.bloodrogue.renderer.ui.Animation;
+import com.sonicmax.bloodrogue.renderer.ui.InventoryCard;
 import com.sonicmax.bloodrogue.renderer.ui.UserInterfaceBuilder;
 import com.sonicmax.bloodrogue.renderer.text.TextColours;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
@@ -268,6 +270,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         GLES20.glEnable(GLES20.GL_BLEND);
         GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA);
 
+        GLES20.glDisable(GLES20.GL_DITHER);
+
         // We can cull the back faces as we wouldn't be able to see them in the first palce
         GLES20.glEnable(GL10.GL_CULL_FACE);
         GLES20.glCullFace(GL10.GL_BACK);
@@ -390,6 +394,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             screenHeight = ScreenSizeGetter.getHeight();
         }
 
+        if (targetWidth > screenWidth) {
+            targetWidth = screenWidth;
+        }
+
         float resX = (float) screenWidth / targetWidth;
         float resY = (float) screenHeight / targetWidth;
 
@@ -446,17 +454,27 @@ public class GameRenderer implements GLSurfaceView.Renderer {
      * @param dt deltatime
      */
 
+    private Container inventory;
+    private Dexterity equipment;
+
+    private void getPlayerComponents() {
+        inventory = (Container) currentFloorData.getPlayer()[12];
+        equipment = (Dexterity) currentFloorData.getPlayer()[13];
+    }
+
     private void renderVisibleTiles(float dt) {
         if (!isRendering) {
 
             isRendering = true;
 
             if (firstRender) {
+                getPlayerComponents();
                 centreAtPlayerPos();
                 fieldOfVision = currentFloorData.getFov();
                 calculateScrollOffset(currentFloorData.getPlayer());
                 scrollMatrix = getScrollMatrix();
                 cacheTerrainLayer();
+
                 firstRender = false;
             }
 
@@ -644,6 +662,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
      * We count individual latters as they are rendered 1 sprite per letter
      */
 
+    private boolean inventorySelection;
+    private InventoryCard inventoryCard;
+
     private void buildUiTextObjects() {
         // Actor player = (Actor) currentFloorData.getPlayer();
         hp = "HP: lol";
@@ -652,7 +673,25 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         // xp = "XP: " + player.getXpString();
         floor = "Floor " + currentFloorData.getIndex();
         fps = fpsCount + " fps";
+
+        if (inventorySelection && inventoryCard != null) {
+            a = inventoryCard.name;
+            b = inventoryCard.desc;
+            c = inventoryCard.attributes;
+            d = inventoryCard.weight;
+        }
+        else {
+            a = "";
+            b = "";
+            c = "";
+            d = "";
+        }
     }
+
+    String a;
+    String b;
+    String c;
+    String d;
 
     private int countTextObjects() {
         int narrationSize = 0;
@@ -669,7 +708,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             statusSize += object.text.length();
         }
 
-        return narrationSize + statusSize + uiText;
+        int test = a.length() + b.length() + c.length() + d.length();
+
+        return narrationSize + statusSize + uiText + test;
     }
 
     private int[][] cacheTerrainSprites() {
@@ -716,6 +757,14 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 object.spriteIndex = spriteIndexes.get(object.path);
             }
 
+            if (object.overlayShader != Sprite.NONE && object.overlayIndex == -1) {
+                object.overlayIndex = spriteIndexes.get(object.overlayPath);
+            }
+
+            if (object.effectShader != Sprite.NONE && object.effectIndex == -1) {
+                object.effectIndex = spriteIndexes.get(object.effectPath);
+            }
+
             if (object.shader == Sprite.STATIC) {
 
                 spriteRenderer.addSpriteData(
@@ -723,6 +772,24 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                         object.spriteIndex,
                         lighting,
                         DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+
+                if (object.overlayShader != Sprite.NONE) {
+
+                    spriteRenderer.addSpriteData(
+                            x, y,
+                            object.overlayIndex,
+                            lighting,
+                            DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                }
+
+                if (object.effectShader != Sprite.NONE) {
+
+                    waveRenderer.addSpriteData(
+                            x, y,
+                            object.overlayIndex,
+                            lighting,
+                            DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                }
             }
 
             else {
@@ -742,14 +809,49 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                                 lighting,
                                 DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
 
+                        if (object.overlayShader != Sprite.NONE) {
+
+                            waveRenderer.addSpriteData(
+                                    x, y,
+                                    object.overlayIndex,
+                                    lighting,
+                                    DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                        }
+                        if (object.effectShader != Sprite.NONE) {
+
+                            waveRenderer.addSpriteData(
+                                    x, y,
+                                    object.overlayIndex,
+                                    lighting,
+                                    DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                        }
+
+
                     }
                     else {
-                        // Mutable objects may change sprites, so we need to check each render
                         spriteRenderer.addSpriteData(
                                 x, y,
                                 spriteIndexes.get(object.path),
                                 lighting,
                                 DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+
+                        if (object.overlayShader != Sprite.NONE) {
+
+                            spriteRenderer.addSpriteData(
+                                    x, y,
+                                    spriteIndexes.get(object.overlayPath),
+                                    lighting,
+                                    DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                        }
+
+                        if (object.effectShader != Sprite.NONE) {
+
+                            waveRenderer.addSpriteData(
+                                    x, y,
+                                    object.effectIndex,
+                                    lighting,
+                                    DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                        }
                     }
                 }
             }
@@ -821,9 +923,21 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             if (fraction == 1) {
                 sprite.lastX = -1;
                 sprite.lastY = -1;
-                spriteRenderer.addSpriteData(sprite.x, sprite.y, sprite.spriteIndex, lighting, 0f, 0f);
+                spriteRenderer.addSpriteData(sprite.x, sprite.y, sprite.spriteIndex, lighting, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                if (sprite.overlayPath != null)
+                    spriteRenderer.addSpriteData(sprite.x, sprite.y, sprite.overlayIndex, lighting, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+
+                if (sprite.effectPath != null)
+                    spriteRenderer.addSpriteData(sprite.x, sprite.y, sprite.effectIndex, lighting, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+
             } else {
                 spriteRenderer.addSpriteData(sprite.lastX, sprite.lastY, sprite.spriteIndex, lighting, offsetX, offsetY);
+
+                if (sprite.overlayPath != null)
+                    spriteRenderer.addSpriteData(sprite.lastX, sprite.lastY, sprite.overlayIndex, lighting, offsetX, offsetY);
+
+                if (sprite.effectPath != null)
+                    spriteRenderer.addSpriteData(sprite.lastX, sprite.lastY, sprite.effectIndex, lighting, offsetX, offsetY);
 
                 if (sprite.id == currentFloorData.getPlayer()[0].id) {
                     // touchScrollDx -= offsetX * (SPRITE_SIZE / 2);
@@ -866,7 +980,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         if (inventoryDisplayed) {
             uiBuilder.addWindow(uiRenderer);
-            uiBuilder.populateInventory((Container) currentFloorData.getPlayer()[12], uiRenderer);
+            uiBuilder.populateInventory(inventory, equipment, uiRenderer);
         }
 
         uiBuilder.buildUi(uiRenderer);
@@ -932,6 +1046,13 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         textRenderer.addTextRowData(textRowHeight - 1, screenWidth / 1.5f, floor, TextColours.WHITE, 0f);
         textRenderer.addTextRowData(textRowHeight - 2, screenWidth / 1.5f, fps, TextColours.WHITE, 0f);
+
+        if (inventorySelection) {
+            textRenderer.addTextRowData(3, a, TextColours.WHITE, 0f);
+            textRenderer.addTextRowData(2, b, TextColours.WHITE, 0f);
+            textRenderer.addTextRowData(1, c, TextColours.WHITE, 0f);
+            textRenderer.addTextRowData(0, d, TextColours.WHITE, 0f);
+        }
     }
 
     private double getLightingForGrid(int x, int y) {
@@ -1115,6 +1236,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         int gridX = (int) (x / spriteSize);
         int gridY = (int) (correctedY / spriteSize);
 
+
         if (gridX == visibleGridWidth - 1 && gridY == 0) {
             if (!inventoryDisplayed) {
                 inventoryDisplayed = true;
@@ -1122,8 +1244,39 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             }
             else {
                 inventoryDisplayed = false;
+                inventorySelection = false;
                 uiBuilder.animateIcon(UserInterfaceBuilder.INVENTORY_CLOSED);
             }
+
+            return true;
+        }
+
+        if (inventoryDisplayed) {
+            // Check if user touched inventory item.
+            if (gridX > 0 && gridX < visibleGridWidth - 1 && gridY > 1 && gridY < visibleGridHeight - 1) {
+                int inventoryWidth = visibleGridWidth - 2;
+                int inventoryHeight = visibleGridHeight - 2;
+
+                // This messy code gives us a coord with 0,0 origin at top-left (matching order
+                // that items are displayed) so we can figure out which item was selected
+                gridX -= 1;
+                gridY -= inventoryHeight;
+                gridY = -gridY;
+
+                int index = (gridY * inventoryWidth) + gridX;
+                long entity = gameInterface.processInventoryClick(index);
+
+                if (entity > -1) {
+                    inventorySelection = true;
+                    inventoryCard = gameInterface.getEntityDetails(entity);
+                }
+                else {
+                    inventorySelection = false;
+                    inventoryCard = null;
+                }
+            }
+
+            // Always return true while inventory is displayed - game content is not in focus.
             return true;
         }
 

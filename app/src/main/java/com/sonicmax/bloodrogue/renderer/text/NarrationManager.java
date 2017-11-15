@@ -10,7 +10,7 @@ import java.util.Iterator;
 
 public class NarrationManager {
     private final int QUEUE_MAX = 5; // Todo: this should be calculated based on screen size
-    private ArrayList<Narration> queue;
+    private final ArrayList<Narration> queue;
 
     public NarrationManager() {
         queue = new ArrayList<>();
@@ -40,6 +40,12 @@ public class NarrationManager {
         queue.add(new Narration(message, queue.size(), colour));
     }
 
+    public void clearAll() {
+        synchronized (queue) {
+            queue.clear();
+        }
+    }
+
     /**
      *  Instantiate new TextObjects for each item in queue
      */
@@ -60,16 +66,18 @@ public class NarrationManager {
      */
 
     public void checkQueueAndRemove() {
-        long currentTime = System.currentTimeMillis();
-        Iterator<Narration> it = queue.iterator();
-        while (it.hasNext()) {
-            Narration narration = it.next();
-            if (narration.hasExpired(currentTime)) {
-                it.remove();
+        synchronized (queue) {
+            long currentTime = System.currentTimeMillis();
+            Iterator<Narration> it = queue.iterator();
+            while (it.hasNext()) {
+                Narration narration = it.next();
+                if (narration.hasExpired(currentTime)) {
+                    it.remove();
+                }
             }
-        }
 
-        updateRows();
+            updateRows();
+        }
     }
 
     private void updateRows() {

@@ -4,8 +4,8 @@ package com.sonicmax.bloodrogue.tilesets;
  *  Contains image paths for various types of tile associated with the mansion theme
  */
 
-public class Mansion extends All {
-    public final static String KEY = "Mansion";
+public class MansionTileset extends GenericTileset {
+    public final static String KEY = "MansionTileset";
 
     public final static String[] STATUES = {"sprites/statue_1.png", "sprites/statue_2.png"};
     public final static String[] PAINTINGS = {"sprites/painting_1.png", "sprites/painting_2.png", "sprites/painting_3.png", "sprites/painting_4.png"};
@@ -19,9 +19,6 @@ public class Mansion extends All {
     public final static String PEDESTAL = "sprites/mansion_pedestal.png";
     public final static String MARBLE_FLOOR_1 = "sprites/mansion_marble_floor.png";
     public final static String MARBLE_FLOOR_2 = "sprites/mansion_marble_floor_2.png";
-    public final static String MARBLE_FLOOR_3 = "sprites/mansion_marble_floor_3.png";
-    public final static String MARBLE_FLOOR_4 = "sprites/mansion_marble_floor_4.png";
-    public final static String MARBLE_FLOOR_5 = "sprites/mansion_marble_floor_5.png";
     public final static String WALLPAPER_1 = "sprites/mansion_wallpaper_1.png";
     public final static String WALLPAPER_2 = "sprites/mansion_wallpaper_2.png";
     public final static String WALLPAPER_3 = "sprites/mansion_wallpaper_3.png";
@@ -31,7 +28,6 @@ public class Mansion extends All {
     public final static String WOOD_FLOOR_1 = "sprites/mansion_wood_floor.png";
     public final static String WOOD_FLOOR_2 = "sprites/mansion_wood_floor_2.png";
     public final static String WOOD_FLOOR_3 = "sprites/mansion_wood_floor_3.png";
-    public final static String TILED_FLOOR_1 = "sprites/mansion_tiled_floor_1.png";
     public final static String DOORWAY = "sprites/doorway.png";
     public final static String WALL = "sprites/wall.png";
     public final static String OPEN_DOOR = "sprites/door_open.png";

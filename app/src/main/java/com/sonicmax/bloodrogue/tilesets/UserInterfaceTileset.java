@@ -1,4 +1,4 @@
-package com.sonicmax.bloodrogue.renderer.ui;
+package com.sonicmax.bloodrogue.tilesets;
 
 public class UserInterfaceTileset {
     public static final String WINDOW_TOP = "sprites/inventory_top.png";

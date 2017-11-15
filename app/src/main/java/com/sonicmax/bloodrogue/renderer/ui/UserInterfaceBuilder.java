@@ -3,9 +3,11 @@ package com.sonicmax.bloodrogue.renderer.ui;
 import android.util.Log;
 
 import com.sonicmax.bloodrogue.engine.components.Container;
+import com.sonicmax.bloodrogue.engine.components.Dexterity;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
 import com.sonicmax.bloodrogue.generator.factories.AnimationFactory;
 import com.sonicmax.bloodrogue.renderer.sprites.SpriteRenderer;
+import com.sonicmax.bloodrogue.tilesets.UserInterfaceTileset;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,6 +33,7 @@ public class UserInterfaceBuilder {
     private int topRight;
     private int openInventoryIcon;
     private int closedInventoryIcon;
+    private int inventorySelected;
 
     // Inventory state
     private boolean inventoryOpen;
@@ -41,13 +44,22 @@ public class UserInterfaceBuilder {
 
     private HashMap<String, Integer> spriteIndexes;
 
+    private final int INVENTORY_WINDOW_BORDER = 1;
+
     private int gridWidth;
     private int gridHeight;
+    private int inventoryWindowWidth;
+    private int inventoryWindowHeight;
 
     public UserInterfaceBuilder(HashMap<String, Integer> spriteIndexes, int width, int height) {
         this.spriteIndexes = spriteIndexes;
+
         this.gridWidth = width;
         this.gridHeight = height;
+
+        this.inventoryWindowWidth = this.gridWidth - 2;
+        this.inventoryWindowHeight = this.gridHeight - 2;
+
         getSpriteIndexesForUi(spriteIndexes);
         setDefaultIconState();
     }
@@ -79,6 +91,7 @@ public class UserInterfaceBuilder {
         topRight =  spriteIndexes.get(UserInterfaceTileset.WINDOW_TOP_RIGHT);
         openInventoryIcon = spriteIndexes.get(UserInterfaceTileset.INVENTORY_ICON_OPEN);
         closedInventoryIcon = spriteIndexes.get(UserInterfaceTileset.INVENTORY_ICON);
+        inventorySelected = spriteIndexes.get(UserInterfaceTileset.WINDOW_SELECTED);
     }
 
     public void addIcons(SpriteRenderer uiRenderer) {
@@ -157,10 +170,7 @@ public class UserInterfaceBuilder {
      */
 
     public void addWindow(SpriteRenderer uiRenderer) {
-        float lighting = 1f;
-
         int x = 0;
-        int width = gridWidth;
         int y = 1;
 
         // Add bottom row sprites
@@ -168,7 +178,7 @@ public class UserInterfaceBuilder {
         uiRenderer.addSpriteData(x, y, bottomLeft, DEFAULT_LIGHTING, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
         x++;
 
-        while (x < width - 1) {
+        while (x < gridWidth - 1) {
             uiRenderer.addSpriteData(x, y, bottom, DEFAULT_LIGHTING, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
             x++;
         }
@@ -183,7 +193,7 @@ public class UserInterfaceBuilder {
             uiRenderer.addSpriteData(x, y, left, DEFAULT_LIGHTING, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
             x++;
 
-            while (x < width - 1) {
+            while (x < gridWidth - 1) {
                 uiRenderer.addSpriteData(x, y, middle, DEFAULT_LIGHTING, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
                 x++;
             }
@@ -200,7 +210,7 @@ public class UserInterfaceBuilder {
         uiRenderer.addSpriteData(x, y, topLeft, DEFAULT_LIGHTING, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
         x++;
 
-        while (x < width - 1) {
+        while (x < gridWidth - 1) {
             uiRenderer.addSpriteData(x, y, top, DEFAULT_LIGHTING, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
             x++;
         }
@@ -208,23 +218,31 @@ public class UserInterfaceBuilder {
         uiRenderer.addSpriteData(x, y, topRight, DEFAULT_LIGHTING, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
     }
 
-    public void populateInventory(Container container, SpriteRenderer uiRenderer) {
+    public void populateInventory(Container container, Dexterity dex, SpriteRenderer uiRenderer) {
         ArrayList<Sprite> items = container.contents;
         int itemSize = items.size();
         int itemIndex = 0;
 
         if (itemSize == 0) return;
 
-        int x = 1;
+        int x = INVENTORY_WINDOW_BORDER;
         int width = gridWidth;
-        int y = gridHeight - 2;
+        int y = gridHeight - (INVENTORY_WINDOW_BORDER * 2);
 
-        while (itemIndex < itemSize && y > 2) {
-            while (itemIndex < itemSize && x < width - 1) {
-                if (items.get(itemIndex).spriteIndex == -1) {
-                    items.get(itemIndex).spriteIndex = spriteIndexes.get(items.get(itemIndex).path);
+        while (itemIndex < itemSize && y > (INVENTORY_WINDOW_BORDER * 2)) {
+            while (itemIndex < itemSize && x < width - INVENTORY_WINDOW_BORDER) {
+                Sprite item = items.get(itemIndex);
+
+                if (item.spriteIndex == -1) {
+                    item.spriteIndex = spriteIndexes.get(item.path);
                 }
-                uiRenderer.addSpriteData(x, y, items.get(itemIndex).spriteIndex, DEFAULT_LIGHTING, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+
+                if (item.id == dex.weaponEntity) {
+                    uiRenderer.addSpriteData(x, y, inventorySelected, DEFAULT_LIGHTING, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                }
+
+                uiRenderer.addSpriteData(x, y, item.spriteIndex, DEFAULT_LIGHTING, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+
                 x++;
                 itemIndex++;
             }
@@ -233,5 +251,9 @@ public class UserInterfaceBuilder {
             x = 1;
             y--;
         }
+    }
+
+    public void showInfoWindow(SpriteRenderer uiRenderer) {
+
     }
 }

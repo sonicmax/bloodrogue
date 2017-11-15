@@ -295,6 +295,8 @@ public class TerrainRenderer {
 
     public void renderSprites(float[] matrix) {
         GLES20.glUseProgram(mBasicShaderHandle);
+        // Terrain tiles don't need transparency
+        GLES20.glDisable(GLES20.GL_BLEND);
 
         packedBuffer.bind();
         GLES20.glEnableVertexAttribArray(Shader.POSITION);
@@ -350,5 +352,8 @@ public class TerrainRenderer {
         // Unbind VBOs once we've finished using them
         packedBuffer.unbind();
         indicesBuffer.unbind();
+
+        // Re-enable GL_BLEND for other renderers
+        GLES20.glEnable(GLES20.GL_BLEND);
     }
 }

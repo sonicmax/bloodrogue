@@ -24,7 +24,7 @@
 			type: "default"
 		},
 		sprite: {
-			path: "sprites/mansion_stairs_entrance.png",
+			path: "sprites/mansion_stairs_exit.png",
 			shader: "static"
 		},
 		portal: {

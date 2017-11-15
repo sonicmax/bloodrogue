@@ -1,7 +1,7 @@
 package com.sonicmax.bloodrogue.tilesets;
 
-public class Ruins {
-    public final static String KEY = "Ruins";
+public class RuinsTileset {
+    public final static String KEY = "RuinsTileset";
 
     public final static String BORDER = "sprites/transparent.png";
     public final static String LIGHT_SOURCE = "sprites/fire.png";
