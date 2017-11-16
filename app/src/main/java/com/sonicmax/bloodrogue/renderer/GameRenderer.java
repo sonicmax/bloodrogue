@@ -1220,8 +1220,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     private void addQueuedTextUpdates() {
-        this.narrations = queuedNarrations; // Narrations need to be replaced
-        this.statuses.addAll(queuedStatuses); // Statuses should be added
+        this.narrations = queuedNarrations;
+        this.statuses.addAll(queuedStatuses);
+        queuedStatuses.clear();
     }
 
     public boolean checkUiTouch(float x, float y) {
