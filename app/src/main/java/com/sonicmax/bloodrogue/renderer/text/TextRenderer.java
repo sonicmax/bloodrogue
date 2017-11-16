@@ -21,6 +21,13 @@ public class TextRenderer {
 
     private final short[] INDICES = {0, 1, 2, 0, 2, 3};
 
+    private float[] baseColours = new float[] {
+            1f, 1f, 1f, 1f,
+            1f, 1f, 1f, 1f,
+            1f, 1f, 1f, 1f,
+            1f, 1f, 1f, 1f
+    };
+
     // Sizes of each letter. These were scraped from the output provided by Codehead's Bitmap Font Generator
     // (chars 33 to 126)
     private final int[] CHAR_WIDTHS = {5, 10, 21, 15, 21, 13, 8, 12, 12, 19, 15, 8, 10, 8, 18, 17,
@@ -49,6 +56,7 @@ public class TextRenderer {
     private short[] indices;
 
     private int packedCount;
+    private int lastPackedCount;
     private int vertCount;
     private int indicesCount;
 
@@ -212,7 +220,7 @@ public class TextRenderer {
      *  Also takes a Y offset to support scrolling effect
      */
 
-    public void addTextRowData(int row, float offset, String text, float[] color, float alphaModifier) {
+    public void addTextRowData(int row, float offset, String text, float[] colours, float alphaModifier) {
         for (int j = 0; j < text.length(); j++) {
             char c = text.charAt(j);
             int charIndex = convertCharValueToUvIndex((int) c);
@@ -226,22 +234,28 @@ public class TextRenderer {
             // Creating the triangle information
             float[] vec = getRowVector(row, offset);
 
-            float[] colors = new float[] {
-                    color[0], color[1], color[2], color[3] - alphaModifier,
-                    color[0], color[1], color[2], color[3] - alphaModifier,
-                    color[0], color[1], color[2], color[3] - alphaModifier,
-                    color[0], color[1], color[2], color[3] - alphaModifier
-            };
+            baseColours[0] = colours[0];
+            baseColours[1] = colours[1];
+            baseColours[2] = colours[2];
+            baseColours[3] = colours[3] - alphaModifier;
+            baseColours[4] = colours[0];
+            baseColours[5] = colours[1];
+            baseColours[6] = colours[2];
+            baseColours[7] = colours[3] - alphaModifier;
+            baseColours[8] = colours[0];
+            baseColours[9] = colours[1];
+            baseColours[10] = colours[2];
+            baseColours[11] = colours[3] - alphaModifier;
 
             // Add our triangle information to our collection for 1 render call.
-            addCharRenderInformation(vec, colors, cachedUvs[charIndex]);
+            addCharRenderInformation(vec, baseColours, cachedUvs[charIndex]);
 
             // Calculate the new position
             offset += cachedOffsets[charIndex];
         }
     }
 
-    public void addTextRowData(float x, float y, float offsetY, float scale, String text, float[] color, float alphaModifier) {
+    public void addTextRowData(float x, float y, float offsetY, float scale, String text, float[] colours, float alphaModifier) {
         for (int j = 0; j < text.length(); j++) {
             char c = text.charAt(j);
             int charIndex = convertCharValueToUvIndex((int) c);
@@ -255,15 +269,25 @@ public class TextRenderer {
             // Creating the triangle information
             float[] vec = getFreeVector(x, y, offsetY, scale);
 
-            float[] colors = new float[] {
-                    color[0], color[1], color[2], color[3] - alphaModifier,
-                    color[0], color[1], color[2], color[3] - alphaModifier,
-                    color[0], color[1], color[2], color[3] - alphaModifier,
-                    color[0], color[1], color[2], color[3] - alphaModifier
-            };
+            baseColours[0] = colours[0];
+            baseColours[1] = colours[1];
+            baseColours[2] = colours[2];
+            baseColours[3] = colours[3] - alphaModifier;
+            baseColours[4] = colours[0];
+            baseColours[5] = colours[1];
+            baseColours[6] = colours[2];
+            baseColours[7] = colours[3] - alphaModifier;
+            baseColours[8] = colours[0];
+            baseColours[9] = colours[1];
+            baseColours[10] = colours[2];
+            baseColours[11] = colours[3] - alphaModifier;
+            baseColours[12] = colours[0];
+            baseColours[13] = colours[1];
+            baseColours[14] = colours[2];
+            baseColours[15] = colours[3] - alphaModifier;
 
             // Add our triangle information to our collection for 1 render call.
-            addCharRenderInformation(vec, colors, cachedUvs[charIndex]);
+            addCharRenderInformation(vec, baseColours, cachedUvs[charIndex]);
 
             // Calculate the new position
             x += cachedOffsets[charIndex];
@@ -387,14 +411,14 @@ public class TextRenderer {
     public void renderText(float[] matrix) {
         GLES20.glUseProgram(mShaderHandle);
 
-        if (packedFloats.length == 0) {
+        if (packedCount == 0) {
             return;
         }
 
         ByteBuffer bb = ByteBuffer.allocateDirect(packedFloats.length * FLOAT_SIZE);
         bb.order(ByteOrder.nativeOrder());
         FloatBuffer floatBuffer = bb.asFloatBuffer();
-        BufferUtils.copy(packedFloats, floatBuffer, packedFloats.length, 0);
+        BufferUtils.copy(packedFloats, floatBuffer, packedCount, 0);
 
         ByteBuffer dlb = ByteBuffer.allocateDirect(indices.length * SHORT_SIZE);
         dlb.order(ByteOrder.nativeOrder());

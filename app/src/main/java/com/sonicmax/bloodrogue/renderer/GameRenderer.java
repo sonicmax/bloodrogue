@@ -13,7 +13,6 @@ import com.sonicmax.bloodrogue.engine.components.Container;
 import com.sonicmax.bloodrogue.engine.components.Dexterity;
 import com.sonicmax.bloodrogue.engine.components.Position;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
-import com.sonicmax.bloodrogue.engine.systems.ComponentFinder;
 import com.sonicmax.bloodrogue.renderer.sprites.ImageLoader;
 import com.sonicmax.bloodrogue.renderer.sprites.SpriteRenderer;
 import com.sonicmax.bloodrogue.renderer.sprites.TerrainRenderer;
@@ -85,6 +84,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private final float[] viewMatrix;
     private float[] uiMatrix;
     private float[] scrollMatrix;
+    private float[] renderMatrix;
 
     // UI
     private UserInterfaceBuilder uiBuilder;
@@ -157,6 +157,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mvpMatrix = new float[16];
         uiMatrix = new float[16];
         scrollMatrix = new float[16];
+        renderMatrix = new float[16];
 
         narrations = new ArrayList<>();
         statuses = new ArrayList<>();
@@ -230,7 +231,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         scaleScreen();
         setupMatrixes();
-        calculateGridSize();
+        calculateVisibleGrid();
         setGridChunkToRender();
     }
 
@@ -247,7 +248,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         scaleScreen();
         setupMatrixes();
-        calculateGridSize();
+        calculateVisibleGrid();
         setGridChunkToRender();
 
         uiBuilder = new UserInterfaceBuilder(spriteIndexes, visibleGridWidth, visibleGridHeight);
@@ -378,12 +379,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         Matrix.multiplyMM(mvpMatrix, 0, projMatrix, 0, viewMatrix, 0);
     }
 
+    private float gridSize;
+
     private void centreAtPlayerPos() {
-        Component[] player = currentFloorData.getPlayer();
-        Position position = ComponentFinder.getPositionComponent(player);
-
-        float gridSize = SPRITE_SIZE * zoomLevel * scaleFactor;
-
         touchScrollDx = 0f - (gridSize * position.x) + (screenWidth / 2);
         touchScrollDy = 0f - (gridSize * position.y) + (screenHeight / 2);
     }
@@ -408,9 +406,11 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         else {
             scaleFactor = resX;
         }
+
+        gridSize = SPRITE_SIZE * zoomLevel * scaleFactor;
     }
 
-    private void calculateGridSize() {
+    private void calculateVisibleGrid() {
         float width = ScreenSizeGetter.getWidth() * zoomLevel;
         float height = ScreenSizeGetter.getHeight() * zoomLevel;
 
@@ -431,10 +431,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
     }
 
-    private void calculateScrollOffset(Component[] player) {
-        Position pos = ComponentFinder.getPositionComponent(player);
-        scrollOffsetX = pos.x - (visibleGridWidth / 2);
-        scrollOffsetY = pos.y - (visibleGridHeight / 2);
+    private void calculateScrollOffset() {
+        scrollOffsetX = position.x - (visibleGridWidth / 2);
+        scrollOffsetY = position.y - (visibleGridHeight / 2);
     }
 
     public void setTouchScrollCoords(float dx, float dy) {
@@ -456,10 +455,14 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     private Container inventory;
     private Dexterity equipment;
+    private Position position;
 
     private void getPlayerComponents() {
-        inventory = (Container) currentFloorData.getPlayer()[12];
-        equipment = (Dexterity) currentFloorData.getPlayer()[13];
+        Component[] player = currentFloorData.getPlayer();
+        // These array positions should be static and can be double-checked in PlayerFactory class
+        position = (Position) player[0];
+        inventory = (Container) player[12];
+        equipment = (Dexterity) player[13];
     }
 
     private void renderVisibleTiles(float dt) {
@@ -471,7 +474,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 getPlayerComponents();
                 centreAtPlayerPos();
                 fieldOfVision = currentFloorData.getFov();
-                calculateScrollOffset(currentFloorData.getPlayer());
+                calculateScrollOffset();
                 scrollMatrix = getScrollMatrix();
                 cacheTerrainLayer();
 
@@ -481,7 +484,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             if (updatedFloorData != null) {
                 currentFloorData = updatedFloorData;
                 fieldOfVision = currentFloorData.getFov();
-                calculateScrollOffset(currentFloorData.getPlayer());
+                calculateScrollOffset();
             }
 
             setGridChunkToRender();
@@ -532,16 +535,14 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private void initArrays() {
         // Get total sprite count and pass to renderer so we can init arrays used to store rendering data
         terrainRenderer.initLightingArray();
-        spriteRenderer.initArrays(countObjectSprites());
-        waveRenderer.initArrays(countObjectSprites());
+        spriteRenderer.resetInternalCount();
+        waveRenderer.resetInternalCount();
         textRenderer.initArrays(countTextObjects());
-        uiRenderer.initArrays(countUiSprites());
+        uiRenderer.resetInternalCount();
         uiTextRenderer.initArrays("Testing".length());
     }
 
     private float[] getScrollMatrix() {
-        float[] renderMatrix = new float[16];
-
         if (touchScrollDx != 0 || touchScrollDy != 0) {
             Matrix.translateM(renderMatrix, 0, mvpMatrix, 0, touchScrollDx, touchScrollDy, 0f);
         }
@@ -625,28 +626,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     /**
-     *  Counts total number of object sprites displayed in current chunk & returns total as int.
-     *  (this excludes terrain)
-     */
-
-    private int countObjectSprites() {
-        int animationCount = 0;
-        int uiCount = 0;
-
-        ArrayList<Sprite> objects = currentFloorData.getObjects();
-        ArrayList<Animation> animations = currentFloorData.getAnimations();
-
-        objectCount = objects.size();
-        animationCount = animations.size();
-
-        if (currentPathSelection != null) {
-            uiCount += currentPathSelection.size();
-        }
-
-        return objectCount + animationCount + uiCount;
-    }
-
-    /**
      *  Counts number of spriteHandles used to render UI and returns total as int.
      */
 
@@ -700,12 +679,14 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         uiText += hp.length() + xp.length() + + floor.length() + fps.length();
 
-        for (TextObject object : narrations) {
-            narrationSize += object.text.length();
+        int size = narrations.size();
+        for (int i = 0; i < size; i++) {
+            narrationSize += narrations.get(i).text.length();
         }
 
-        for (TextObject object : statuses) {
-            statusSize += object.text.length();
+        size = statuses.size();
+        for (int i = 0; i < size; i++) {
+            statusSize += statuses.get(i).text.length();
         }
 
         int test = a.length() + b.length() + c.length() + d.length();
@@ -743,12 +724,15 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             }
         }
 
-        for (int i = 0; i < objects.size(); i++) {
+        int objectSize = objects.size();
+        for (int i = 0; i < objectSize; i++) {
             Sprite object = objects.get(i);
+
+            if (object.shader == Sprite.NONE) continue;
+
             int x = object.x;
             int y = object.y;
 
-            if (object.shader == Sprite.NONE) continue;
             if (!inVisibleBounds(x, y, true)) continue;
 
             float lighting = (float) getLightingForGrid(x, y);
@@ -770,16 +754,14 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 spriteRenderer.addSpriteData(
                         x, y,
                         object.spriteIndex,
-                        lighting,
-                        DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                        lighting);
 
                 if (object.overlayShader != Sprite.NONE) {
 
                     spriteRenderer.addSpriteData(
                             x, y,
                             object.overlayIndex,
-                            lighting,
-                            DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                            lighting);
                 }
 
                 if (object.effectShader != Sprite.NONE) {
@@ -787,12 +769,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                     waveRenderer.addSpriteData(
                             x, y,
                             object.overlayIndex,
-                            lighting,
-                            DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                            lighting);
                 }
             }
 
             else {
+
                 if (object.lastX != -1 && object.lastY != -1) {
                     // Wait until after we've finished iterating before adding to renderer
                     // to make sure they aren't drawn underneath other sprites.
@@ -801,29 +783,27 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                     // should always be rendered using basic shader
                     movingSprites.add(object);
                 }
+
                 else {
                     if (object.shader == Sprite.WAVE) {
                         waveRenderer.addSpriteData(
                                 x, y,
                                 object.spriteIndex,
-                                lighting,
-                                DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                                lighting);
 
                         if (object.overlayShader != Sprite.NONE) {
 
                             waveRenderer.addSpriteData(
                                     x, y,
                                     object.overlayIndex,
-                                    lighting,
-                                    DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                                    lighting);
                         }
                         if (object.effectShader != Sprite.NONE) {
 
                             waveRenderer.addSpriteData(
                                     x, y,
                                     object.overlayIndex,
-                                    lighting,
-                                    DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                                    lighting);
                         }
 
 
@@ -832,16 +812,14 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                         spriteRenderer.addSpriteData(
                                 x, y,
                                 spriteIndexes.get(object.path),
-                                lighting,
-                                DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                                lighting);
 
                         if (object.overlayShader != Sprite.NONE) {
 
                             spriteRenderer.addSpriteData(
                                     x, y,
                                     spriteIndexes.get(object.overlayPath),
-                                    lighting,
-                                    DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                                    lighting);
                         }
 
                         if (object.effectShader != Sprite.NONE) {
@@ -849,8 +827,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                             waveRenderer.addSpriteData(
                                     x, y,
                                     object.effectIndex,
-                                    lighting,
-                                    DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                                    lighting);
                         }
                     }
                 }
@@ -860,7 +837,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         // Render moving objects after terrain/static objects, but before animation layer
         handleMovingObjects();
 
-        for (int i = 0; i < animations.size(); i++) {
+        int animationSize = animations.size();
+        for (int i = 0; i < animationSize; i++) {
             Animation animation = animations.get(i);
             int x = animation.x;
             int y = animation.y;
@@ -873,16 +851,14 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 waveRenderer.addSpriteData(
                         x, y,
                         frameIndex,
-                        lighting,
-                        DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                        lighting);
             }
 
             else {
                 spriteRenderer.addSpriteData(
                         x, y,
                         frameIndex,
-                        lighting,
-                        DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                        lighting);
             }
         }
 
@@ -914,7 +890,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     private void handleMovingObjects() {
-        for (Sprite sprite : movingSprites) {
+        int size = movingSprites.size();
+        for (int i = 0; i < size; i++) {
+            Sprite sprite = movingSprites.get(i);
             if (sprite.lastX < 0 || sprite.lastY < 0) continue;
             float fraction = advanceMovement(sprite);
             float offsetX = (sprite.x - sprite.lastX) * fraction;
@@ -923,12 +901,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             if (fraction == 1) {
                 sprite.lastX = -1;
                 sprite.lastY = -1;
-                spriteRenderer.addSpriteData(sprite.x, sprite.y, sprite.spriteIndex, lighting, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                spriteRenderer.addSpriteData(sprite.x, sprite.y, sprite.spriteIndex, lighting);
                 if (sprite.overlayPath != null)
-                    spriteRenderer.addSpriteData(sprite.x, sprite.y, sprite.overlayIndex, lighting, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                    spriteRenderer.addSpriteData(sprite.x, sprite.y, sprite.overlayIndex, lighting);
 
                 if (sprite.effectPath != null)
-                    spriteRenderer.addSpriteData(sprite.x, sprite.y, sprite.effectIndex, lighting, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
+                    spriteRenderer.addSpriteData(sprite.x, sprite.y, sprite.effectIndex, lighting);
 
             } else {
                 spriteRenderer.addSpriteData(sprite.lastX, sprite.lastY, sprite.spriteIndex, lighting, offsetX, offsetY);
@@ -1013,7 +991,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private void handleFinishedAnimations(ArrayList<Animation> animations) {
         Iterator<Animation> it = animations.iterator();
         while (it.hasNext()) {
-            Animation animation = (Animation) it.next();
+            Animation animation = it.next();
             if (animation.finished) {
                 it.remove();
             }

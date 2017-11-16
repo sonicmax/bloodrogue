@@ -1,7 +1,6 @@
 package com.sonicmax.bloodrogue.renderer.sprites;
 
 import android.opengl.GLES20;
-import android.util.Log;
 
 import com.sonicmax.bloodrogue.renderer.Shader;
 import com.sonicmax.bloodrogue.utils.BufferUtils;
@@ -34,10 +33,18 @@ public class WaveEffectSpriteRenderer {
             0, 2, 3  // top-left, bottom-right, top-right
     };
 
+    private float[] baseColours = new float[] {
+            1f, 1f, 1f, 1f,
+            1f, 1f, 1f, 1f,
+            1f, 1f, 1f, 1f,
+            1f, 1f, 1f, 1f
+    };
+
     private float[][][] cachedVecs;
     private float[][] cachedUvs;
 
     private int packedCount;
+    private int lastPackedCount;
     private int stride;
 
     private final int POSITION_SIZE = 12;
@@ -52,7 +59,7 @@ public class WaveEffectSpriteRenderer {
     private final int FLOAT_SIZE = 4;
     private final int SHORT_SIZE = 2;
 
-    private float[] packedArray;
+    private float[] packedFloats;
     private short[] indices;
 
     private int vertCount;
@@ -81,6 +88,12 @@ public class WaveEffectSpriteRenderer {
 
         // How many bytes we need to skip in VBO to find new entry for same data shader.
         stride = (FLOATS_PER_POSITION + FLOATS_PER_COLOUR + FLOATS_PER_UV) * FLOAT_SIZE;
+
+        int length = 128;
+        int packedSize = (length * POSITION_SIZE) + (length * COLOUR_SIZE) + (length * UV_SIZE);
+
+        packedFloats = new float[packedSize];
+        indices = new short[length * INDICES_SIZE];
     }
 
     public void setUniformScale(float uniformScale) {
@@ -104,22 +117,10 @@ public class WaveEffectSpriteRenderer {
         mSpriteSheetHandle = val;
     }
 
-    /**
-     * Initialises arrays used to store rendering data and zeroes array item counts.
-     * We have to call this each time we update the data stored in VBO
-     *
-     * @param length Number of sprites to render
-     */
-
-    public void initArrays(int length) {
+    public void resetInternalCount() {
         vertCount = 0;
         indicesCount = 0;
         packedCount = 0;
-
-        int packedSize = (length * POSITION_SIZE) + (length * COLOUR_SIZE) + (length * UV_SIZE);
-
-        packedArray = new float[packedSize];
-        indices = new short[length * INDICES_SIZE];
     }
 
     public void precalculatePositions(int width, int height) {
@@ -206,26 +207,46 @@ public class WaveEffectSpriteRenderer {
         }
     }
 
+    public void addSpriteData(int x, int y, int spriteIndex, float lighting) {
+
+        baseColours[0] = lighting; // r
+        baseColours[1] = lighting; // g
+        baseColours[2] = lighting; // b
+        // (skip a)
+        baseColours[4] = lighting;
+        baseColours[5] = lighting;
+        baseColours[6] = lighting;
+
+        baseColours[8] = lighting;
+        baseColours[9] = lighting;
+        baseColours[10] = lighting;
+
+        baseColours[12] = lighting;
+        baseColours[13] = lighting;
+        baseColours[14] = lighting;
+
+        addRenderInformation(cachedVecs[x][y], baseColours, cachedUvs[spriteIndex]);
+    }
+
     public void addSpriteData(int x, int y, int spriteIndex, float lighting, float offsetX, float offsetY) {
 
-        float[] colors = new float[] {
-                lighting, lighting, lighting, 1f,
-                lighting, lighting, lighting, 1f,
-                lighting, lighting, lighting, 1f,
-                lighting, lighting, lighting, 1f
-        };
+        baseColours[0] = lighting; // r
+        baseColours[1] = lighting; // g
+        baseColours[2] = lighting; // b
+        // (skip a)
+        baseColours[4] = lighting;
+        baseColours[5] = lighting;
+        baseColours[6] = lighting;
 
-        if (spriteIndex == -1) {
-            Log.e(LOG_TAG, "Invalid sprite at " + x + ", " + y);
-            return;
-        }
+        baseColours[8] = lighting;
+        baseColours[9] = lighting;
+        baseColours[10] = lighting;
 
-        if (offsetX == 0f && offsetY == 0f) {
-            addRenderInformation(cachedVecs[x][y], colors, cachedUvs[spriteIndex]);
-        }
-        else {
-            addRenderInformation(calculateOffset(cachedVecs[x][y], offsetX, offsetY), colors, cachedUvs[spriteIndex]);
-        }
+        baseColours[12] = lighting;
+        baseColours[13] = lighting;
+        baseColours[14] = lighting;
+
+        addRenderInformation(calculateOffset(cachedVecs[x][y], offsetX, offsetY), baseColours, cachedUvs[spriteIndex]);
     }
 
     /**
@@ -249,18 +270,18 @@ public class WaveEffectSpriteRenderer {
          */
 
         for (int i = 0; i < 3; i++) {
-            packedArray[packedCount] = vec[i];
+            packedFloats[packedCount] = vec[i];
             packedCount++;
             vertCount++; // Note: we keep a separate count for vertices so we can translate indices
         }
 
         for (int i = 0; i < 4; i++) {
-            packedArray[packedCount] = colours[i];
+            packedFloats[packedCount] = colours[i];
             packedCount++;
         }
 
         for (int i = 0; i < 2; i++) {
-            packedArray[packedCount] = uv[i];
+            packedFloats[packedCount] = uv[i];
             packedCount++;
         }
 
@@ -270,18 +291,18 @@ public class WaveEffectSpriteRenderer {
          */
 
         for (int i = 3; i < 6; i++) {
-            packedArray[packedCount] = vec[i];
+            packedFloats[packedCount] = vec[i];
             packedCount++;
             vertCount++;
         }
 
         for (int i = 4; i < 8; i++) {
-            packedArray[packedCount] = colours[i];
+            packedFloats[packedCount] = colours[i];
             packedCount++;
         }
 
         for (int i = 2; i < 4; i++) {
-            packedArray[packedCount] = uv[i];
+            packedFloats[packedCount] = uv[i];
             packedCount++;
         }
 
@@ -291,18 +312,18 @@ public class WaveEffectSpriteRenderer {
          */
 
         for (int i = 6; i < 9; i++) {
-            packedArray[packedCount] = vec[i];
+            packedFloats[packedCount] = vec[i];
             packedCount++;
             vertCount++;
         }
 
         for (int i = 8; i < 12; i++) {
-            packedArray[packedCount] = colours[i];
+            packedFloats[packedCount] = colours[i];
             packedCount++;
         }
 
         for (int i = 4; i < 6; i++) {
-            packedArray[packedCount] = uv[i];
+            packedFloats[packedCount] = uv[i];
             packedCount++;
         }
 
@@ -312,18 +333,18 @@ public class WaveEffectSpriteRenderer {
          */
 
         for (int i = 9; i < 12; i++) {
-            packedArray[packedCount] = vec[i];
+            packedFloats[packedCount] = vec[i];
             packedCount++;
             vertCount++;
         }
 
         for (int i = 12; i < 16; i++) {
-            packedArray[packedCount] = colours[i];
+            packedFloats[packedCount] = colours[i];
             packedCount++;
         }
 
         for (int i = 6; i < 8; i++) {
-            packedArray[packedCount] = uv[i];
+            packedFloats[packedCount] = uv[i];
             packedCount++;
         }
 
@@ -344,14 +365,14 @@ public class WaveEffectSpriteRenderer {
     public void renderWaveEffect(float[] matrix, float dt) {
         GLES20.glUseProgram(mWaveShaderHandle);
 
-        if (packedArray.length == 0) {
+        if (packedCount == 0) {
             return;
         }
 
-        ByteBuffer bb = ByteBuffer.allocateDirect(packedArray.length * FLOAT_SIZE);
+        ByteBuffer bb = ByteBuffer.allocateDirect(packedFloats.length * FLOAT_SIZE);
         bb.order(ByteOrder.nativeOrder());
         floatBuffer = bb.asFloatBuffer();
-        BufferUtils.copy(packedArray, floatBuffer, packedArray.length, 0);
+        BufferUtils.copy(packedFloats, floatBuffer, packedCount, 0);
 
         ByteBuffer dlb = ByteBuffer.allocateDirect(indices.length * SHORT_SIZE);
         dlb.order(ByteOrder.nativeOrder());

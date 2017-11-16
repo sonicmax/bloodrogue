@@ -47,6 +47,13 @@ public class TerrainRenderer {
             0, 2, 3  // top-left, bottom-right, top-right
     };
 
+    private float[] baseColours = new float[] {
+            1f, 1f, 1f, 1f,
+            1f, 1f, 1f, 1f,
+            1f, 1f, 1f, 1f,
+            1f, 1f, 1f, 1f
+    };
+
     private float[][][] cachedVecs;
     private float[][] cachedUvs;
 
@@ -247,15 +254,24 @@ public class TerrainRenderer {
 
         lightIndex = (x + (y * gridHeight)) * COLOURS_SIZE;
 
-        float[] colors = new float[] {
-                lighting, lighting, lighting, 1f,
-                lighting, lighting, lighting, 1f,
-                lighting, lighting, lighting, 1f,
-                lighting, lighting, lighting, 1f
-        };
+        baseColours[0] = lighting; // r
+        baseColours[1] = lighting; // g
+        baseColours[2] = lighting; // b
+                                   // (skip a)
+        baseColours[4] = lighting;
+        baseColours[5] = lighting;
+        baseColours[6] = lighting;
 
-        for (int i = 0; i < colors.length; i++) {
-            lightingUpdate[lightIndex] = colors[i];
+        baseColours[8] = lighting;
+        baseColours[9] = lighting;
+        baseColours[10] = lighting;
+
+        baseColours[12] = lighting;
+        baseColours[13] = lighting;
+        baseColours[14] = lighting;
+
+        for (int i = 0; i < baseColours.length; i++) {
+            lightingUpdate[lightIndex] = baseColours[i];
             lightIndex++;
         }
     }
