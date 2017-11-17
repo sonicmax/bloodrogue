@@ -1,6 +1,7 @@
 package com.sonicmax.bloodrogue.renderer.text;
 
 import android.opengl.GLES20;
+import android.util.Log;
 
 import com.sonicmax.bloodrogue.renderer.Shader;
 import com.sonicmax.bloodrogue.utils.BufferUtils;
@@ -65,7 +66,7 @@ public class TextRenderer {
     private int mTextureHandle;
     private int mShaderHandle;
 
-    private float mUniformScale;
+    private float uniformScale;
 
     public TextRenderer() {
         stride = (FLOATS_PER_POSITION + FLOATS_PER_COLOUR + FLOATS_PER_UV) * FLOAT_SIZE;
@@ -80,7 +81,7 @@ public class TextRenderer {
     }
 
     public void setUniformscale(float uniformscale) {
-        this.mUniformScale = uniformscale;
+        this.uniformScale = uniformscale;
     }
 
     public void setTextSize(float size) {
@@ -105,13 +106,13 @@ public class TextRenderer {
      */
 
     public int precalculateRows(int height) {
-        int rows = (int) (height / (TEXT_WIDTH * mUniformScale));
+        int rows = (int) (height / (TEXT_WIDTH * uniformScale));
 
         cachedRows = new float[rows][12];
 
         float x;
         float y;
-        float yUnit = TEXT_WIDTH * mUniformScale;
+        float yUnit = TEXT_WIDTH * uniformScale;
 
         // Iterate over row of terrainIndexes and setup vertices/etc for each sprite
         for (int row = 0; row < rows; row++) {
@@ -119,16 +120,16 @@ public class TextRenderer {
             y = 0f + (row * yUnit);
 
             cachedRows[row][0] = x;
-            cachedRows[row][1] = y + (TEXT_WIDTH * mUniformScale);
+            cachedRows[row][1] = y + (TEXT_WIDTH * uniformScale);
             cachedRows[row][2] = 1f;
             cachedRows[row][3] = x;
             cachedRows[row][4] = y;
             cachedRows[row][5] = 1f;
-            cachedRows[row][6] = x + (TEXT_WIDTH * mUniformScale);
+            cachedRows[row][6] = x + (TEXT_WIDTH * uniformScale);
             cachedRows[row][7] = y;
             cachedRows[row][8] = 1f;
-            cachedRows[row][9] = x + (TEXT_WIDTH * mUniformScale);
-            cachedRows[row][10] = y + (TEXT_WIDTH * mUniformScale);
+            cachedRows[row][9] = x + (TEXT_WIDTH * uniformScale);
+            cachedRows[row][10] = y + (TEXT_WIDTH * uniformScale);
             cachedRows[row][11] = 1f;
         }
 
@@ -139,7 +140,7 @@ public class TextRenderer {
         cachedOffsets = new float[NUMBER_OF_CHARS];
 
         // Offset array only applies to original sprite width, so we have to scale it
-        float scaleFactor = mUniformScale * (TEXT_WIDTH / ORIGINAL_WIDTH);
+        float scaleFactor = uniformScale * (TEXT_WIDTH / ORIGINAL_WIDTH);
 
         for (int i = 0; i < NUMBER_OF_CHARS; i++) {
             cachedOffsets[i] = (CHAR_WIDTHS[i]) * scaleFactor;
@@ -196,7 +197,7 @@ public class TextRenderer {
 
             if (charIndex == -1) {
                 // Space or unknown character
-                offset += ((TEXT_SPACESIZE) * mUniformScale);
+                offset += ((TEXT_SPACESIZE) * uniformScale);
                 continue;
             }
 
@@ -216,23 +217,29 @@ public class TextRenderer {
     }
 
     /**
-     *  Tells renderer to display a given string at coordinates provided where (0, 0) = bottom left
-     *  Also takes a Y offset to support scrolling effect
+     *  Renders text string at provided row, starting at offset provided.
+     *  First row (0) is at bottom of screen
+     *
+     * @param row
+     * @param offsetX
+     * @param text
+     * @param colours
+     * @param alphaModifier
      */
 
-    public void addTextRowData(int row, float offset, String text, float[] colours, float alphaModifier) {
+    public void addTextRowData(int row, float offsetX, String text, float[] colours, float alphaModifier) {
         for (int j = 0; j < text.length(); j++) {
             char c = text.charAt(j);
             int charIndex = convertCharValueToUvIndex((int) c);
 
             if (charIndex == -1) {
                 // Space or unknown character
-                offset += ((TEXT_SPACESIZE) * mUniformScale);
+                offsetX += ((TEXT_SPACESIZE) * uniformScale);
                 continue;
             }
 
             // Creating the triangle information
-            float[] vec = getRowVector(row, offset);
+            float[] vec = getRowVector(row, offsetX);
 
             baseColours[0] = colours[0];
             baseColours[1] = colours[1];
@@ -251,23 +258,78 @@ public class TextRenderer {
             addCharRenderInformation(vec, baseColours, cachedUvs[charIndex]);
 
             // Calculate the new position
-            offset += cachedOffsets[charIndex];
+            offsetX += cachedOffsets[charIndex];
         }
     }
 
-    public void addTextRowData(float x, float y, float offsetY, float scale, String text, float[] colours, float alphaModifier) {
+    /**
+     * Translates row using offsetX/offsetY before rendering.
+     *
+     * @param row
+     * @param offsetX
+     * @param offsetY
+     * @param text
+     * @param colours
+     * @param alphaModifier
+     */
+
+    public void addTextRowData(int row, float offsetX, float offsetY, String text, float[] colours, float alphaModifier) {
         for (int j = 0; j < text.length(); j++) {
             char c = text.charAt(j);
             int charIndex = convertCharValueToUvIndex((int) c);
 
             if (charIndex == -1) {
                 // Space or unknown character
-                x += ((TEXT_SPACESIZE) * mUniformScale);
+                offsetX += ((TEXT_SPACESIZE) * uniformScale);
                 continue;
             }
 
             // Creating the triangle information
-            float[] vec = getFreeVector(x, y, offsetY, scale);
+            float[] vec = getRowVector(row, offsetX, offsetY);
+
+            baseColours[0] = colours[0];
+            baseColours[1] = colours[1];
+            baseColours[2] = colours[2];
+            baseColours[3] = colours[3] - alphaModifier;
+            baseColours[4] = colours[0];
+            baseColours[5] = colours[1];
+            baseColours[6] = colours[2];
+            baseColours[7] = colours[3] - alphaModifier;
+            baseColours[8] = colours[0];
+            baseColours[9] = colours[1];
+            baseColours[10] = colours[2];
+            baseColours[11] = colours[3] - alphaModifier;
+
+            // Add our triangle information to our collection for 1 render call.
+            addCharRenderInformation(vec, baseColours, cachedUvs[charIndex]);
+
+            // Calculate the new position
+            offsetX += cachedOffsets[charIndex];
+        }
+    }
+
+    /**
+     * Renders text string to screen at given x and y position.
+     *
+     * @param x
+     * @param y
+     * @param offsetY
+     * @param scale
+     * @param text
+     * @param colours
+     * @param alphaModifier
+     */
+
+    public void addTextData(float x, float y, float offsetY, float scale, String text, float[] colours, float alphaModifier) {
+        for (int j = 0; j < text.length(); j++) {
+            char c = text.charAt(j);
+            int charIndex = convertCharValueToUvIndex((int) c);
+
+            if (charIndex == -1) {
+                // Space or unknown character
+                x += ((TEXT_SPACESIZE) * uniformScale);
+                continue;
+            }
 
             baseColours[0] = colours[0];
             baseColours[1] = colours[1];
@@ -287,11 +349,30 @@ public class TextRenderer {
             baseColours[15] = colours[3] - alphaModifier;
 
             // Add our triangle information to our collection for 1 render call.
-            addCharRenderInformation(vec, baseColours, cachedUvs[charIndex]);
+            addCharRenderInformation(getFreeVector(x, y, offsetY, scale), baseColours, cachedUvs[charIndex]);
 
             // Calculate the new position
             x += cachedOffsets[charIndex];
         }
+    }
+
+    private float[] getRowVector(int row, float x, float y) {
+        float[] vec = cachedRows[row].clone();
+
+        // Update x values in cached row with letter positions
+        vec[0] = x;
+        vec[1] += y;
+
+        vec[3] = x;
+        vec[4] += y;
+
+        vec[6] = x + (TEXT_WIDTH * uniformScale);
+        vec[7] += y;
+
+        vec[9] = x + (TEXT_WIDTH * uniformScale);
+        vec[10] += y;
+
+        return vec;
     }
 
     private float[] getRowVector(int row, float x) {
@@ -300,8 +381,8 @@ public class TextRenderer {
         // Update x values in cached row with letter positions
         vec[0] = x;
         vec[3] = x;
-        vec[6] = x + (TEXT_WIDTH * mUniformScale);
-        vec[9] = x + (TEXT_WIDTH * mUniformScale);
+        vec[6] = x + (TEXT_WIDTH * uniformScale);
+        vec[9] = x + (TEXT_WIDTH * uniformScale);
 
         return vec;
     }
@@ -309,22 +390,22 @@ public class TextRenderer {
     private float[] getFreeVector(float x, float y, float offsetY, float textScale) {
         float[] vec = new float[12];
 
-        float size = (TEXT_WIDTH * mUniformScale * textScale);
+        float size = (TEXT_WIDTH * uniformScale * textScale);
 
         y += (offsetY * size);
 
         vec[0] = x;
         vec[1] = y + size;
-        vec[2] = 0.99f;
+        vec[2] = 1f;
         vec[3] = x;
         vec[4] = y;
-        vec[5] = 0.99f;
+        vec[5] = 1f;
         vec[6] = x + size;
         vec[7] = y;
-        vec[8] = 0.99f;
+        vec[8] = 1f;
         vec[9] = x + size;
         vec[10] = y + size;
-        vec[11] = 0.99f;
+        vec[11] = 1f;
 
         return vec;
     }

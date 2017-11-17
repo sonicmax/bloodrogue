@@ -11,8 +11,10 @@ import com.sonicmax.bloodrogue.engine.Component;
 import com.sonicmax.bloodrogue.engine.Frame;
 import com.sonicmax.bloodrogue.engine.components.Container;
 import com.sonicmax.bloodrogue.engine.components.Dexterity;
+import com.sonicmax.bloodrogue.engine.components.Experience;
 import com.sonicmax.bloodrogue.engine.components.Position;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
+import com.sonicmax.bloodrogue.engine.components.Vitality;
 import com.sonicmax.bloodrogue.renderer.sprites.ImageLoader;
 import com.sonicmax.bloodrogue.renderer.sprites.SpriteRenderer;
 import com.sonicmax.bloodrogue.renderer.sprites.TerrainRenderer;
@@ -45,6 +47,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     private Context context;
     private GameInterface gameInterface;
+    private UserInterfaceBuilder uiBuilder;
 
     // Game state
     private Frame currentFloorData;
@@ -84,20 +87,15 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private final float[] viewMatrix;
     private float[] uiMatrix;
     private float[] scrollMatrix;
-    private float[] renderMatrix;
 
     // UI
-    private UserInterfaceBuilder uiBuilder;
     private boolean inventoryDisplayed = false;
     private String hp;
     private String xp;
     private String fps;
     private String floor;
 
-    /**
-     *  Screen size and scaling
-     */
-
+    // Screen size and scaling
     private int screenWidth;
     private int screenHeight;
     private int mapGridWidth;
@@ -131,6 +129,24 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private int spriteShaderProgram;
     private int waveShaderProgram;
 
+    // Player components that we need for UI
+    private Container inventory;
+    private Dexterity equipment;
+    private Position position;
+    private Vitality vitality;
+    private Experience experience;
+
+    // Inventory data
+    private float inventoryLeft;
+    private float inventoryRight;
+    private boolean inventorySelection;
+    private InventoryCard inventoryCard;
+    private String itemDetailName;
+    private String itemDetailDescription;
+    private String itemDetailAttribs;
+    private String itemDetailWeight;
+    private ArrayList<String> itemDescriptionLines;
+
     // State handlers
     private boolean hasResources;
     private boolean isRendering;
@@ -157,10 +173,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mvpMatrix = new float[16];
         uiMatrix = new float[16];
         scrollMatrix = new float[16];
-        renderMatrix = new float[16];
 
         narrations = new ArrayList<>();
         statuses = new ArrayList<>();
+        itemDescriptionLines = new ArrayList<>();
         queuedNarrations = new ArrayList<>();
         queuedStatuses = new ArrayList<>();
         movingSprites = new ArrayList<>();
@@ -447,20 +463,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     ---------------------------------------------
     */
 
-    /**
-     * Main rendering loop. Iterates over any content we have to display and renders to GL surface.
-     *
-     * @param dt deltatime
-     */
-
-    private Container inventory;
-    private Dexterity equipment;
-    private Position position;
-
     private void getPlayerComponents() {
         Component[] player = currentFloorData.getPlayer();
         // These array positions should be static and can be double-checked in PlayerFactory class
         position = (Position) player[0];
+        vitality = (Vitality) player[7];
+        experience = (Experience) player[5];
         inventory = (Container) player[12];
         equipment = (Dexterity) player[13];
     }
@@ -475,8 +483,14 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 centreAtPlayerPos();
                 fieldOfVision = currentFloorData.getFov();
                 calculateScrollOffset();
-                scrollMatrix = getScrollMatrix();
+                translateMatrixForScroll();
                 cacheTerrainLayer();
+
+                float left[] = getRenderCoordsForObject(new Vector(1, 0), false);
+                float right[] = getRenderCoordsForObject(new Vector(visibleGridWidth - 1, 0), false);
+
+                inventoryLeft = left[0];
+                inventoryRight = right[0];
 
                 firstRender = false;
             }
@@ -493,17 +507,18 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
             addSprites();
             addUiLayer();
-            addTextLayer();
+            addUiTextLayer();
 
             // Get scroll matrix inside render loop to make sure each renderer uses the same values.
             // Otherwise you may see drift between layers
-            scrollMatrix = getScrollMatrix();
+            translateMatrixForScroll();
 
             terrainRenderer.renderSprites(scrollMatrix);
             spriteRenderer.renderSprites(scrollMatrix);
             waveRenderer.renderWaveEffect(scrollMatrix, dt);
             textRenderer.renderText(mvpMatrix);
             uiRenderer.renderSprites(uiMatrix);
+            uiTextRenderer.renderText(uiMatrix);
 
             if (transitionIn && !transitionOut) {
                 fadeTransitionIn(dt);
@@ -539,15 +554,13 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         waveRenderer.resetInternalCount();
         textRenderer.initArrays(countTextObjects());
         uiRenderer.resetInternalCount();
-        uiTextRenderer.initArrays("Testing".length());
+        uiTextRenderer.initArrays(countTextObjects());
     }
 
-    private float[] getScrollMatrix() {
+    private void translateMatrixForScroll() {
         if (touchScrollDx != 0 || touchScrollDy != 0) {
-            Matrix.translateM(renderMatrix, 0, mvpMatrix, 0, touchScrollDx, touchScrollDy, 0f);
+            Matrix.translateM(scrollMatrix, 0, mvpMatrix, 0, touchScrollDx, touchScrollDy, 0f);
         }
-
-        return renderMatrix;
     }
 
     public void fadeOutAndDisplaySplash() {
@@ -641,36 +654,65 @@ public class GameRenderer implements GLSurfaceView.Renderer {
      * We count individual latters as they are rendered 1 sprite per letter
      */
 
-    private boolean inventorySelection;
-    private InventoryCard inventoryCard;
-
     private void buildUiTextObjects() {
         // Actor player = (Actor) currentFloorData.getPlayer();
-        hp = "HP: lol";
-        xp = "XP: lol";
-        // hp = "HP: " + player.getHpString();
-        // xp = "XP: " + player.getXpString();
+        hp = "HP: " + vitality.hp;
+        xp = "XP: " + experience.xp;
         floor = "Floor " + currentFloorData.getIndex();
         fps = fpsCount + " fps";
 
         if (inventorySelection && inventoryCard != null) {
-            a = inventoryCard.name;
-            b = inventoryCard.desc;
-            c = inventoryCard.attributes;
-            d = inventoryCard.weight;
+            itemDetailName = inventoryCard.name;
+            itemDetailDescription = inventoryCard.desc;
+            itemDetailAttribs = inventoryCard.attributes;
+            itemDetailWeight = inventoryCard.weight;
+
+            // Split description string into lines so we can display full string
+            // in inventory detail view
+
+            if (itemDetailDescription != null && !itemDetailDescription.equals("") 
+                    && itemDescriptionLines.size() == 0) {
+
+                splitDescription();
+            }
         }
+
         else {
-            a = "";
-            b = "";
-            c = "";
-            d = "";
+            itemDetailName = "";
+            itemDetailDescription = "";
+            itemDetailAttribs = "";
+            itemDetailWeight = "";
+            itemDescriptionLines.clear();
         }
     }
 
-    String a;
-    String b;
-    String c;
-    String d;
+    /**
+     *  Iterates over words in itemDetailDescription string and splits into multiple lines
+     *  for displaying in inventory detail view
+     */
+
+    private void splitDescription() {
+        String[] split = itemDetailDescription.split(" ");
+
+        StringBuilder stringBuilder = new StringBuilder();
+
+        float inventoryWidth = (inventoryRight - inventoryLeft) / scaleFactor;
+
+        for (int i = 0; i < split.length; i++) {
+            String word = split[i] + " ";
+
+            if (textRenderer.getExpectedTextWidth(stringBuilder.toString() + word) <= inventoryWidth + SPRITE_SIZE) {
+                stringBuilder.append(word);
+            } else {
+                // Add new line to array, empty StringBuilder and start next line with current word
+                itemDescriptionLines.add(stringBuilder.toString());
+                stringBuilder.setLength(0);
+                stringBuilder.append(word);
+            }
+        }
+
+        itemDescriptionLines.add(stringBuilder.toString());
+    }
 
     private int countTextObjects() {
         int narrationSize = 0;
@@ -689,9 +731,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             statusSize += statuses.get(i).text.length();
         }
 
-        int test = a.length() + b.length() + c.length() + d.length();
+        int test = itemDetailName.length() + itemDetailDescription.length()
+                + itemDetailAttribs.length() + itemDetailWeight.length();
 
-        return narrationSize + statusSize + uiText + test;
+        return narrationSize + statusSize + uiText + test * 2;
     }
 
     private int[][] cacheTerrainSprites() {
@@ -944,26 +987,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         return (fraction * fraction);
     }
 
-    private void addUiLayer() {
-        if (currentPathSelection != null) {
-            int index = spriteIndexes.get("sprites/cursor_default.png");
-            int pathSize = currentPathSelection.size();
-            for (int i = 0; i < pathSize; i++) {
-                Vector segment = currentPathSelection.get(i);
-                int x = segment.x();
-                int y = segment.y();
-                spriteRenderer.addSpriteData(x, y, index, 1f, 0f, 0f);
-            }
-        }
-
-        if (inventoryDisplayed) {
-            uiBuilder.addWindow(uiRenderer);
-            uiBuilder.populateInventory(inventory, equipment, uiRenderer);
-        }
-
-        uiBuilder.buildUi(uiRenderer);
-    }
-
     private int processAnimation(Animation animation) {
         final int TRANSPARENT = 164;
 
@@ -998,7 +1021,39 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
     }
 
-    private void addTextLayer() {
+    private void addUiLayer() {
+        if (currentPathSelection != null) {
+            int index = spriteIndexes.get("sprites/cursor_default.png");
+            int pathSize = currentPathSelection.size();
+            for (int i = 0; i < pathSize; i++) {
+                Vector segment = currentPathSelection.get(i);
+                int x = segment.x();
+                int y = segment.y();
+                spriteRenderer.addSpriteData(x, y, index, 1f, 0f, 0f);
+            }
+        }
+
+        if (inventoryDisplayed) {
+            uiBuilder.addWindow(uiRenderer);
+
+            if (inventorySelection && inventoryCard != null) {
+                if (!uiBuilder.itemDetailTransitionComplete) {
+                    uiBuilder.animateItemDetailTransition(inventoryCard.sprite, uiRenderer);
+                }
+                else {
+                    uiBuilder.showItemDetailView(inventoryCard, uiRenderer);
+                }
+
+            }
+            else {
+                uiBuilder.populateInventory(inventory, equipment, uiRenderer);
+            }
+        }
+
+        uiBuilder.addUiIcons(uiRenderer);
+    }
+
+    private void addUiTextLayer() {
         int narrationSize = narrations.size();
         for (int i = 0; i < narrationSize; i++) {
             TextObject narration = narrations.get(i);
@@ -1015,7 +1070,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             } else {
                 status.offsetY = fraction;
                 status.alphaModifier = fraction;
-                textRenderer.addTextRowData(status.x, status.y, status.offsetY, status.scale, status.text, status.color, status.alphaModifier);
+                textRenderer.addTextData(status.x, status.y, status.offsetY, status.scale, status.text, status.color, status.alphaModifier);
             }
         }
 
@@ -1026,10 +1081,29 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         textRenderer.addTextRowData(textRowHeight - 2, screenWidth / 1.5f, fps, TextColours.WHITE, 0f);
 
         if (inventorySelection) {
-            textRenderer.addTextRowData(3, a, TextColours.WHITE, 0f);
-            textRenderer.addTextRowData(2, b, TextColours.WHITE, 0f);
-            textRenderer.addTextRowData(1, c, TextColours.WHITE, 0f);
-            textRenderer.addTextRowData(0, d, TextColours.WHITE, 0f);
+
+            float[] offset;
+
+            offset = getRenderCoordsForObject(new Vector(1, visibleGridHeight - 3), false);
+            uiTextRenderer.addTextData(offset[0], offset[1], DEFAULT_OFFSET_Y, 1f, itemDetailName, TextColours.WHITE, 0f);
+
+
+            offset = getRenderCoordsForObject(new Vector(1, visibleGridHeight - 6), false);
+
+            for (int i = 0; i < itemDescriptionLines.size(); i++) {
+                uiTextRenderer.addTextRowData(itemDescriptionLines.size() - i, offset[0], offset[1],  itemDescriptionLines.get(i), TextColours.YELLOW, 0f);
+            }
+
+            offset = getRenderCoordsForObject(new Vector(1, visibleGridHeight - 7), false);
+
+            if (inventoryCard.sprite != null
+                    && inventoryCard.sprite.id == equipment.weaponEntity || inventoryCard.sprite.id == equipment.armourEntity) {
+                uiTextRenderer.addTextRowData(0, offset[0], offset[1],  "(equipped)", TextColours.ROYAL_BLUE, 0f);
+            }
+
+            offset = getRenderCoordsForObject(new Vector(1, 1), false);
+            uiTextRenderer.addTextRowData(1, offset[0], offset[1],  itemDetailAttribs, TextColours.WHITE, 0f);
+            uiTextRenderer.addTextRowData(0, offset[0], offset[1],  itemDetailWeight, TextColours.WHITE, 0f);
         }
     }
 
@@ -1138,7 +1212,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         return new int[] {chunkOriginX, chunkOriginY, chunkWidth, chunkHeight};
     }
 
-    public float[] getRenderCoordsForObject(Vector objectPos) {
+    public float[] getRenderCoordsForObject(Vector objectPos, boolean withScroll) {
         float x = objectPos.x();
         float y = objectPos.y();
         float spriteSize = SPRITE_SIZE * zoomLevel * scaleFactor;
@@ -1150,8 +1224,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         y += spriteSize * 1.1;
 
         // Subtract scroll offset to find visible surface coords
-        x += touchScrollDx;
-        y += touchScrollDy;
+        if (withScroll) {
+            x += touchScrollDx;
+            y += touchScrollDy;
+        }
 
         return new float[] {x, y};
     }
@@ -1231,6 +1307,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
 
         if (inventoryDisplayed) {
+
             // Check if user touched inventory item.
             if (gridX > 0 && gridX < visibleGridWidth - 1 && gridY > 1 && gridY < visibleGridHeight - 1) {
                 int inventoryWidth = visibleGridWidth - 2;
@@ -1245,13 +1322,13 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 int index = (gridY * inventoryWidth) + gridX;
                 long entity = gameInterface.processInventoryClick(index);
 
-                if (entity > -1) {
+                if (!inventorySelection && entity > -1) {
+                    uiBuilder.itemDetailTransitionComplete = false;
                     inventorySelection = true;
                     inventoryCard = gameInterface.getEntityDetails(entity);
                 }
                 else {
                     inventorySelection = false;
-                    inventoryCard = null;
                 }
             }
 

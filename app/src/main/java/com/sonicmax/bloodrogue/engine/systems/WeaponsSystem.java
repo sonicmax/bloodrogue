@@ -44,6 +44,24 @@ public class WeaponsSystem {
         }
     }
 
+    /**
+     *  Checks if entity is alraedy wielded - if true, then unwields entity.
+     *  If false, equips entity as current weapon.
+     */
+
+    public static void checkAndToggleWeapon(ComponentManager componentManager, long item, long player) {
+        Wieldable wieldable = (Wieldable) componentManager.getEntityComponent(item, Wieldable.class.getSimpleName());
+        Dexterity equipment = (Dexterity) componentManager.getEntityComponent(player, Dexterity.class.getSimpleName());
+
+        if (wieldable.id == equipment.weaponEntity) {
+            unwieldCurrentWeapon(componentManager, player);
+        }
+
+        else if (wieldable.type == Wieldable.WEAPON) {
+            wieldWeapon(componentManager, player, item);
+        }
+    }
+
     public static void wieldWeapon(ComponentManager componentManager, long actor, long weapon) {
         Dexterity dex = (Dexterity) componentManager.getEntityComponent(actor, Dexterity.class.getSimpleName());
         Wieldable wieldable = (Wieldable) componentManager.getEntityComponent(weapon, Wieldable.class.getSimpleName());

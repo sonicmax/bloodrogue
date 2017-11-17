@@ -51,6 +51,8 @@ public class UserInterfaceBuilder {
     private int inventoryWindowWidth;
     private int inventoryWindowHeight;
 
+    public boolean itemDetailTransitionComplete;
+
     public UserInterfaceBuilder(HashMap<String, Integer> spriteIndexes, int width, int height) {
         this.spriteIndexes = spriteIndexes;
 
@@ -75,7 +77,7 @@ public class UserInterfaceBuilder {
      *  Caches relevant sprite indexes to this instance so we don't have to look them up each render
      */
 
-    public void buildUi(SpriteRenderer renderer) {
+    public void addUiIcons(SpriteRenderer renderer) {
         addIcons(renderer);
     }
 
@@ -243,6 +245,11 @@ public class UserInterfaceBuilder {
 
                 uiRenderer.addSpriteData(x, y, item.spriteIndex, DEFAULT_LIGHTING, DEFAULT_OFFSET_X, DEFAULT_OFFSET_Y);
 
+                item.x = x;
+                item.y = y;
+                item.lastX = x;
+                item.lastY = y;
+
                 x++;
                 itemIndex++;
             }
@@ -253,7 +260,41 @@ public class UserInterfaceBuilder {
         }
     }
 
-    public void showInfoWindow(SpriteRenderer uiRenderer) {
+    public void animateItemDetailTransition(Sprite sprite, SpriteRenderer uiRenderer) {
+        sprite.x = gridWidth - (INVENTORY_WINDOW_BORDER * 2);
+        sprite.y = gridHeight - (INVENTORY_WINDOW_BORDER * 2);
 
+        float fraction = getTransitionProgress(sprite);
+        float offsetX = (sprite.x - sprite.lastX) * fraction;
+        float offsetY = (sprite.y - sprite.lastY) * fraction;
+        float lighting = 1f;
+
+        if (fraction == 1) {
+            sprite.movementStep = 0;
+            sprite.lastX = -1;
+            sprite.lastY = -1;
+            uiRenderer.addSpriteData(sprite.x, sprite.y, sprite.spriteIndex, lighting);
+            itemDetailTransitionComplete = true;
+
+        } else {
+            uiRenderer.addSpriteData(sprite.lastX, sprite.lastY, sprite.spriteIndex, lighting, offsetX, offsetY);
+        }
+    }
+
+    private float getTransitionProgress(Sprite sprite) {
+        if (sprite.movementStep >= 15) {
+            return 1;
+        }
+
+        sprite.movementStep++;
+
+        // Find fraction that we should move by
+        float fraction = 1f / 15 * sprite.movementStep;
+        // Return squared value to provide simple easing effect on movement
+        return (fraction * fraction * fraction);
+    }
+
+    public void showItemDetailView(InventoryCard details, SpriteRenderer uiRenderer) {
+        uiRenderer.addSpriteData(details.sprite.x, details.sprite.y, details.sprite.spriteIndex, 1f);
     }
 }

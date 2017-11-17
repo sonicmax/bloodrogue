@@ -10,4 +10,5 @@ public class TextColours {
     public final static float[] RED = new float[] {0.9f, 0.1f, 0.1f, 1f}; // rgb(235, 19, 22)
     public final static float[] STATUS_RED = new float[] {1f, 0f, 0f, 1f}; // rgb(255, 33, 33)
     public final static float[] YELLOW = new float[] {0.9f, 0.9f, 0.2f, 1f}; // rgb(243, 240, 41)
+    public final static float[] ROYAL_BLUE = new float[] {0.255f, 0.41f, 0.88f, 1f}; // rgb(65, 105, 225)
 }

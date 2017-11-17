@@ -1432,31 +1432,16 @@ public class GameEngine {
 
         Sprite item = inventory.contents.get(index);
 
-        Wieldable wieldable = (Wieldable) componentManager.getEntityComponent(item.id, Wieldable.class.getSimpleName());
-        Dexterity equipment = (Dexterity) componentManager.getEntityComponent(playerEntity, Dexterity.class.getSimpleName());
-
-        if (wieldable.id == equipment.weaponEntity) {
-            WeaponsSystem.unwieldCurrentWeapon(componentManager, playerEntity);
-            return -1;
-        }
-
-        else if (wieldable.type == Wieldable.WEAPON) {
-            WeaponsSystem.wieldWeapon(componentManager, playerEntity, item.id);
-            return item.id;
-        }
-
-        else {
-            return -1;
-        }
+        return item.id;
     }
 
     public InventoryCard getEntityDetails(long entity) {
+        Sprite sprite = (Sprite) componentManager.getEntityComponent(entity, Sprite.class.getSimpleName());
         Name nameComponent = (Name) componentManager.getEntityComponent(entity, Name.class.getSimpleName());
-        String desc = "i dunno lol";
         Damage damageComponent = (Damage) componentManager.getEntityComponent(entity, Damage.class.getSimpleName());
         String stats = "STR: " + damageComponent.strength;
         Collectable collectable = (Collectable) componentManager.getEntityComponent(entity, Collectable.class.getSimpleName());
-        return new InventoryCard(nameComponent.value, desc, stats, collectable.weight);
+        return new InventoryCard(sprite, nameComponent.value, nameComponent.description, stats, collectable.weight);
     }
 
     /*

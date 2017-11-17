@@ -214,7 +214,7 @@ public class GameInterface {
 
     public void displayStatus(Position position, String message, float[] color) {
         Vector vector = new Vector(position.x, position.y);
-        float[] coords = gameRenderer.getRenderCoordsForObject(vector);
+        float[] coords = gameRenderer.getRenderCoordsForObject(vector, true);
         Status status = new Status(message, coords[0], coords[1], color);
         gameRenderer.queueNewStatus(status);
     }

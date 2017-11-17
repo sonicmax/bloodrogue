@@ -215,11 +215,14 @@ public class BlueprintParser {
 
             case "name":
                 String value = "null"; // lol
-
                 if (object.has("value"))
                     value = object.getString("value");
 
-                return new Name(value, entity);
+                String description = "null";
+                if (object.has("description"))
+                    description = object.getString("description");
+
+                return new Name(value, description, entity);
 
             case "physics":
                 Physics physics = new Physics(entity);

@@ -34,7 +34,7 @@ public class PlayerFactory {
         spriteComponent.path = "sprites/dude.png";
         spriteComponent.shader = Sprite.DYNAMIC;
 
-        Name nameComponent = new Name(PLAYER_NAME, entity.id);
+        Name nameComponent = new Name(PLAYER_NAME, "it me", entity.id);
 
         Dynamic dynamicComponent = new Dynamic(entity.id);
 

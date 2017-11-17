@@ -6,7 +6,8 @@
 			shader: "dynamic"
 		},
 		name: {
-			value: "Shortsword"
+			value: "Shortsword",
+			description: "A simple one-handed sword."
 		},
 		damage: {
 			strength: 3,
@@ -35,7 +36,8 @@
 			shader: "dynamic"
 		},
 		name: {
-			value: "Longsword"
+			value: "Longsword",
+			description: "A large two-handed sword."
 		},
 		damage: {
 			strength: 4,
@@ -63,7 +65,8 @@
 			shader: "dynamic"
 		},
 		name: {
-			value: "Spear"
+			value: "Spear",
+			description: "A sharp blade attached to a reinforced wooden pole."
 		},
 		damage: {
 			strength: 3,
@@ -91,7 +94,8 @@
 			shader: "dynamic"
 		},
 		name: {
-			value: "Demon's Sword"
+			value: "Demon's Sword",
+			description: "A mysterious sword of unknown origin."
 		},
 		damage: {
 			strength: 10,
