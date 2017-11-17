@@ -299,6 +299,9 @@ public class BlueprintParser {
                 if (object.has("type"))
                     wieldable.type = object.getInt("type");
 
+                if (object.has("hands"))
+                    wieldable.hands = object.getInt("hands");
+
                 return wieldable;
 
             default:

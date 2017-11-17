@@ -82,6 +82,21 @@ public class WeaponsSystem {
                 sprite.overlayShader = Sprite.DYNAMIC;
             }
 
+            switch (wieldable.hands) {
+                case 1:
+                    sprite.path = "sprites/dude.png";
+                    break;
+                case 2:
+                    sprite.path = "sprites/dude_two_handed.png";
+                    break;
+                default:
+                    Log.e(LOG_TAG, "Weird number of hands? (" + wieldable.hands + ")");
+                    sprite.path = "sprites/dude.png";
+                    break;
+            }
+
+            sprite.spriteIndex = -1;
+
             sprite.effectPath = WeaponTileset.getEffectForWeapon(sprite.overlayPath);
             if (sprite.effectPath != null) {
                 sprite.effectShader = Sprite.WAVE;
@@ -96,8 +111,15 @@ public class WeaponsSystem {
 
         if (dex != null) {
             Sprite sprite = (Sprite) componentManager.getEntityComponent(actor, Sprite.class.getSimpleName());
+
+            sprite.overlayIndex = -1;
+            sprite.overlayPath = null;
             sprite.overlayShader = Sprite.NONE;
+
+            sprite.effectPath = null;
+            sprite.effectIndex = -1;
             sprite.effectShader = Sprite.NONE;
+
             dex.weaponEntity = -1;
         }
     }

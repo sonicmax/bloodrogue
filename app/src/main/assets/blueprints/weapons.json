@@ -54,7 +54,8 @@
 			weight: 3
 		},
 		wieldable: {
-			type: 1
+			type: 1,
+			hands: 2
 		}
 	},
 	
@@ -83,7 +84,8 @@
 			weight: 2
 		},
 		wieldable: {
-			type: 1
+			type: 1,
+			hands: 2
 		}
 	},
 	
