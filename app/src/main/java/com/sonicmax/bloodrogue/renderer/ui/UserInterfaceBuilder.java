@@ -34,6 +34,8 @@ public class UserInterfaceBuilder {
     private int openInventoryIcon;
     private int closedInventoryIcon;
     private int inventorySelected;
+    private int inventoryCancel;
+    private int inventoryOk;
 
     // Inventory state
     private boolean inventoryOpen;
@@ -51,6 +53,9 @@ public class UserInterfaceBuilder {
     private int inventoryWindowWidth;
     private int inventoryWindowHeight;
 
+    private final Sprite okButton;
+    private final Sprite cancelButton;
+
     public boolean itemDetailTransitionComplete;
 
     public UserInterfaceBuilder(HashMap<String, Integer> spriteIndexes, int width, int height) {
@@ -64,6 +69,14 @@ public class UserInterfaceBuilder {
 
         getSpriteIndexesForUi(spriteIndexes);
         setDefaultIconState();
+
+        // Create sprite components for UI buttons so we can use transition methods
+        okButton = new Sprite(-1);
+        okButton.spriteIndex = inventoryOk;
+
+        cancelButton = new Sprite(-1);
+        cancelButton.spriteIndex = inventoryCancel;
+
     }
 
     private void setDefaultIconState() {
@@ -94,6 +107,8 @@ public class UserInterfaceBuilder {
         openInventoryIcon = spriteIndexes.get(UserInterfaceTileset.INVENTORY_ICON_OPEN);
         closedInventoryIcon = spriteIndexes.get(UserInterfaceTileset.INVENTORY_ICON);
         inventorySelected = spriteIndexes.get(UserInterfaceTileset.WINDOW_SELECTED);
+        inventoryCancel = spriteIndexes.get("sprites/inventory_cancel.png");
+        inventoryOk = spriteIndexes.get("sprites/inventory_ok.png");
     }
 
     public void addIcons(SpriteRenderer uiRenderer) {
@@ -231,7 +246,7 @@ public class UserInterfaceBuilder {
         int width = gridWidth;
         int y = gridHeight - (INVENTORY_WINDOW_BORDER * 2);
 
-        while (itemIndex < itemSize && y > (INVENTORY_WINDOW_BORDER * 2)) {
+        while (itemIndex < itemSize && y > 3) {
             while (itemIndex < itemSize && x < width - INVENTORY_WINDOW_BORDER) {
                 Sprite item = items.get(itemIndex);
 
@@ -279,6 +294,9 @@ public class UserInterfaceBuilder {
         } else {
             uiRenderer.addSpriteData(sprite.lastX, sprite.lastY, sprite.spriteIndex, lighting, offsetX, offsetY);
         }
+
+        uiRenderer.addSpriteData(gridWidth - 3, 2, inventoryOk, 1f);
+        uiRenderer.addSpriteData(gridWidth - 2, 2, inventoryCancel, 1f);
     }
 
     private float getTransitionProgress(Sprite sprite) {
@@ -295,6 +313,9 @@ public class UserInterfaceBuilder {
     }
 
     public void showItemDetailView(InventoryCard details, SpriteRenderer uiRenderer) {
+        // Todo: move text stuff from GameRenderer to here. oioioi
         uiRenderer.addSpriteData(details.sprite.x, details.sprite.y, details.sprite.spriteIndex, 1f);
+        uiRenderer.addSpriteData(gridWidth - 3, 2, inventoryOk, 1f);
+        uiRenderer.addSpriteData(gridWidth - 2, 2, inventoryCancel, 1f);
     }
 }

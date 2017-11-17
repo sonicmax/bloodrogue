@@ -173,6 +173,15 @@ public class GameInterface {
         return gameEngine.getInventoryEntity(index);
     }
 
+    public void handleInventorySelection(long entity, boolean ok) {
+        if (ok) {
+            gameEngine.equipEntity(entity);
+        }
+        else {
+            gameEngine.unequipEntity(entity);
+        }
+    }
+
     public InventoryCard getEntityDetails(long entity) {
         return gameEngine.getEntityDetails(entity);
     }

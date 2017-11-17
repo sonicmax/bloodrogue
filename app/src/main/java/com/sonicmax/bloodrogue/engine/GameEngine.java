@@ -1444,6 +1444,14 @@ public class GameEngine {
         return new InventoryCard(sprite, nameComponent.value, nameComponent.description, stats, collectable.weight);
     }
 
+    public void equipEntity(long entity) {
+        WeaponsSystem.wieldWeapon(componentManager, playerEntity, entity);
+    }
+
+    public void unequipEntity(long entity) {
+        WeaponsSystem.unwieldCurrentWeapon(componentManager, playerEntity);
+    }
+
     /*
     ---------------------------------------------
      Helper methods

@@ -1101,7 +1101,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 uiTextRenderer.addTextRowData(0, offset[0], offset[1],  "(equipped)", TextColours.ROYAL_BLUE, 0f);
             }
 
-            offset = getRenderCoordsForObject(new Vector(1, 1), false);
+            offset = getRenderCoordsForObject(new Vector(1, 2), false);
             uiTextRenderer.addTextRowData(1, offset[0], offset[1],  itemDetailAttribs, TextColours.WHITE, 0f);
             uiTextRenderer.addTextRowData(0, offset[0], offset[1],  itemDetailWeight, TextColours.WHITE, 0f);
         }
@@ -1308,8 +1308,25 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         if (inventoryDisplayed) {
 
+            if (inventorySelection) {
+                // Check whether user clicked UI button & handle event. Otherwise close detail view
+                if (gridY == 2) {
+
+                    if (gridX == visibleGridWidth - 3) { // OK
+                        gameInterface.handleInventorySelection(inventoryCard.sprite.id, true);
+                    }
+                    else if (gridX == visibleGridWidth - 2) { // Cancel
+                        gameInterface.handleInventorySelection(inventoryCard.sprite.id, false);
+                    }
+                }
+
+                // Todo: maybe close inventory screen completely?
+                inventorySelection = false;
+                return true;
+            }
+
             // Check if user touched inventory item.
-            if (gridX > 0 && gridX < visibleGridWidth - 1 && gridY > 1 && gridY < visibleGridHeight - 1) {
+            else if (gridX > 0 && gridX < visibleGridWidth - 1 && gridY > 1 && gridY < visibleGridHeight - 1) {
                 int inventoryWidth = visibleGridWidth - 2;
                 int inventoryHeight = visibleGridHeight - 2;
 
@@ -1321,14 +1338,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
                 int index = (gridY * inventoryWidth) + gridX;
                 long entity = gameInterface.processInventoryClick(index);
-
-                if (!inventorySelection && entity > -1) {
+                if (entity > -1) {
                     uiBuilder.itemDetailTransitionComplete = false;
                     inventorySelection = true;
                     inventoryCard = gameInterface.getEntityDetails(entity);
-                }
-                else {
-                    inventorySelection = false;
                 }
             }
 
