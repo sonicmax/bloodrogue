@@ -408,9 +408,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             screenHeight = ScreenSizeGetter.getHeight();
         }
 
-        if (targetWidth > screenWidth) {
+        /*if (targetWidth > screenWidth) {
             targetWidth = screenWidth;
-        }
+        }*/
 
         float resX = (float) screenWidth / targetWidth;
         float resY = (float) screenHeight / targetWidth;
@@ -463,7 +463,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     ---------------------------------------------
     */
 
-    private void getPlayerComponents() {
+    private void setPlayerComponents() {
         Component[] player = currentFloorData.getPlayer();
         // These array positions should be static and can be double-checked in PlayerFactory class
         position = (Position) player[0];
@@ -471,6 +471,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         experience = (Experience) player[5];
         inventory = (Container) player[12];
         equipment = (Dexterity) player[13];
+
+        uiBuilder.setPlayerComponents(inventory, equipment);
     }
 
     private void renderVisibleTiles(float dt) {
@@ -479,7 +481,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             isRendering = true;
 
             if (firstRender) {
-                getPlayerComponents();
+                setPlayerComponents();
                 centreAtPlayerPos();
                 fieldOfVision = currentFloorData.getFov();
                 calculateScrollOffset();
@@ -489,8 +491,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 float left[] = getRenderCoordsForObject(new Vector(1, 0), false);
                 float right[] = getRenderCoordsForObject(new Vector(visibleGridWidth - 1, 0), false);
 
-                inventoryLeft = left[0];
-                inventoryRight = right[0];
+                uiBuilder.setBoundsAndScale(left[0], right[0], scaleFactor);
 
                 firstRender = false;
             }
@@ -662,56 +663,13 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         fps = fpsCount + " fps";
 
         if (inventorySelection && inventoryCard != null) {
-            itemDetailName = inventoryCard.name;
-            itemDetailDescription = inventoryCard.desc;
-            itemDetailAttribs = inventoryCard.attributes;
-            itemDetailWeight = inventoryCard.weight;
-
-            // Split description string into lines so we can display full string
-            // in inventory detail view
-
-            if (itemDetailDescription != null && !itemDetailDescription.equals("") 
-                    && itemDescriptionLines.size() == 0) {
-
-                splitDescription();
-            }
+            uiBuilder.processInventoryCard(inventoryCard, textRenderer);
         }
 
         else {
-            itemDetailName = "";
-            itemDetailDescription = "";
-            itemDetailAttribs = "";
-            itemDetailWeight = "";
-            itemDescriptionLines.clear();
+            uiBuilder.clearInventoryCard();
+
         }
-    }
-
-    /**
-     *  Iterates over words in itemDetailDescription string and splits into multiple lines
-     *  for displaying in inventory detail view
-     */
-
-    private void splitDescription() {
-        String[] split = itemDetailDescription.split(" ");
-
-        StringBuilder stringBuilder = new StringBuilder();
-
-        float inventoryWidth = (inventoryRight - inventoryLeft) / scaleFactor;
-
-        for (int i = 0; i < split.length; i++) {
-            String word = split[i] + " ";
-
-            if (textRenderer.getExpectedTextWidth(stringBuilder.toString() + word) <= inventoryWidth + SPRITE_SIZE) {
-                stringBuilder.append(word);
-            } else {
-                // Add new line to array, empty StringBuilder and start next line with current word
-                itemDescriptionLines.add(stringBuilder.toString());
-                stringBuilder.setLength(0);
-                stringBuilder.append(word);
-            }
-        }
-
-        itemDescriptionLines.add(stringBuilder.toString());
     }
 
     private int countTextObjects() {
@@ -731,10 +689,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             statusSize += statuses.get(i).text.length();
         }
 
-        int test = itemDetailName.length() + itemDetailDescription.length()
-                + itemDetailAttribs.length() + itemDetailWeight.length();
-
-        return narrationSize + statusSize + uiText + test * 2;
+        return narrationSize + statusSize + uiText + uiBuilder.getDetailTextSize() * 2;
     }
 
     private int[][] cacheTerrainSprites() {
@@ -1038,15 +993,21 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
             if (inventorySelection && inventoryCard != null) {
                 if (!uiBuilder.itemDetailTransitionComplete) {
-                    uiBuilder.animateItemDetailTransition(inventoryCard.sprite, uiRenderer);
+                    uiBuilder.animateItemDetailTransition(this, uiRenderer, uiTextRenderer, inventoryCard.sprite);
                 }
                 else {
-                    uiBuilder.showItemDetailView(inventoryCard, uiRenderer);
+                    uiBuilder.showItemDetailView(uiRenderer, inventoryCard);
+                    uiBuilder.renderDetailText(this, uiTextRenderer);
                 }
 
             }
             else {
-                uiBuilder.populateInventory(inventory, equipment, uiRenderer);
+                if (!uiBuilder.inventoryTransitionComplete && inventoryCard != null) {
+                    uiBuilder.animateInventoryTransition(this, uiRenderer, uiTextRenderer, inventoryCard.sprite);
+                }
+                else {
+                    uiBuilder.populateInventory(uiRenderer);
+                }
             }
         }
 
@@ -1079,32 +1040,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         textRenderer.addTextRowData(textRowHeight - 1, screenWidth / 1.5f, floor, TextColours.WHITE, 0f);
         textRenderer.addTextRowData(textRowHeight - 2, screenWidth / 1.5f, fps, TextColours.WHITE, 0f);
-
-        if (inventorySelection) {
-
-            float[] offset;
-
-            offset = getRenderCoordsForObject(new Vector(1, visibleGridHeight - 3), false);
-            uiTextRenderer.addTextData(offset[0], offset[1], DEFAULT_OFFSET_Y, 1f, itemDetailName, TextColours.WHITE, 0f);
-
-
-            offset = getRenderCoordsForObject(new Vector(1, visibleGridHeight - 6), false);
-
-            for (int i = 0; i < itemDescriptionLines.size(); i++) {
-                uiTextRenderer.addTextRowData(itemDescriptionLines.size() - i, offset[0], offset[1],  itemDescriptionLines.get(i), TextColours.YELLOW, 0f);
-            }
-
-            offset = getRenderCoordsForObject(new Vector(1, visibleGridHeight - 7), false);
-
-            if (inventoryCard.sprite != null
-                    && inventoryCard.sprite.id == equipment.weaponEntity || inventoryCard.sprite.id == equipment.armourEntity) {
-                uiTextRenderer.addTextRowData(0, offset[0], offset[1],  "(equipped)", TextColours.ROYAL_BLUE, 0f);
-            }
-
-            offset = getRenderCoordsForObject(new Vector(1, 2), false);
-            uiTextRenderer.addTextRowData(1, offset[0], offset[1],  itemDetailAttribs, TextColours.WHITE, 0f);
-            uiTextRenderer.addTextRowData(0, offset[0], offset[1],  itemDetailWeight, TextColours.WHITE, 0f);
-        }
     }
 
     private double getLightingForGrid(int x, int y) {
@@ -1322,6 +1257,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
                 // Todo: maybe close inventory screen completely?
                 inventorySelection = false;
+                uiBuilder.inventoryTransitionComplete = false;
                 return true;
             }
 

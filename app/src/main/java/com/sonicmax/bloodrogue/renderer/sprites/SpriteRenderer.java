@@ -1,6 +1,7 @@
 package com.sonicmax.bloodrogue.renderer.sprites;
 
 import android.opengl.GLES20;
+import android.util.Log;
 
 import com.sonicmax.bloodrogue.renderer.Shader;
 import com.sonicmax.bloodrogue.utils.BufferUtils;
@@ -202,18 +203,40 @@ public class SpriteRenderer {
         baseColours[0] = lighting; // r
         baseColours[1] = lighting; // g
         baseColours[2] = lighting; // b
-                                   // (skip a)
+        baseColours[3] = 1f;
         baseColours[4] = lighting;
         baseColours[5] = lighting;
         baseColours[6] = lighting;
-
+        baseColours[7] = 1f;
         baseColours[8] = lighting;
         baseColours[9] = lighting;
         baseColours[10] = lighting;
-
+        baseColours[11] = 1f;
         baseColours[12] = lighting;
         baseColours[13] = lighting;
         baseColours[14] = lighting;
+        baseColours[15] = 1f;
+
+        addRenderInformation(cachedVecs[x][y], baseColours, cachedUvs[spriteIndex]);
+    }
+
+    public void addSpriteData(int x, int y, int spriteIndex, float lighting, float alpha) {
+        baseColours[0] = lighting;
+        baseColours[1] = lighting;
+        baseColours[2] = lighting;
+        baseColours[3] = alpha;
+        baseColours[4] = lighting;
+        baseColours[5] = lighting;
+        baseColours[6] = lighting;
+        baseColours[7] = alpha;
+        baseColours[8] = lighting;
+        baseColours[9] = lighting;
+        baseColours[10] = lighting;
+        baseColours[11] = alpha;
+        baseColours[12] = lighting;
+        baseColours[13] = lighting;
+        baseColours[14] = lighting;
+        baseColours[15] = alpha;
 
         addRenderInformation(cachedVecs[x][y], baseColours, cachedUvs[spriteIndex]);
     }
@@ -222,18 +245,19 @@ public class SpriteRenderer {
         baseColours[0] = lighting; // r
         baseColours[1] = lighting; // g
         baseColours[2] = lighting; // b
-                                   // (skip a)
+        baseColours[3] = 1f;
         baseColours[4] = lighting;
         baseColours[5] = lighting;
         baseColours[6] = lighting;
-
+        baseColours[7] = 1f;
         baseColours[8] = lighting;
         baseColours[9] = lighting;
         baseColours[10] = lighting;
-
+        baseColours[11] = 1f;
         baseColours[12] = lighting;
         baseColours[13] = lighting;
         baseColours[14] = lighting;
+        baseColours[15] = 1f;
 
         addRenderInformation(calculateOffset(cachedVecs[x][y], offsetX, offsetY), baseColours, cachedUvs[spriteIndex]);
     }

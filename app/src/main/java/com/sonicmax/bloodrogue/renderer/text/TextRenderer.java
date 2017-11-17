@@ -212,8 +212,8 @@ public class TextRenderer {
      * Tells renderer to display a given string at a particular row on screen.
      */
 
-    public void addTextRowData(int row, String text, float[] color, float alphaModifier) {
-        addTextRowData(row, 0f, text, color, alphaModifier);
+    public void addTextRowData(int row, String text, float[] colour, float alphaModifier) {
+        addTextRowData(row, 0f, text, colour, alphaModifier);
     }
 
     /**
@@ -223,11 +223,11 @@ public class TextRenderer {
      * @param row
      * @param offsetX
      * @param text
-     * @param colours
+     * @param colour
      * @param alphaModifier
      */
 
-    public void addTextRowData(int row, float offsetX, String text, float[] colours, float alphaModifier) {
+    public void addTextRowData(int row, float offsetX, String text, float[] colour, float alphaModifier) {
         for (int j = 0; j < text.length(); j++) {
             char c = text.charAt(j);
             int charIndex = convertCharValueToUvIndex((int) c);
@@ -241,18 +241,22 @@ public class TextRenderer {
             // Creating the triangle information
             float[] vec = getRowVector(row, offsetX);
 
-            baseColours[0] = colours[0];
-            baseColours[1] = colours[1];
-            baseColours[2] = colours[2];
-            baseColours[3] = colours[3] - alphaModifier;
-            baseColours[4] = colours[0];
-            baseColours[5] = colours[1];
-            baseColours[6] = colours[2];
-            baseColours[7] = colours[3] - alphaModifier;
-            baseColours[8] = colours[0];
-            baseColours[9] = colours[1];
-            baseColours[10] = colours[2];
-            baseColours[11] = colours[3] - alphaModifier;
+            baseColours[0] = colour[0];
+            baseColours[1] = colour[1];
+            baseColours[2] = colour[2];
+            baseColours[3] = colour[3] - alphaModifier;
+            baseColours[4] = colour[0];
+            baseColours[5] = colour[1];
+            baseColours[6] = colour[2];
+            baseColours[7] = colour[3] - alphaModifier;
+            baseColours[8] = colour[0];
+            baseColours[9] = colour[1];
+            baseColours[10] = colour[2];
+            baseColours[11] = colour[3] - alphaModifier;
+            baseColours[12] = colour[0];
+            baseColours[13] = colour[1];
+            baseColours[14] = colour[2];
+            baseColours[15] = colour[3] - alphaModifier;
 
             // Add our triangle information to our collection for 1 render call.
             addCharRenderInformation(vec, baseColours, cachedUvs[charIndex]);
@@ -269,11 +273,11 @@ public class TextRenderer {
      * @param offsetX
      * @param offsetY
      * @param text
-     * @param colours
+     * @param colour
      * @param alphaModifier
      */
 
-    public void addTextRowData(int row, float offsetX, float offsetY, String text, float[] colours, float alphaModifier) {
+    public void addTextRowData(int row, float offsetX, float offsetY, String text, float[] colour, float alphaModifier) {
         for (int j = 0; j < text.length(); j++) {
             char c = text.charAt(j);
             int charIndex = convertCharValueToUvIndex((int) c);
@@ -287,18 +291,22 @@ public class TextRenderer {
             // Creating the triangle information
             float[] vec = getRowVector(row, offsetX, offsetY);
 
-            baseColours[0] = colours[0];
-            baseColours[1] = colours[1];
-            baseColours[2] = colours[2];
-            baseColours[3] = colours[3] - alphaModifier;
-            baseColours[4] = colours[0];
-            baseColours[5] = colours[1];
-            baseColours[6] = colours[2];
-            baseColours[7] = colours[3] - alphaModifier;
-            baseColours[8] = colours[0];
-            baseColours[9] = colours[1];
-            baseColours[10] = colours[2];
-            baseColours[11] = colours[3] - alphaModifier;
+            baseColours[0] = colour[0];
+            baseColours[1] = colour[1];
+            baseColours[2] = colour[2];
+            baseColours[3] = colour[3] - alphaModifier;
+            baseColours[4] = colour[0];
+            baseColours[5] = colour[1];
+            baseColours[6] = colour[2];
+            baseColours[7] = colour[3] - alphaModifier;
+            baseColours[8] = colour[0];
+            baseColours[9] = colour[1];
+            baseColours[10] = colour[2];
+            baseColours[11] = colour[3] - alphaModifier;
+            baseColours[12] = colour[0];
+            baseColours[13] = colour[1];
+            baseColours[14] = colour[2];
+            baseColours[15] = colour[3] - alphaModifier;
 
             // Add our triangle information to our collection for 1 render call.
             addCharRenderInformation(vec, baseColours, cachedUvs[charIndex]);
@@ -316,11 +324,11 @@ public class TextRenderer {
      * @param offsetY
      * @param scale
      * @param text
-     * @param colours
+     * @param colour
      * @param alphaModifier
      */
 
-    public void addTextData(float x, float y, float offsetY, float scale, String text, float[] colours, float alphaModifier) {
+    public void addTextData(float x, float y, float offsetY, float scale, String text, float[] colour, float alphaModifier) {
         for (int j = 0; j < text.length(); j++) {
             char c = text.charAt(j);
             int charIndex = convertCharValueToUvIndex((int) c);
@@ -331,22 +339,22 @@ public class TextRenderer {
                 continue;
             }
 
-            baseColours[0] = colours[0];
-            baseColours[1] = colours[1];
-            baseColours[2] = colours[2];
-            baseColours[3] = colours[3] - alphaModifier;
-            baseColours[4] = colours[0];
-            baseColours[5] = colours[1];
-            baseColours[6] = colours[2];
-            baseColours[7] = colours[3] - alphaModifier;
-            baseColours[8] = colours[0];
-            baseColours[9] = colours[1];
-            baseColours[10] = colours[2];
-            baseColours[11] = colours[3] - alphaModifier;
-            baseColours[12] = colours[0];
-            baseColours[13] = colours[1];
-            baseColours[14] = colours[2];
-            baseColours[15] = colours[3] - alphaModifier;
+            baseColours[0] = colour[0];
+            baseColours[1] = colour[1];
+            baseColours[2] = colour[2];
+            baseColours[3] = colour[3] - alphaModifier;
+            baseColours[4] = colour[0];
+            baseColours[5] = colour[1];
+            baseColours[6] = colour[2];
+            baseColours[7] = colour[3] - alphaModifier;
+            baseColours[8] = colour[0];
+            baseColours[9] = colour[1];
+            baseColours[10] = colour[2];
+            baseColours[11] = colour[3] - alphaModifier;
+            baseColours[12] = colour[0];
+            baseColours[13] = colour[1];
+            baseColours[14] = colour[2];
+            baseColours[15] = colour[3] - alphaModifier;
 
             // Add our triangle information to our collection for 1 render call.
             addCharRenderInformation(getFreeVector(x, y, offsetY, scale), baseColours, cachedUvs[charIndex]);
