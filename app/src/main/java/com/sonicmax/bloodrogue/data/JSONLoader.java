@@ -56,7 +56,19 @@ public class JSONLoader {
             return new JSONObject(loadFile(assetManager, file));
 
         } catch (JSONException e) {
-            throw new Error("Error parsing furniture blueprints - can't continue", e);
+            throw new Error("Error parsing weapon blueprints - can't continue", e);
+        }
+    }
+
+    public static JSONObject loadPotions(AssetManager assetManager) {
+
+        final String file = "blueprints/potions.json";
+
+        try  {
+            return new JSONObject(loadFile(assetManager, file));
+
+        } catch (JSONException e) {
+            throw new Error("Error parsing item blueprints - can't continue", e);
         }
     }
 }

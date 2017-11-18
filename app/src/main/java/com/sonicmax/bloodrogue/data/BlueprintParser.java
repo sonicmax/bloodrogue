@@ -23,6 +23,7 @@ import com.sonicmax.bloodrogue.engine.components.Position;
 import com.sonicmax.bloodrogue.engine.components.SelfReplicate;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
 import com.sonicmax.bloodrogue.engine.components.Stationary;
+import com.sonicmax.bloodrogue.engine.components.Usable;
 import com.sonicmax.bloodrogue.engine.components.Vitality;
 import com.sonicmax.bloodrogue.engine.components.Wieldable;
 
@@ -126,6 +127,12 @@ public class BlueprintParser {
 
                 if (object.has("weight"))
                     collectable.weight = object.getInt("weight");
+
+                if (object.has("id"))
+                    collectable.identity = object.getInt("id");
+
+                if (object.has("unknown")) // (blueprint only has this key if unknown == true)
+                    collectable.unknown = true;
 
                 return collectable;
 
@@ -290,8 +297,24 @@ public class BlueprintParser {
 
                 return new Stationary(Stationary.DEFAULT, entity);
 
+            case "usable":
+                Usable usable = new Usable(entity);
+
+                if (object.has("id"))
+                    usable.effectId = object.getInt("id");
+
+                if (object.has("effect"))
+                    usable.effect = object.getString("effect");
+
+                return usable;
+
             case "vitality":
-                return new Vitality(entity);
+                Vitality vitality = new Vitality(entity);
+
+                if (object.has("endurance"))
+                    vitality.endurance = object.getInt("endurance");
+
+                return vitality;
 
             case "wieldable":
                 Wieldable wieldable = new Wieldable(entity);

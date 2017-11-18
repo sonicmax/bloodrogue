@@ -1,0 +1,82 @@
+{
+	smallRed: {
+		position: {},
+		sprite: {
+			path: "sprites/small_red_potion.png",
+			shader: "static"
+		},
+		name: {
+			value: "Unknown",
+			description: "Shimmering red liquid in a small glass bottle."
+		},
+		physics: {
+			blocking: false,
+			traversable: true,
+			gasOrLiquid: false,
+			activateOnCollide: false,
+			activateOnMove: true
+		},
+		collectable: {
+			weight: 1,
+			id: 0,
+			unknown: true
+		},
+		usable: {
+			effect: "unknown"
+		}
+	},
+	
+	smallGreen: {
+		position: {},
+		sprite: {
+			path: "sprites/small_green_potion.png",
+			shader: "static"
+		},
+		name: {
+			value: "Unknown",
+			description: "Thick green liquid in a small glass bottle."
+		},
+		physics: {
+			blocking: false,
+			traversable: true,
+			gasOrLiquid: false,
+			activateOnCollide: false,
+			activateOnMove: true
+		},
+		collectable: {
+			weight: 1,
+			id: 1,
+			unknown: true
+		},
+		usable: {
+			effect: "unknown"
+		}
+	},
+	
+	smallGold: {
+		position: {},
+		sprite: {
+			path: "sprites/small_gold_potion.png",
+			shader: "static"
+		},
+		name: {
+			value: "Unknown",
+			description: "Fiery gold liquid in a small glass bottle."
+		},
+		physics: {
+			blocking: false,
+			traversable: true,
+			gasOrLiquid: false,
+			activateOnCollide: false,
+			activateOnMove: true
+		},
+		collectable: {
+			weight: 1,
+			id: 2,
+			unknown: true
+		},
+		usable: {
+			effect: "unknown"
+		}
+	}
+}

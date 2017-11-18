@@ -17,15 +17,18 @@ import com.sonicmax.bloodrogue.engine.components.Dexterity;
 import com.sonicmax.bloodrogue.engine.components.Energy;
 import com.sonicmax.bloodrogue.engine.components.Experience;
 import com.sonicmax.bloodrogue.engine.components.Input;
+import com.sonicmax.bloodrogue.engine.components.Knowledge;
 import com.sonicmax.bloodrogue.engine.components.Name;
 import com.sonicmax.bloodrogue.engine.components.Physics;
 import com.sonicmax.bloodrogue.engine.components.Position;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
 import com.sonicmax.bloodrogue.engine.components.Stationary;
 import com.sonicmax.bloodrogue.engine.components.Trap;
+import com.sonicmax.bloodrogue.engine.components.Usable;
 import com.sonicmax.bloodrogue.engine.components.Vitality;
 import com.sonicmax.bloodrogue.engine.components.Wieldable;
 import com.sonicmax.bloodrogue.engine.systems.EntitySystem;
+import com.sonicmax.bloodrogue.engine.systems.PotionSystem;
 import com.sonicmax.bloodrogue.engine.systems.WeaponsSystem;
 import com.sonicmax.bloodrogue.generator.factories.AnimationFactory;
 import com.sonicmax.bloodrogue.generator.factories.DecalFactory;
@@ -37,7 +40,6 @@ import com.sonicmax.bloodrogue.renderer.ui.Animation;
 import com.sonicmax.bloodrogue.renderer.ui.InventoryCard;
 import com.sonicmax.bloodrogue.tilesets.CorpseTileset;
 import com.sonicmax.bloodrogue.tilesets.MansionTileset;
-import com.sonicmax.bloodrogue.tilesets.WeaponTileset;
 import com.sonicmax.bloodrogue.utils.maths.Calculator;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
@@ -1438,18 +1440,97 @@ public class GameEngine {
     public InventoryCard getEntityDetails(long entity) {
         Sprite sprite = (Sprite) componentManager.getEntityComponent(entity, Sprite.class.getSimpleName());
         Name nameComponent = (Name) componentManager.getEntityComponent(entity, Name.class.getSimpleName());
-        Damage damageComponent = (Damage) componentManager.getEntityComponent(entity, Damage.class.getSimpleName());
-        String stats = "STR: " + damageComponent.strength;
+
+        String stats = "";
+
+        if (componentManager.has(entity, Wieldable.class.getSimpleName())) {
+            if (componentManager.has(entity, Damage.class.getSimpleName())) {
+                Damage damageComponent = (Damage) componentManager.getEntityComponent(entity, Damage.class.getSimpleName());
+                stats = "Strength: " + damageComponent.strength;
+            }
+        }
+
+        else if (componentManager.has(entity, Usable.class.getSimpleName())) {
+            Collectable collectable = (Collectable) componentManager.getEntityComponent(entity, Collectable.class.getSimpleName());
+            Usable usable = (Usable) componentManager.getEntityComponent(entity, Usable.class.getSimpleName());
+
+            if (collectable.unknown) {
+                Knowledge playerKnowledge = (Knowledge) componentManager.getEntityComponent(playerEntity, Knowledge.class.getSimpleName());
+                if (playerKnowledge.identifiedItems.containsValue(usable.effectId)) {
+                    nameComponent.value = PotionSystem.getIdentifiedPotionName(usable.effectId);
+                    stats = getItemAttributes(usable, entity);
+                }
+                else {
+                    stats = "???";
+                }
+            }
+
+            else {
+                stats = getItemAttributes(usable, entity);
+            }
+        }
+
         Collectable collectable = (Collectable) componentManager.getEntityComponent(entity, Collectable.class.getSimpleName());
+
         return new InventoryCard(sprite, nameComponent.value, nameComponent.description, stats, collectable.weight);
     }
 
-    public void equipEntity(long entity) {
-        WeaponsSystem.wieldWeapon(componentManager, playerEntity, entity);
+    public String getItemAttributes(Usable usable, long entity) {
+        if (componentManager.has(entity, Vitality.class.getSimpleName())) {
+            Vitality vitalityComponent = (Vitality) componentManager.getEntityComponent(entity, Vitality.class.getSimpleName());
+            // Todo: work out how much health this would restore lol
+            if (vitalityComponent.endurance < 5) {
+                return "Vitality (weak)";
+            }
+        }
+
+        else if (componentManager.has(entity, Damage.class.getSimpleName())) {
+            Damage damageComponent = (Damage) componentManager.getEntityComponent(entity, Damage.class.getSimpleName());
+            switch (usable.effect) {
+                case "damage":
+                    if (damageComponent.strength < 5) {
+                        return "Poison (weak)";
+                    }
+
+                case "strength":
+                    if (damageComponent.strength < 5) {
+                        return "Gain strength";
+                    }
+            }
+        }
+
+        return "???";
+    }
+
+    public void useEntity(long entity) {
+        if (componentManager.has(entity, Wieldable.class.getSimpleName())) {
+            WeaponsSystem.wieldWeapon(componentManager, playerEntity, entity);
+        }
+
+        else if (componentManager.has(entity, Usable.class.getSimpleName())) {
+            PotionSystem.quaff(componentManager, playerEntity, entity);
+            removeEntityFromInventory(entity);
+        }
     }
 
     public void unequipEntity(long entity) {
         WeaponsSystem.unwieldCurrentWeapon(componentManager, playerEntity);
+    }
+
+    public void removeEntityFromInventory(long entity) {
+        Container inventory = (Container) componentManager.getEntityComponent(playerEntity, Container.class.getSimpleName());
+
+        Iterator<Sprite> contents = inventory.contents.iterator();
+
+        while (contents.hasNext()) {
+            Sprite sprite = contents.next();
+            if (sprite.id == entity) {
+                contents.remove();
+                break;
+            }
+        }
+
+        componentManager.removeEntityComponents(entity);
     }
 
     /*

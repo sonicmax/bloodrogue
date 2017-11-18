@@ -7,8 +7,8 @@ import com.sonicmax.bloodrogue.engine.Component;
  */
 
 public class Name extends Component {
-    public final String value;
-    public final String description;
+    public String value;
+    public String description;
 
     public Name(String name, String description, long id) {
         super(id);

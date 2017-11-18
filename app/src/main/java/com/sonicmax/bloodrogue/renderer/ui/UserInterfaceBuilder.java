@@ -458,7 +458,7 @@ public class UserInterfaceBuilder {
         }
 
         offset = renderer.getRenderCoordsForObject(new Vector(1, 2), false);
-        uiTextRenderer.addTextRowData(1, offset[0], offset[1],  itemDetailAttribs, TextColours.WHITE, alphaModifier);
+        uiTextRenderer.addTextRowData(1, offset[0], offset[1],  itemDetailAttribs, TextColours.ROYAL_BLUE, alphaModifier);
         uiTextRenderer.addTextRowData(0, offset[0], offset[1],  itemDetailWeight, TextColours.WHITE, alphaModifier);
     }
 

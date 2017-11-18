@@ -14,6 +14,7 @@ import com.sonicmax.bloodrogue.engine.components.Energy;
 import com.sonicmax.bloodrogue.engine.components.Experience;
 import com.sonicmax.bloodrogue.engine.components.Input;
 import com.sonicmax.bloodrogue.engine.components.AI;
+import com.sonicmax.bloodrogue.engine.components.Knowledge;
 import com.sonicmax.bloodrogue.engine.components.Name;
 import com.sonicmax.bloodrogue.engine.components.Physics;
 import com.sonicmax.bloodrogue.engine.components.Portal;
@@ -22,6 +23,7 @@ import com.sonicmax.bloodrogue.engine.components.SelfReplicate;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
 import com.sonicmax.bloodrogue.engine.components.Stationary;
 import com.sonicmax.bloodrogue.engine.components.Trap;
+import com.sonicmax.bloodrogue.engine.components.Usable;
 import com.sonicmax.bloodrogue.engine.components.Vitality;
 import com.sonicmax.bloodrogue.engine.components.Wieldable;
 
@@ -48,6 +50,7 @@ public class ComponentManager {
     private HashMap<Long, Energy> energyComponents;
     private HashMap<Long, Input> inputComponents;
     private HashMap<Long, AI> intelligenceComponents;
+    private HashMap<Long, Knowledge> knowledgeComponents;
     private HashMap<Long, Experience> levelComponents;
     private HashMap<Long, Name> nameComponents;
     private HashMap<Long, Physics> physicsComponents;
@@ -57,6 +60,7 @@ public class ComponentManager {
     private HashMap<Long, Sprite> spriteComponents;
     private HashMap<Long, Stationary> staticComponents;
     private HashMap<Long, Trap> trapComponents;
+    private HashMap<Long, Usable> usableComponents;
     private HashMap<Long, Vitality> vitalityComponents;
     private HashMap<Long, Wieldable> wieldableComponents;
 
@@ -72,6 +76,7 @@ public class ComponentManager {
         energyComponents = new HashMap<>();
         inputComponents = new HashMap<>();
         intelligenceComponents = new HashMap<>();
+        knowledgeComponents = new HashMap<>();
         levelComponents = new HashMap<>();
         nameComponents = new HashMap<>();
         physicsComponents = new HashMap<>();
@@ -81,6 +86,7 @@ public class ComponentManager {
         spriteComponents = new HashMap<>();
         staticComponents = new HashMap<>();
         trapComponents = new HashMap<>();
+        usableComponents = new HashMap<>();
         vitalityComponents = new HashMap<>();
         wieldableComponents = new HashMap<>();
     }
@@ -147,6 +153,10 @@ public class ComponentManager {
                 inputComponents.put(component.id, (Input) component);
                 break;
 
+            case "Knowledge":
+                knowledgeComponents.put(component.id, (Knowledge) component);
+                break;
+
             case "AI":
                 intelligenceComponents.put(component.id, (AI) component);
                 break;
@@ -185,6 +195,10 @@ public class ComponentManager {
 
             case "Trap":
                 trapComponents.put(component.id, (Trap) component);
+                break;
+
+            case "Usable":
+                usableComponents.put(component.id, (Usable) component);
                 break;
 
             case "Vitality":
@@ -239,6 +253,9 @@ public class ComponentManager {
             case "Input":
                 return new ArrayList<>(inputComponents.values());
 
+            case "Knowledge":
+                return new ArrayList<>(knowledgeComponents.values());
+
             case "AI":
                 return new ArrayList<>(intelligenceComponents.values());
 
@@ -268,6 +285,9 @@ public class ComponentManager {
 
             case "Trap":
                 return new ArrayList<>(trapComponents.values());
+
+            case "Usable":
+                return new ArrayList<>(usableComponents.values());
 
             case "Vitality":
                 return new ArrayList<>(vitalityComponents.values());
@@ -302,6 +322,7 @@ public class ComponentManager {
         array.add(energyComponents.get(entity));
         array.add(inputComponents.get(entity));
         array.add(intelligenceComponents.get(entity));
+        array.add(knowledgeComponents.get(entity));
         array.add(levelComponents.get(entity));
         array.add(nameComponents.get(entity));
         array.add(physicsComponents.get(entity));
@@ -311,6 +332,7 @@ public class ComponentManager {
         array.add(spriteComponents.get(entity));
         array.add(staticComponents.get(entity));
         array.add(trapComponents.get(entity));
+        array.add(usableComponents.get(entity));
         array.add(vitalityComponents.get(entity));
         array.add(wieldableComponents.get(entity));
 
@@ -364,6 +386,9 @@ public class ComponentManager {
             case "Input":
                 return inputComponents.get(entity);
 
+            case "Knowledge":
+                return knowledgeComponents.get(entity);
+
             case "AI":
                 return intelligenceComponents.get(entity);
 
@@ -393,6 +418,9 @@ public class ComponentManager {
 
             case "Trap":
                 return trapComponents.get(entity);
+
+            case "Usable":
+                return usableComponents.get(entity);
 
             case "Vitality":
                 return vitalityComponents.get(entity);
@@ -455,6 +483,10 @@ public class ComponentManager {
                 inputComponents.remove(entity);
                 break;
 
+            case "Knowledge":
+                knowledgeComponents.remove(entity);
+                break;
+
             case "AI":
                 intelligenceComponents.remove(entity);
                 break;
@@ -495,6 +527,10 @@ public class ComponentManager {
                 trapComponents.remove(entity);
                 break;
 
+            case "Usable":
+                usableComponents.remove(entity);
+                break;
+
             case "Vitality":
                 vitalityComponents.remove(entity);
                 break;
@@ -527,6 +563,7 @@ public class ComponentManager {
         energyComponents.remove(entity);
         inputComponents.remove(entity);
         intelligenceComponents.remove(entity);
+        knowledgeComponents.remove(entity);
         levelComponents.remove(entity);
         nameComponents.remove(entity);
         physicsComponents.remove(entity);
@@ -536,7 +573,12 @@ public class ComponentManager {
         spriteComponents.remove(entity);
         staticComponents.remove(entity);
         trapComponents.remove(entity);
+        usableComponents.remove(entity);
         vitalityComponents.remove(entity);
         wieldableComponents.remove(entity);
+    }
+
+    public boolean has(long entity, String component) {
+        return (getEntityComponent(entity, component) != null);
     }
 }

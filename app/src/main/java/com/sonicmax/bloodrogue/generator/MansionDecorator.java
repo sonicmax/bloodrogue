@@ -10,6 +10,7 @@ import com.sonicmax.bloodrogue.engine.Component;
 import com.sonicmax.bloodrogue.engine.components.Physics;
 import com.sonicmax.bloodrogue.engine.components.Position;
 import com.sonicmax.bloodrogue.engine.components.Stationary;
+import com.sonicmax.bloodrogue.engine.systems.PotionSystem;
 import com.sonicmax.bloodrogue.generator.factories.DecalFactory;
 import com.sonicmax.bloodrogue.generator.factories.TerrainFactory;
 import com.sonicmax.bloodrogue.engine.systems.ComponentFinder;
@@ -22,7 +23,6 @@ import com.sonicmax.bloodrogue.engine.objects.Room;
 import com.sonicmax.bloodrogue.utils.Array2DHelper;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 
-import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
@@ -55,6 +55,7 @@ public class MansionDecorator {
 
     private JSONObject furnitureBlueprints;
     private JSONObject weaponBlueprints;
+    private JSONObject potionBlueprints;
 
     private RandomNumberGenerator rng;
     private AssetManager assetManager;
@@ -67,6 +68,7 @@ public class MansionDecorator {
         this.assetManager = assetManager;
         this.furnitureBlueprints = JSONLoader.loadFurniture(assetManager);
         this.weaponBlueprints = JSONLoader.loadWeapons(assetManager);
+        this.potionBlueprints = PotionSystem.generateRandomPotionEffects(JSONLoader.loadPotions(assetManager));
 
         this.rng = new RandomNumberGenerator();
     }
@@ -155,7 +157,8 @@ public class MansionDecorator {
             addNorthWallTiles(room);
             addLightingToRoom(room);
             decorateNorthWall(room);
-            addChestsToRoom(room);
+            addItemsToRoom(room);
+            addWeaponsToRoom(room);
             addEnemiesToRoom(room);
         }
     }
@@ -689,7 +692,55 @@ public class MansionDecorator {
         }
     }
 
-    private void addChestsToRoom(Room room) {
+    private void addItemsToRoom(Room room) {
+        // float chanceToAdd = rng.getRandomFloat(0f, 1f);
+        // if (chanceToAdd > chestChance) return;
+
+        // Attempt to place the chest 8 times.
+        // If this fails, just skip it
+
+        for (Vector direction : Directions.All.values()) {
+            Vector cell = room.roundedCentre();
+
+            while (inBounds(cell) && ((Stationary) getMapObjectForCell(cell)[2]).type == Stationary.FLOOR) {
+                cell = cell.add(direction);
+            }
+
+            cell = cell.subtract(direction);
+
+            Component[] object = getMapObjectForCell(cell);
+
+            if (((Stationary) object[2]).type != Stationary.FLOOR || ((Stationary) object[2]).type == Stationary.DOORWAY) continue;
+
+            if (detectCollisions(cell) || blocksDoorway(cell)) continue;
+
+            Iterator<String> keys = potionBlueprints.keys();
+            ArrayList<String> keyArray = new ArrayList<>();
+
+            while (keys.hasNext()) {
+                keyArray.add(keys.next());
+            }
+
+            int rng = new RandomNumberGenerator().getRandomInt(0, keyArray.size() - 1);
+
+            Component[] chest = BlueprintParser.getComponentArrayForBlueprint(potionBlueprints, keyArray.get(rng));
+            // Component[] chest = BlueprintParser.getComponentArrayForBlueprint(furnitureBlueprints, "chest");
+
+            if (chest == null) return;
+
+            Position position = ComponentFinder.getPositionComponent(chest);
+            position.x = cell.x;
+            position.y = cell.y;
+
+            if (!objectBlockingPath(cell)) {
+                objects.add(chest);
+                populateObjectGrid();
+                return;
+            }
+        }
+    }
+
+    private void addWeaponsToRoom(Room room) {
         // float chanceToAdd = rng.getRandomFloat(0f, 1f);
         // if (chanceToAdd > chestChance) return;
 
@@ -721,7 +772,6 @@ public class MansionDecorator {
             int rng = new RandomNumberGenerator().getRandomInt(0, keyArray.size() - 1);
 
             Component[] chest = BlueprintParser.getComponentArrayForBlueprint(weaponBlueprints, keyArray.get(rng));
-            // Component[] chest = BlueprintParser.getComponentArrayForBlueprint(furnitureBlueprints, "chest");
 
             if (chest == null) return;
 

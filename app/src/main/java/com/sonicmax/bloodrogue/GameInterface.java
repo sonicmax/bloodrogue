@@ -175,7 +175,7 @@ public class GameInterface {
 
     public void handleInventorySelection(long entity, boolean ok) {
         if (ok) {
-            gameEngine.equipEntity(entity);
+            gameEngine.useEntity(entity);
         }
         else {
             gameEngine.unequipEntity(entity);

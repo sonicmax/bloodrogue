@@ -11,6 +11,7 @@ import com.sonicmax.bloodrogue.engine.components.Dynamic;
 import com.sonicmax.bloodrogue.engine.components.Energy;
 import com.sonicmax.bloodrogue.engine.components.Experience;
 import com.sonicmax.bloodrogue.engine.components.Input;
+import com.sonicmax.bloodrogue.engine.components.Knowledge;
 import com.sonicmax.bloodrogue.engine.components.Name;
 import com.sonicmax.bloodrogue.engine.components.Physics;
 import com.sonicmax.bloodrogue.engine.components.Position;
@@ -24,7 +25,7 @@ public class PlayerFactory {
     public static Component[] getPlayer(int x, int y) {
         Entity entity = new Entity();
 
-        Component[] array = new Component[14];
+        Component[] array = new Component[15];
 
         Position positionComponent = new Position(entity.id);
         positionComponent.x = x;
@@ -71,6 +72,8 @@ public class PlayerFactory {
         Dexterity dexterityComponent = new Dexterity(entity.id);
         dexterityComponent.skill = 1;
 
+        Knowledge knowledgeComponent = new Knowledge(entity.id);
+
         array[0] = positionComponent;
         array[1] = spriteComponent;
         array[2] = nameComponent;
@@ -85,6 +88,7 @@ public class PlayerFactory {
         array[11] = bloodComponent;
         array[12] = containerComponent;
         array[13] = dexterityComponent;
+        array[14] = knowledgeComponent;
 
         return array;
     }

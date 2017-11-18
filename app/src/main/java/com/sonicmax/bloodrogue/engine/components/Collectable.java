@@ -8,8 +8,12 @@ import com.sonicmax.bloodrogue.engine.Component;
 
 public class Collectable extends Component {
     public int weight;
+    public boolean unknown;
+    public int identity;
 
     public Collectable(long id) {
         super(id);
+        this.unknown = false;
+        this.identity = -1;
     }
 }
