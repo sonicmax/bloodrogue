@@ -1,5 +1,7 @@
 package com.sonicmax.bloodrogue.engine;
 
+import com.sonicmax.bloodrogue.utils.maths.Vector;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 
@@ -14,18 +16,28 @@ public class FloorData implements Serializable {
     public final Component[][][] terrain;
     public final ArrayList<Component[]>[][] objects;
     public final ArrayList<Component[]>[][] animations;
-    public final double[][] fov;
     public final Component[] player;
 
+    public Vector entrancePosition;
+    public Vector exitPosition;
+
+
     public FloorData(int index, Component[][][] terrain, ArrayList<Component[]>[][] objects,
-                     ArrayList<Component[]>[][] animations, double[][] fov, Component[] player) {
+                     ArrayList<Component[]>[][] animations, Component[] player) {
 
         this.index = index;
         this.terrain = terrain;
         this.objects = objects;
         this.animations = animations;
-        this.fov = fov;
         this.player = player;
+    }
+
+    public void setEntrance(Vector entrance) {
+        this.entrancePosition = entrance;
+    }
+
+    public void setExit(Vector exit) {
+        this.exitPosition = exit;
     }
 
     public Component[][][] getTerrain() {
@@ -38,10 +50,6 @@ public class FloorData implements Serializable {
 
     public ArrayList<Component[]>[][] getAnimations() {
         return this.animations;
-    }
-
-    public double[][] getFov() {
-        return this.fov;
     }
 
     public Component[] getPlayer() {

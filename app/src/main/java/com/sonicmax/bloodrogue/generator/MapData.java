@@ -12,20 +12,27 @@ public class MapData {
     private HashMap<String, Component[]> doors;
     private ArrayList<Component[]> objects;
     private ArrayList<Component[]> enemies;
-    private Vector startPosition;
+    private Vector entrancePosition;
+    private Vector exitPosition;
     private int type;
 
-    public MapData(ArrayList<Room> rooms, HashMap<String, Component[]> doors, ArrayList<Component[]> objects, ArrayList<Component[]> enemies, Vector start, int type) {
+    public MapData(ArrayList<Room> rooms, HashMap<String, Component[]> doors, ArrayList<Component[]> objects,
+                   ArrayList<Component[]> enemies, Vector entrance, Vector exit, int type) {
         this.rooms = rooms;
         this.doors = doors;
         this.objects = objects;
         this.enemies = enemies;
-        this.startPosition = start;
+        this.entrancePosition = entrance;
+        this.exitPosition = exit;
         this.type = type;
     }
 
-    public Vector getStartPosition() {
-        return this.startPosition;
+    public Vector getEntrancePosition() {
+        return this.entrancePosition;
+    }
+
+    public Vector getExitPosition() {
+        return this.exitPosition;
     }
 
     public ArrayList<Component[]> getObjects() {

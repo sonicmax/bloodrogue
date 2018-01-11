@@ -44,6 +44,8 @@ public class ProceduralGenerator {
     public final static int RUINS = 2;
     public final static int MANSION = 3;
 
+    private final int MAX_COMPONENTS = 18;
+
     private final String FLOOR_TILE = "f";
     private final String WALL_TILE = "w";
     private final String DOORWAY_TILE = "d";
@@ -55,7 +57,8 @@ public class ProceduralGenerator {
     private HashMap<String, Component[]> doors;
     private ArrayList<Component[]> objects;
     private ArrayList<Component[]> enemies;
-    private Vector startPosition;
+    private Vector floorEntrance;
+    private Vector floorExit;
     private int type;
 
     private int mapWidth;
@@ -119,8 +122,6 @@ public class ProceduralGenerator {
 		---------------------------------------------
 	*/
 
-	private final int MAX_COMPONENTS = 18;
-
     private void initGrids() {
         mapGrid = new Component[mapWidth][mapHeight][MAX_COMPONENTS];
 
@@ -138,7 +139,7 @@ public class ProceduralGenerator {
         }
 
         mapRegions = Array2DHelper.fillIntArray(mapWidth, mapHeight, -1);
-        objectGrid = Array2DHelper.createArrayList2D(mapWidth, mapHeight);
+        objectGrid = Array2DHelper.createComponentGrid(mapWidth, mapHeight);
     }
 
     public void setFloor(int floor) {
@@ -146,7 +147,7 @@ public class ProceduralGenerator {
     }
 
     public MapData getMapData() {
-        return new MapData(rooms, doors, objects, enemies, startPosition, type);
+        return new MapData(rooms, doors, objects, enemies, floorEntrance, floorExit, type);
     }
 
     public ArrayList<Component[]>[][] getObjects() {
@@ -412,14 +413,14 @@ public class ProceduralGenerator {
     }
 
     private void calculateGoals() {
-        Room startRoom = (Room) rooms.get(rng.getRandomInt(0, rooms.size() - 1));
+        Room startRoom = rooms.get(rng.getRandomInt(0, rooms.size() - 1));
 
         int count = 0;
         int roomCount = rooms.size();
 
         // Make sure that starting room is accessible
         while (!startRoom.isAccessible && count < roomCount) {
-            startRoom = (Room) rooms.get(rng.getRandomInt(0, rooms.size() - 1));
+            startRoom = rooms.get(rng.getRandomInt(0, rooms.size() - 1));
             count++;
         }
 
@@ -429,40 +430,42 @@ public class ProceduralGenerator {
         }
 
         startRoom.setEntrance();
-        startPosition = startRoom.roundedCentre();
+        floorEntrance = startRoom.roundedCentre();
 
         Component[] entrance = BlueprintParser.getComponentArrayForBlueprint(furnitureBlueprints, "entranceStairs");
         Position position = ComponentFinder.getPositionComponent(entrance);
-        position.x = startPosition.x;
-        position.y = startPosition.y;
+        position.x = floorEntrance.x;
+        position.y = floorEntrance.y;
         Portal portal = ComponentFinder.getPortalComponent(entrance);
         portal.destFloor = currentFloor - 1;
 
         objects.add(entrance);
 
         int furthest = 0;
-        Vector furthestRoom = null;
+        Vector furthestRoomCentre = null;
 
         for (Room room : rooms) {
             Vector centre = room.roundedCentre();
-            ArrayList<Vector> path = findShortestPath(startPosition, centre);
+            ArrayList<Vector> path = findShortestPath(floorEntrance, centre);
             int distance = path.size();
             if (distance > furthest) {
-                furthestRoom = centre;
+                furthestRoomCentre = centre;
                 furthest = distance;
             }
         }
 
-        if (furthestRoom != null) {
+        if (furthestRoomCentre != null) {
             Component[] exit = BlueprintParser.getComponentArrayForBlueprint(furnitureBlueprints, "exitStairs");
 
             position = ComponentFinder.getPositionComponent(exit);
-            position.x = furthestRoom.x;
-            position.y = furthestRoom.y;
+            position.x = furthestRoomCentre.x;
+            position.y = furthestRoomCentre.y;
             portal = ComponentFinder.getPortalComponent(exit);
             portal.destFloor = currentFloor + 1;
 
+            floorExit = furthestRoomCentre;
             objects.add(exit);
+
             Log.v(LOG_TAG, "path from start to finish was " + furthest + " moves");
         }
 

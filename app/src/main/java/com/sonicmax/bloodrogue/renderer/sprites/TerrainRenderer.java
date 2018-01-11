@@ -10,7 +10,6 @@ import com.sonicmax.bloodrogue.utils.BufferUtils;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
-import java.nio.ShortBuffer;
 
 /**
  *  Renderer class with some optimisations to handle fully populated grids of terrain sprites.
@@ -54,7 +53,6 @@ public class TerrainRenderer {
             1f, 1f, 1f, 1f
     };
 
-    private float[][][] cachedVecs;
     private float[][] cachedUvs;
 
     private short[] indices;
@@ -116,7 +114,6 @@ public class TerrainRenderer {
         for (int i = 0; i < emptyColourData.length; i++) {
             emptyColourData[i] = 0f;
         }
-
     }
 
     public void setMapSize(int width, int height) {
@@ -294,10 +291,9 @@ public class TerrainRenderer {
         }
     }
 
-    public void createVBO() {
+    public void setupVBOs() {
         // We need two VBOs - one for floats, one for shorts.
         // Get object name for later use
-
         packedBuffer = new VertexBufferObject(GLES20.GL_ARRAY_BUFFER);
         indicesBuffer = new VertexBufferObject(GLES20.GL_ELEMENT_ARRAY_BUFFER);
 
@@ -307,6 +303,16 @@ public class TerrainRenderer {
         // Once data has been copied to GPU, we can remove local references to data
         packedFloats = null;
         indices = null;
+    }
+
+    public void flushBuffers() {
+        if (packedBuffer != null) {
+            packedBuffer.invalidate();
+        }
+
+        if (indicesBuffer != null) {
+            indicesBuffer.invalidate();
+        }
     }
 
     public void renderSprites(float[] matrix) {
@@ -352,7 +358,6 @@ public class TerrainRenderer {
                 false,
                 stride,
                 FLOATS_PER_POSITION * FLOAT_SIZE);
-
 
         // Pass MVP matrix to shader
         GLES20.glUniformMatrix4fv(uniformMatrix, 1, false, matrix, 0);

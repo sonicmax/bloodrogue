@@ -23,9 +23,9 @@ public class MainActivity extends AppCompatActivity {
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
         mGameInterface = new GameInterface(this);
-        mGLView = new GameSurfaceView(this, mGameInterface.getRenderer());
+        mGLView = new GameSurfaceView(this);
         setContentView(mGLView);
-        mGameInterface.init();
+        mGameInterface.initState();
         initInputSurfaces();
     }
 

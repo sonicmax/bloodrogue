@@ -122,7 +122,6 @@ public class SpriteRenderer {
         float y;
         float yUnit = TARGET_WIDTH * mUniformScale;
 
-        // Iterate over row of terrainIndexes and setup vertices/etc for each sprite
         for (int tileY = 0; tileY < height; tileY++) {
             x = 0f;
             y = 0f + (tileY * yUnit);

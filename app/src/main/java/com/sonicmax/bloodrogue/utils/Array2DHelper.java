@@ -8,7 +8,7 @@ import java.util.ArrayList;
 
 
 public class Array2DHelper {
-    public static ArrayList<Component[]>[][] createArrayList2D(int width, int height) {
+    public static ArrayList<Component[]>[][] createComponentGrid(int width, int height) {
         ArrayList<Component[]>[][] array = new ArrayList[width][height];
 
         for (int x = 0; x < width; x++) {

@@ -34,9 +34,14 @@ import java.util.Iterator;
 /**
  *  Contains lists of sorted components in use, and provides some methods to allow us to add/remove/filter
  *  components by entity ID. (also hides the ugly code)
+ *
+ *  Uses a singleton pattern to ensure that we only have a single instance of this class and
+ *  that it's easily accessible.
  */
 
 public class ComponentManager {
+    private static ComponentManager INSTANCE = null;
+
     private final String LOG_TAG = this.getClass().getSimpleName();
 
     private HashMap<Long, Animation> animationComponents;
@@ -89,6 +94,45 @@ public class ComponentManager {
         usableComponents = new HashMap<>();
         vitalityComponents = new HashMap<>();
         wieldableComponents = new HashMap<>();
+    }
+
+    public static ComponentManager getInstance() {
+        if (INSTANCE == null) {
+            INSTANCE = new ComponentManager();
+        }
+
+        return INSTANCE;
+    }
+
+    /**
+     * Clears all component hashmaps. Primarily used when switching floors
+     */
+
+    public void clear() {
+        animationComponents.clear();
+        barrierComponents.clear();
+        bloodComponents.clear();
+        collectableComponents.clear();
+        containerComponents.clear();
+        damageComponents.clear();
+        dexterityComponents.clear();
+        dynamicComponents.clear();
+        energyComponents.clear();
+        inputComponents.clear();
+        intelligenceComponents.clear();
+        knowledgeComponents.clear();
+        levelComponents.clear();
+        nameComponents.clear();
+        physicsComponents.clear();
+        portalComponents.clear();
+        positionComponents.clear();
+        selfreplicateComponents.clear();
+        spriteComponents.clear();
+        staticComponents.clear();
+        trapComponents.clear();
+        usableComponents.clear();
+        vitalityComponents.clear();
+        wieldableComponents.clear();
     }
 
     /**

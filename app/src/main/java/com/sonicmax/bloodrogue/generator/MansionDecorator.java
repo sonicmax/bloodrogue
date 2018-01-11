@@ -1082,7 +1082,7 @@ public class MansionDecorator {
     }
 
     private void populateObjectGrid() {
-        objectGrid = Array2DHelper.createArrayList2D(mapWidth, mapHeight);
+        objectGrid = Array2DHelper.createComponentGrid(mapWidth, mapHeight);
 
         for (Component[] object : objects) {
             Position position = null;

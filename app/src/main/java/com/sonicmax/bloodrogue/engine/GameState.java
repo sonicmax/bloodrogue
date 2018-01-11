@@ -1,5 +1,7 @@
 package com.sonicmax.bloodrogue.engine;
 
+import android.util.Log;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 
@@ -16,17 +18,8 @@ public class GameState implements Serializable {
     private int currentFloor;
     private Component[] player;
 
-    public GameState() {}
-
-    /**
-     *  GameState is initialised with starting player data and the terrain/objects generated for first floor.
-     */
-
-    public GameState(Component[] player, FloorData firstFloor) {
+    public GameState() {
         this.floors = new ArrayList<>();
-        this.floors.add(firstFloor);
-        this.player = player;
-        this.currentFloor = 1;
     }
 
     /**
@@ -34,7 +27,7 @@ public class GameState implements Serializable {
      */
 
     public void addFloor(FloorData floor) {
-        floors.add(floor);
+        this.floors.add(floor);
     }
 
     public void addFloors(ArrayList<FloorData> floors) {
@@ -42,7 +35,7 @@ public class GameState implements Serializable {
     }
 
     public boolean hasFloor(int index) {
-        return index < floors.size();
+        return index <= this.floors.size();
     }
 
     /**
@@ -53,7 +46,7 @@ public class GameState implements Serializable {
         this.currentFloor = currentFloor;
     }
 
-    public int getFloorIndex() {
+    public int getCurrentFloorIndex() {
         return this.currentFloor;
     }
 
@@ -62,10 +55,14 @@ public class GameState implements Serializable {
      */
 
     public FloorData getCurrentFloor() {
-        return floors.get(currentFloor - 1);
+        return this.floors.get(currentFloor - 1);
+    }
+
+    public void setPlayer(Component[] player) {
+        this.player = player;
     }
 
     public Component[] getPlayer() {
-        return player;
+        return this.player;
     }
 }

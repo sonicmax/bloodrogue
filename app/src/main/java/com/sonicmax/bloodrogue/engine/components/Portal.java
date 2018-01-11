@@ -10,10 +10,12 @@ import com.sonicmax.bloodrogue.utils.maths.Vector;
 
 public class Portal extends Component {
     public int destFloor;
-    public Vector destTile = null;
+    public Vector destTile;
     public boolean activateOnStep;
 
     public Portal(long id) {
         super(id);
+        this.destFloor = -1;
+        this.destTile = null;
     }
 }

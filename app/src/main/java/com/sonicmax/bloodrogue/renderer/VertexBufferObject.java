@@ -4,6 +4,7 @@ import android.opengl.GLES20;
 
 import com.sonicmax.bloodrogue.utils.BufferUtils;
 
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -21,6 +22,8 @@ public class VertexBufferObject {
     private final int name;
     private final int[] buffers;
     private final int type;
+
+    private int size;
 
     public VertexBufferObject(int type) {
         this.buffers = new int[1];
@@ -70,29 +73,34 @@ public class VertexBufferObject {
         this.unbind();
     }
 
+    private Buffer buffer;
+
     public void copy(float[] data) {
         ByteBuffer bb = ByteBuffer.allocateDirect(data.length * FLOAT_SIZE);
         bb.order(ByteOrder.nativeOrder());
-        FloatBuffer floatBuffer = bb.asFloatBuffer();
-        BufferUtils.copy(data, floatBuffer, data.length, 0);
-        GLES20.glBufferData(this.type, floatBuffer.capacity() * FLOAT_SIZE, floatBuffer, GLES20.GL_STATIC_DRAW);
+        buffer = bb.asFloatBuffer();
+        BufferUtils.copy(data, buffer, data.length, 0);
+        size = buffer.capacity() * FLOAT_SIZE;
+        GLES20.glBufferData(this.type, size, buffer, GLES20.GL_STATIC_DRAW);
 
         bb.clear();
-        floatBuffer.clear();
+        buffer.clear();
     }
 
     public void copy(short[] data) {
         ByteBuffer bb = ByteBuffer.allocateDirect(data.length * SHORT_SIZE);
         bb.order(ByteOrder.nativeOrder());
-        ShortBuffer shortBuffer = bb.asShortBuffer();
-        BufferUtils.copy(data, 0, shortBuffer, data.length);
-        GLES20.glBufferData(this.type, shortBuffer.capacity() * SHORT_SIZE, shortBuffer, GLES20.GL_STATIC_DRAW);
+        buffer = bb.asShortBuffer();
+        BufferUtils.copy(data, 0, buffer, data.length);
+        size = buffer.capacity() * SHORT_SIZE;
+        GLES20.glBufferData(this.type, size, buffer, GLES20.GL_STATIC_DRAW);
 
         bb.clear();
-        shortBuffer.clear();
+        buffer.clear();
     }
 
-    public void delete() {
+    public void invalidate() {
+        GLES20.glBufferData(this.type, size, buffer, GLES20.GL_STATIC_DRAW);
         GLES20.glDeleteBuffers(1, buffers, 0);
     }
 }

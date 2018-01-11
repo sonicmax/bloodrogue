@@ -36,13 +36,13 @@ import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
 public class GameRenderer implements GLSurfaceView.Renderer {
+    public static GameRenderer INSTANCE;
+
     private final String LOG_TAG = this.getClass().getSimpleName();
     private final int SPRITE_SIZE = 64;
     private final int NONE = 0;
     private final int SPLASH = 1;
     private final int GAME = 2;
-    private final float DEFAULT_OFFSET_X = 0f;
-    private final float DEFAULT_OFFSET_Y = 0f;
     private final long FRAME_TIME = 16L;
 
     private Context context;
@@ -158,7 +158,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private boolean halfSecPassed;
 
     public GameRenderer(Context context, GameInterface gameInterface) {
-        super();
         this.context = context;
         this.gameInterface = gameInterface;
 
@@ -188,6 +187,16 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         transitionIn = true;
         transitionOut = false;
         halfSecPassed = false;
+
+        INSTANCE = this;
+    }
+
+    public static GameRenderer getInstance() {
+        if (INSTANCE == null) {
+            Log.w(GameRenderer.class.getSimpleName(), "No instance of GameRenderer to return");
+        }
+
+        return INSTANCE;
     }
 
     @Override
@@ -545,7 +554,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         terrainRenderer.initArrays(size);
         terrainRenderer.prepareIndices(mapGridWidth, mapGridHeight);
         cachedTerrain = cacheTerrainSprites();
-        terrainRenderer.createVBO();
+        terrainRenderer.setupVBOs();
     }
 
     private void initArrays() {
@@ -634,6 +643,14 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         // Treat this as the first render of a new data set
         firstRender = true;
+
+        // We need to make sure that we update the floor data before renderVisibleTiles() is called
+        // otherwise the terrain caching will still be using the data from the old floor.
+        if (updatedFloorData != null) {
+            currentFloorData = updatedFloorData;
+            fieldOfVision = currentFloorData.getFov();
+            calculateScrollOffset();
+        }
 
         // Switch renderState so renderVisibleTiles() is called next frame
         renderState = GAME;

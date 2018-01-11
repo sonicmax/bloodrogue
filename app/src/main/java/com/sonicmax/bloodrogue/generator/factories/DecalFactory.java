@@ -108,7 +108,7 @@ public class DecalFactory {
         return array;
     }
 
-    public static Component[] createBloodSplat(Position position, Blood blood, long[][] mapGrid, ComponentManager componentManager) {
+    public static Component[] createBloodSplat(Position position, Blood blood, long[][] mapGrid) {
         ArrayList<Vector> directions = new ArrayList(Directions.All.values());
         int random = new RandomNumberGenerator().getRandomInt(0, directions.size() - 1);
         Vector direction = directions.get(random);
@@ -124,7 +124,7 @@ public class DecalFactory {
         int bloodIndex = rng.getRandomInt(0, bloodSprites.length - 1);
 
         long terrain = mapGrid[x][y];
-        Stationary stat = (Stationary) componentManager.getEntityComponent(terrain, Stationary.class.getSimpleName());
+        Stationary stat = (Stationary) ComponentManager.getInstance().getEntityComponent(terrain, Stationary.class.getSimpleName());
 
         if (stat.type != Stationary.WALL && stat.type != Stationary.BORDER) {
             return createTraversableDecoration(x, y, bloodSprites[bloodIndex]);
@@ -145,14 +145,13 @@ public class DecalFactory {
         }
     }
 
-    public static ArrayList<Component[]> createBloodSpray(Position position, Blood blood,
-                                                          long[][] mapGrid, ComponentManager componentManager) {
+    public static ArrayList<Component[]> createBloodSpray(Position position, Blood blood, long[][] mapGrid) {
 
         ArrayList<Component[]> spray = new ArrayList<>();
 
         int size = new RandomNumberGenerator().getRandomInt(0, 5);
         for (int i = 0; i < size; i++) {
-            Component[] splat = createBloodSplat(position, blood, mapGrid, componentManager);
+            Component[] splat = createBloodSplat(position, blood, mapGrid);
 
             if (splat != null) {
                 spray.add(splat);
@@ -196,6 +195,7 @@ public class DecalFactory {
         position.y = y;
 
         Sprite sprite = new Sprite(entity.id);
+        sprite.shader = Sprite.STATIC;
         sprite.path = tile;
 
         Stationary s = new Stationary(Stationary.DEFAULT, entity.id);
@@ -222,6 +222,7 @@ public class DecalFactory {
         position.y = y;
 
         Sprite sprite = new Sprite(entity.id);
+        sprite.shader = Sprite.STATIC;
         sprite.path = tile;
 
         Stationary s = new Stationary(Stationary.DEFAULT, entity.id);

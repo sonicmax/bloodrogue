@@ -6,7 +6,7 @@ import com.sonicmax.bloodrogue.utils.maths.Vector;
 import java.util.concurrent.Delayed;
 import java.util.concurrent.TimeUnit;
 
-public class EntityTurn implements Delayed {
+public class ActorTurn implements Delayed {
     private final long DEFAULT_DURATION = 1000L;
     private long start;
 
@@ -18,7 +18,7 @@ public class EntityTurn implements Delayed {
     private Vector collision;
     private boolean hasCollision;
 
-    public EntityTurn(Position positionComponent) {
+    public ActorTurn(Position positionComponent) {
         this.start = System.currentTimeMillis() + DEFAULT_DURATION;
         this.positionComponent = positionComponent;
         this.hasMove = false;

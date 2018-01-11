@@ -5,14 +5,18 @@ import com.sonicmax.bloodrogue.utils.maths.Vector;
 import java.util.HashMap;
 
 /**
- *  Class with static HashMaps that contain vectors for various directions.
- *  eg. Directions.Cardinal.NORTH = (0, 1)
+ *  Class with various constants to help deal with directions in calculations/etc.
  */
 
 public class Directions {
     public final static HashMap<String, Vector> Cardinal;
     public final static HashMap<String, Vector> All;
     public final static HashMap<String, Vector> Diagonal;
+
+    // These are used as values to indicate which direction player is travelling when they change
+    // floors - the actual numbers are not important.
+    public final static int UP = -1;
+    public final static int DOWN = 1;
 
     static {
         Cardinal = new HashMap<>();

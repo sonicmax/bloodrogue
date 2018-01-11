@@ -28,12 +28,11 @@ public class FieldOfVisionCalculator {
         directions = new ArrayList<>(Directions.Diagonal.values());
     }
 
-    public void setValues(long[][] mapGrid, ArrayList<Long>[][] objectGrid,
-                          ComponentManager componentManager, int x, int y, int radius) {
+    public void setValues(long[][] mapGrid, ArrayList<Long>[][] objectGrid, int x, int y, int radius) {
 
         this.mapGrid = mapGrid;
         this.objectGrid = objectGrid;
-        this.componentManager = componentManager;
+        this.componentManager = ComponentManager.getInstance();
         this.startX = x;
         this.startY = y;
         this.fovRadius = radius;

@@ -10,11 +10,11 @@ import android.view.ScaleGestureDetector;
 import com.sonicmax.bloodrogue.engine.GameEngine;
 import com.sonicmax.bloodrogue.engine.GameState;
 import com.sonicmax.bloodrogue.engine.components.Position;
-import com.sonicmax.bloodrogue.renderer.ui.InventoryCard;
-import com.sonicmax.bloodrogue.utils.maths.Vector;
 import com.sonicmax.bloodrogue.renderer.GameRenderer;
 import com.sonicmax.bloodrogue.renderer.text.NarrationManager;
 import com.sonicmax.bloodrogue.renderer.text.Status;
+import com.sonicmax.bloodrogue.renderer.ui.InventoryCard;
+import com.sonicmax.bloodrogue.utils.maths.Vector;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -27,8 +27,6 @@ import java.util.ArrayList;
 
 /**
  * Class which links together the different parts of the engine and handles user input/other Android events.
- * GameEngine holds the terrain/object data and handles game logic.
- * Each time player takes a turn, updated data is passed to GameRenderer to be drawn to GL surface.
  */
 
 public class GameInterface {
@@ -46,15 +44,18 @@ public class GameInterface {
     private float scaleFactor;
     private boolean pathSelection;
 
-    private boolean startFresh = true; // This is just for debugging
+    private boolean startFresh = true; // This is just for debugging lol
 
     public GameInterface(Context context) {
         this.context = context;
+
+        // Initialise game components.
         this.gameEngine = new GameEngine(this);
         this.gameRenderer = new GameRenderer(context, this);
         this.narrationManager = new NarrationManager();
         this.gameRenderer.setMapSize(gameEngine.getMapSize());
 
+        // Set some variables required for UI interactions
         this.lastTouchX = 0f;
         this.lastTouchY = 0f;
         this.pathSelection = false;
@@ -62,184 +63,40 @@ public class GameInterface {
         this.scaleFactor = 1f;
     }
 
-    public void init() {
-        GameState state = loadState();
-        if (state == null || startFresh) {
-            Log.v(LOG_TAG, "Load failed or no save state exists");
-            gameEngine.startFromScratch();
-            passDataToRenderer();
-        }
-        else {
-            Log.v(LOG_TAG, "Load successful");
-            gameEngine.loadState(state);
-            passDataToRenderer();
-        }
-    }
-
     public GameRenderer getRenderer() {
         return this.gameRenderer;
-    }
-
-    public boolean handleTouchEvent(MotionEvent e) {
-        final long PATH_THRESHOLD = 500L;
-        float x = e.getX();
-        float y = e.getY();
-
-        final Vector mapTouch = gameRenderer.getGridCellForTouchCoords(x, y);
-
-        long eventDuration = e.getEventTime() - e.getDownTime();
-
-        switch(e.getAction()) {
-            case MotionEvent.ACTION_DOWN:
-                lastTouchX = x;
-                lastTouchY = y;
-
-                if (!inputLock && mapTouch.equals(gameEngine.getPlayerVector())) {
-                    // Start path selection
-                    lastMapTouch = mapTouch;
-                    pathSelection = true;
-                }
-
-                break;
-
-            case MotionEvent.ACTION_MOVE:
-                if (!inputLock && pathSelection) {
-                    if (!mapTouch.equals(lastMapTouch)) {
-                        gameEngine.setPathDestination(mapTouch);
-                        ArrayList<Vector> path = gameEngine.onTouchPathComplete();
-                        path.add(mapTouch);
-                        gameRenderer.setCurrentPathSelection(path);
-                        break;
-                    }
-                }
-
-                else {
-                    float dx = lastTouchX - x;
-                    float dy = lastTouchY - y;
-
-                    gameRenderer.setTouchScrollCoords(dx, dy);
-
-                    lastTouchX = x;
-                    lastTouchY = y;
-                    lastMapTouch = null;
-                }
-
-                break;
-
-            case MotionEvent.ACTION_UP:
-                if (inputLock) break;
-
-                gameRenderer.setCurrentPathSelection(null);
-                pathSelection = false;
-
-                if (eventDuration > PATH_THRESHOLD) {
-                    final ArrayList<Vector> path = gameEngine.onTouchPathComplete();
-                    // Todo: if square is adjacent then we should just move to it
-                    /*if (path.size() > 0) {
-                        path.add(mapTouch);
-
-                        // Execute in background thread to prevent queueAndFollowPath() from blocking touch events
-                        AsyncTask.execute(new Runnable() {
-                            @Override
-                            public void run() {
-                                gameEngine.queueAndFollowPath(path);
-                            }
-                        });
-                    }*/
-                }
-
-                else {
-                    // Check whether player touched a UI element.
-                    boolean touchCaptured = gameRenderer.checkUiTouch(x, y);
-
-                    // If touch event wasn't consumed by renderer, pass to engine
-                    if (!touchCaptured) {
-                        AsyncTask.execute(new Runnable() {
-                            @Override
-                            public void run() {
-                                gameEngine.checkUserInput(mapTouch);
-                            }
-                        });
-                    }
-                }
-
-                break;
-        }
-
-        return true;
-    }
-
-    public long processInventoryClick(int index) {
-        return gameEngine.getInventoryEntity(index);
-    }
-
-    public void handleInventorySelection(long entity, boolean ok) {
-        if (ok) {
-            gameEngine.useEntity(entity);
-        }
-        else {
-            gameEngine.unequipEntity(entity);
-        }
-    }
-
-    public InventoryCard getEntityDetails(long entity) {
-        return gameEngine.getEntityDetails(entity);
-    }
-
-    public boolean handleScaleEvent(ScaleGestureDetector detector) {
-        scaleFactor *= detector.getScaleFactor();
-
-        // Don't let the object get too small or too large.
-        scaleFactor = Math.max(0.5f, Math.min(scaleFactor, 2.0f));
-        gameRenderer.setZoom(scaleFactor);
-        return true;
-    }
-
-    public void passDataToRenderer() {
-        gameRenderer.setFrame(gameEngine.getCurrentFrameData());
-        gameRenderer.setHasGameData();
-    }
-
-    public void setMoveLock(boolean value) {
-        inputLock = value;
-    }
-
-    public void addNarration(String narration) {
-        narrationManager.addToQueue(narration);
-    }
-
-    public void addNarration(String narration, float[] colour) {
-        narrationManager.addToQueue(narration, colour);
-    }
-
-    public void checkNarrations() {
-        narrationManager.checkQueueAndRemove();
-        gameRenderer.queueNarrationUpdate(narrationManager.getTextObjects());
     }
 
     public AssetManager getAssets() {
         return context.getAssets();
     }
 
-    public void displayStatus(Position position, String message, float[] color) {
-        Vector vector = new Vector(position.x, position.y);
-        float[] coords = gameRenderer.getRenderCoordsForObject(vector, true);
-        Status status = new Status(message, coords[0], coords[1], color);
-        gameRenderer.queueNewStatus(status);
+    /**
+     * Initialises game state and passes result to renderer.
+     */
+
+    public void initState() {
+        GameState state = loadState();
+        if (state == null || startFresh) {
+            Log.v(LOG_TAG, "Load failed or no save state exists");
+            gameEngine.startNewGame();
+            passDataToRenderer();
+        }
+        else {
+            Log.v(LOG_TAG, "Load successful");
+            gameEngine.restoreGameState(state);
+            passDataToRenderer();
+        }
     }
 
-    public void initFloorChange() {
-        gameRenderer.fadeOutAndDisplaySplash();
-        narrationManager.clearAll();
-    }
+    /**
+     * Saves game state to disk. Currently the component classes are serializable, so we
+     * can just use an ObjectOutputStream to write the GameState to disk. Ideally we would be using
+     * something like protobuf instead.
+     */
 
-    public void transitionToNewContent() {
-        gameRenderer.startNewFloor();
-    }
-
-    public void saveState() {
+    public void saveState(GameState state) {
         String FILENAME = "save_data.sav";
-        GameState state = gameEngine.getGameState();
 
         FileOutputStream fos = null;
         ObjectOutputStream oos = null;
@@ -267,7 +124,17 @@ public class GameInterface {
         }
     }
 
-    public GameState loadState() {
+    public void saveState() {
+        saveState(gameEngine.getGameState());
+    }
+
+    /**
+     * Attempts to load saved state from disk and returns GameState object (if no exceptions were thrown)
+     *
+     * @return GameState that was saved to disk
+     */
+
+    private GameState loadState() {
         GameState state = null;
         String FILENAME = "save_data.sav";
 
@@ -311,5 +178,215 @@ public class GameInterface {
         }
 
         return state;
+    }
+
+    /**
+     * Receives touch events from MainActivity and passes coordinates to engine/renderer
+     *
+     * @param e The event passed to onTouchEvent() of MainActivity
+     * @return true if event is consumed
+     */
+
+    public boolean handleTouchEvent(MotionEvent e) {
+        float x = e.getX();
+        float y = e.getY();
+
+        long eventDuration = e.getEventTime() - e.getDownTime();
+
+        switch(e.getAction()) {
+            case MotionEvent.ACTION_DOWN:
+                handleTouchDown(x, y);
+                break;
+
+            case MotionEvent.ACTION_MOVE:
+                handleTouchMove(x, y, eventDuration);
+                break;
+
+            case MotionEvent.ACTION_UP:
+                if (inputLock) break; // TODO: does this break anything?
+                handleTouchUp(x, y, eventDuration);
+                break;
+        }
+
+        return true;
+    }
+
+    /**
+     * ACTION_DOWN events indicate that user has started to interact with the game. We keep track
+     * of the starting coordinates and set some flags depending on user intent.
+     *
+     * @param x
+     * @param y
+     */
+
+    private void handleTouchDown(float x, float y) {
+        Vector mapTouch = gameRenderer.getGridCellForTouchCoords(x, y);
+
+        lastTouchX = x;
+        lastTouchY = y;
+
+        if (!inputLock && mapTouch.equals(gameEngine.getPlayerVector())) {
+            // Start path selection
+            lastMapTouch = mapTouch;
+            pathSelection = true;
+        }
+    }
+
+    /**
+     * ACTION_MOVE events are used to scroll the game window and update current grid selection.
+     *
+     * @param x
+     * @param y
+     * @param duration Duration of touch event
+     */
+
+    private void handleTouchMove(float x, float y, long duration) {
+        final long SCROLL_THRESHOLD = 50L;  // Number of milliseconds to wait before scrolling
+
+        // If player is currently selecting a path, we should update the path destination with current position
+        if (!inputLock && pathSelection) {
+            Vector mapTouch = gameRenderer.getGridCellForTouchCoords(x, y);
+
+            if (!mapTouch.equals(lastMapTouch)) {
+                gameEngine.setPathDestination(mapTouch);
+                ArrayList<Vector> path = gameEngine.onTouchPathComplete();
+                path.add(mapTouch);
+                gameRenderer.setCurrentPathSelection(path);
+            }
+        }
+
+        // If player isn't selecting a path, we should wait for at least 50ms before scrolling (otherwise
+        // you get jerky screen movement when tapping squares to move player/attack enemies/etc)
+        else if (duration > SCROLL_THRESHOLD) {
+            float dx = lastTouchX - x;
+            float dy = lastTouchY - y;
+
+            gameRenderer.setTouchScrollCoords(dx, dy);
+
+            lastTouchX = x;
+            lastTouchY = y;
+            lastMapTouch = null;
+        }
+    }
+
+    /**
+     * ACTION_UP events indicate that current action (press/drag/etc) is finished.
+     * As well as coordinates, this method requires the event duration so we can do some basic
+     * filtering (eg. for intentional press vs accidental taps).
+     *
+     * @param x
+     * @param y
+     * @param eventDuration Duration of event in milliseconds
+     */
+
+    private void handleTouchUp(float x, float y, long eventDuration) {
+        final long PATH_THRESHOLD = 500L; // Amount of time before we start displaying path selection nodes
+        final Vector mapTouch = gameRenderer.getGridCellForTouchCoords(x, y);
+
+        // Reset path selection and scrolling.
+        gameRenderer.setCurrentPathSelection(null);
+        pathSelection = false;
+
+        if (eventDuration < PATH_THRESHOLD) {
+            // First, check whether player touched a UI element.
+            boolean touchCaptured = gameRenderer.checkUiTouch(x, y);
+
+            // If touch event wasn't consumed by renderer, pass to engine
+            if (!touchCaptured) {
+                AsyncTask.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        gameEngine.checkUserInput(mapTouch);
+                    }
+                });
+            }
+        }
+
+        else {
+            final ArrayList<Vector> path = gameEngine.onTouchPathComplete();
+            // Todo: if square is adjacent then we should just move to it
+                    /*if (path.size() > 0) {
+                        path.add(mapTouch);
+
+                        // Execute in background thread to prevent queueAndFollowPath() from blocking touch events
+                        AsyncTask.execute(new Runnable() {
+                            @Override
+                            public void run() {
+                                gameEngine.queueAndFollowPath(path);
+                            }
+                        });
+                    }*/
+        }
+    }
+
+    /**
+     * Passes scale gestures to renderer to we can set zoom level.
+     *
+     * @param detector Event from onScale() in MainActivity
+     * @return True if event was consumed
+     */
+
+    public boolean handleScaleEvent(ScaleGestureDetector detector) {
+        scaleFactor *= detector.getScaleFactor();
+
+        // Don't let the object get too small or too large.
+        scaleFactor = Math.max(0.5f, Math.min(scaleFactor, 2.0f));
+        gameRenderer.setZoom(scaleFactor);
+        return true;
+    }
+
+    public long processInventoryClick(int index) {
+        return gameEngine.getInventoryEntity(index);
+    }
+
+    public void handleInventorySelection(long entity, boolean ok) {
+        if (ok) {
+            gameEngine.useEntity(entity);
+        }
+        else {
+            gameEngine.unequipEntity(entity);
+        }
+    }
+
+    public InventoryCard getEntityDetails(long entity) {
+        return gameEngine.getEntityDetails(entity);
+    }
+
+    public void passDataToRenderer() {
+        gameRenderer.setFrame(gameEngine.getCurrentFrameData());
+        gameRenderer.setHasGameData();
+    }
+
+    public void setMoveLock(boolean value) {
+        inputLock = value;
+    }
+
+    public void addNarration(String narration) {
+        narrationManager.addToQueue(narration);
+    }
+
+    public void addNarration(String narration, float[] colour) {
+        narrationManager.addToQueue(narration, colour);
+    }
+
+    public void checkNarrations() {
+        narrationManager.checkQueueAndRemove();
+        gameRenderer.queueNarrationUpdate(narrationManager.getTextObjects());
+    }
+
+    public void displayStatus(Position position, String message, float[] color) {
+        Vector vector = new Vector(position.x, position.y);
+        float[] coords = gameRenderer.getRenderCoordsForObject(vector, true);
+        Status status = new Status(message, coords[0], coords[1], color);
+        gameRenderer.queueNewStatus(status);
+    }
+
+    public void initFloorChange() {
+        gameRenderer.fadeOutAndDisplaySplash();
+        narrationManager.clearAll();
+    }
+
+    public void transitionToNewContent() {
+        gameRenderer.startNewFloor();
     }
 }
