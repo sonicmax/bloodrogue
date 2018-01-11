@@ -21,11 +21,16 @@ public class FieldOfVisionCalculator {
     private int width;
     private int height;
     private double[][] lightMap;
+    private boolean[][] visitedTiles;
 
     private ArrayList<Vector> directions;
 
     public FieldOfVisionCalculator() {
         directions = new ArrayList<>(Directions.Diagonal.values());
+    }
+
+    public boolean[][] getVisitedTiles() {
+        return this.visitedTiles;
     }
 
     public void setValues(long[][] mapGrid, ArrayList<Long>[][] objectGrid, int x, int y, int radius) {
@@ -40,6 +45,9 @@ public class FieldOfVisionCalculator {
         this.width = mapGrid.length;
         this.height = mapGrid[0].length;
         this.lightMap = new double[width][height];
+        if (this.visitedTiles == null) {
+            this.visitedTiles = new boolean[width][height];
+        }
 
         this.darknessFactor = 1;
     }
@@ -89,6 +97,7 @@ public class FieldOfVisionCalculator {
                 if (getRadius(deltaX, deltaY) <= fovRadius) {
                     double bright = (1 - (getRadius(deltaX, deltaY) / fovRadius));
                     lightMap[currentX][currentY] = bright * darknessFactor;
+                    visitedTiles[currentX][currentY] = true;
                 }
 
                 if (blocked) { //previous cell was a blocking one

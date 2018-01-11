@@ -19,16 +19,18 @@ public class Frame implements Serializable {
     public final ArrayList<Sprite> objects;
     public final ArrayList<Animation> animations;
     public final double[][] fov;
+    public final boolean[][] visited;
     public final Component[] player;
 
     public Frame(int index, Sprite[][] terrain, ArrayList<Sprite> objects,
-                 ArrayList<Animation> animations, double[][] fov, Component[] player) {
+                 ArrayList<Animation> animations, double[][] fov, boolean[][] visited, Component[] player) {
 
         this.index = index;
         this.terrain = terrain;
         this.objects = objects;
         this.animations = animations;
         this.fov = fov;
+        this.visited = visited;
         this.player = player;
     }
 
@@ -46,6 +48,10 @@ public class Frame implements Serializable {
 
     public double[][] getFov() {
         return this.fov;
+    }
+
+    public boolean[][] getVisitedTiles() {
+        return this.visited;
     }
 
     public Component[] getPlayer() {

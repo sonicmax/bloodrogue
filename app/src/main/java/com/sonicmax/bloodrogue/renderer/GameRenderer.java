@@ -56,6 +56,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private int scrollOffsetX;
     private int scrollOffsetY;
     private double[][] fieldOfVision;
+    private boolean[][] visitedTiles;
     private ArrayList<Sprite> movingSprites;
 
     // Renderers
@@ -493,6 +494,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 setPlayerComponents();
                 centreAtPlayerPos();
                 fieldOfVision = currentFloorData.getFov();
+                visitedTiles = currentFloorData.getVisitedTiles();
                 calculateScrollOffset();
                 translateMatrixForScroll();
                 cacheTerrainLayer();
@@ -508,6 +510,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             if (updatedFloorData != null) {
                 currentFloorData = updatedFloorData;
                 fieldOfVision = currentFloorData.getFov();
+                visitedTiles = currentFloorData.getVisitedTiles();
                 calculateScrollOffset();
             }
 
@@ -1062,9 +1065,19 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private double getLightingForGrid(int x, int y) {
         double fov;
 
+        // If tile is outside of FOV, only highlight if we have visited before.
+        // Otherwise tile is blind
+
         if (fieldOfVision[x][y] == 0) {
-            fov = 0.1;
+
+            if (visitedTiles[x][y]) {
+                fov = 0.1;
+            }
+            else {
+                fov = 0;
+            }
         }
+
         else {
             fov = fieldOfVision[x][y];
         }

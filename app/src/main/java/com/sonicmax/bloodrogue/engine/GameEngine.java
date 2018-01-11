@@ -121,7 +121,7 @@ public class GameEngine {
     }
 
     public Frame getCurrentFrameData() {
-        return new Frame(currentFloor, terrain, objects, animations, fieldOfVision, player);
+        return new Frame(currentFloor, terrain, objects, animations, fieldOfVision, fovCalculator.getVisitedTiles(), player);
     }
 
     public FloorData getCurrentFloorData() {
