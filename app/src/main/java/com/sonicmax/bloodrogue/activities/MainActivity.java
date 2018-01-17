@@ -8,6 +8,7 @@ import android.view.ScaleGestureDetector;
 import android.view.WindowManager;
 
 import com.sonicmax.bloodrogue.GameInterface;
+import com.sonicmax.bloodrogue.renderer.GameRenderer;
 import com.sonicmax.bloodrogue.renderer.GameSurfaceView;
 
 public class MainActivity extends AppCompatActivity {
@@ -56,16 +57,9 @@ public class MainActivity extends AppCompatActivity {
     private class ScaleListener
             extends ScaleGestureDetector.SimpleOnScaleGestureListener {
 
-        private float mScaleFactor = 1f;
-
         @Override
         public boolean onScale(ScaleGestureDetector detector) {
             return mGameInterface.handleScaleEvent(detector);
-        }
-
-        @Override
-        public void onScaleEnd(ScaleGestureDetector detector) {
-            // mRenderer.calculateGridSize();
         }
     }
 
@@ -81,6 +75,6 @@ public class MainActivity extends AppCompatActivity {
 
     private void initInputSurfaces() {
         mScaleDetector = null;
-        // mScaleDetector = new ScaleGestureDetector(this, new ScaleListener());
+        mScaleDetector = new ScaleGestureDetector(this, new ScaleListener());
     }
 }
