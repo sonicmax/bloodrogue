@@ -628,7 +628,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     private void translateMatrixForScroll() {
         if (touchScrollDx != 0 || touchScrollDy != 0) {
-            Matrix.translateM(scrollMatrix, 0, mvpMatrix, 0, touchScrollDx, touchScrollDy, 0f);
+            Matrix.translateM(
+                    scrollMatrix, 0,
+                    mvpMatrix, 0,
+                    touchScrollDx * zoomLevel, touchScrollDy * zoomLevel, 0f);
         }
     }
 
