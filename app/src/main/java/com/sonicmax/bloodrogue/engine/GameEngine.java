@@ -97,9 +97,9 @@ public class GameEngine {
     public GameEngine(GameInterface gameInterface) {
         this.playerMoveLock = false;
 
-        this.sightRadius = 10;
-        this.mapWidth = 16;
-        this.mapHeight = 16;
+        this.sightRadius = 7;
+        this.mapWidth = 32;
+        this.mapHeight = 32;
         this.currentFloor = 1;
 
         this.gameInterface = gameInterface;
@@ -125,8 +125,7 @@ public class GameEngine {
     }
 
     public FloorData getCurrentFloorData() {
-        FloorData floor = new FloorData(currentFloor, rawTerrainComponents, rawObjectComponents, rawAnimationComponents, player);
-        return floor;
+        return new FloorData(currentFloor, rawTerrainComponents, rawObjectComponents, rawAnimationComponents, player);
     }
 
     private Position getPlayerPosition() {
@@ -175,12 +174,6 @@ public class GameEngine {
     }
 
     public void startNewGame() {
-        // Todo: sight radius and width/height should be decided depending on the type of dungeon created
-        this.sightRadius = 10;
-        this.mapWidth = 16;
-        this.mapHeight = 16;
-        this.currentFloor = 1;
-
         gameState = new GameState();
         player = PlayerFactory.getPlayer(0, 0);
         playerEntity = player[0].id;
@@ -299,12 +292,19 @@ public class GameEngine {
      * loading of existing floor data.
      *
      * @param floorIndex index of floor we want to move to
-     * @param direction 1 if we are going deeper, -1 if we are returning to surface
+     * @param direction Use Directions.UP or Directions.DOWN
      */
 
     private void changeFloor(int floorIndex, int direction) {
+        // Make sure components for current floor are updated
+        saveCurrentFloor();
+
+        currentFloor = floorIndex;
+        gameState.updateFloorIndex(currentFloor);
+
+        gameInterface.saveState(gameState);
+
         if (gameState.hasFloor(floorIndex)) {
-            Log.v(LOG_TAG, "floor exists, switching to " + floorIndex);
             gameState.updateFloorIndex(floorIndex);
             FloorData floor = gameState.getCurrentFloor();
             loadFloor(floor, direction);
@@ -319,6 +319,37 @@ public class GameEngine {
 
         playerDesireMap = Array2DHelper.fillIntArray(mapWidth, mapHeight, DIJKSTRA_MAX);
         initPriorityQueue();
+    }
+
+    private void saveCurrentFloor() {
+        // Reinitialize raw component arrays.
+        rawTerrainComponents = new Component[mapWidth][mapHeight][ProceduralGenerator.MAX_COMPONENTS];
+        rawObjectComponents = Array2DHelper.createComponentGrid(mapWidth, mapHeight);
+        rawAnimationComponents = Array2DHelper.createComponentGrid(mapWidth, mapHeight);
+
+        // Reverse the process of sorting components
+        for (int y = 0; y < mapHeight; y++) {
+            for (int x = 0; x < mapWidth; x++) {
+                long terrainEntity = terrainEntities[x][y];
+                ArrayList<Component> terrain = componentManager.getEntityComponents(terrainEntity);
+                rawTerrainComponents[x][y] = terrain.toArray(new Component[terrain.size()]);
+
+                for (long objectEntity : objectEntities[x][y]) {
+                    ArrayList<Component> objects = componentManager.getEntityComponents(objectEntity);
+                    rawObjectComponents[x][y].add(objects.toArray(new Component[objects.size()]));
+                }
+            }
+        }
+
+        // Now we can update floor data
+        FloorData newFloor = getCurrentFloorData();
+
+        // Todo: for now, we have to manually copy the entrance/exit positions. This sucks
+        FloorData existingFloor = gameState.getCurrentFloor();
+        newFloor.setEntrance(existingFloor.entrancePosition);
+        newFloor.setExit(existingFloor.exitPosition);
+
+        gameState.updateFloor(currentFloor, newFloor);
     }
 
     /**
@@ -373,7 +404,6 @@ public class GameEngine {
         prebuildSprites();
 
         // Enemy components have already been sorted, but we should keep a reference to their entities
-        // for convenience's sake.
         ArrayList<Component> enemies = componentManager.getComponents(AI.class.getSimpleName());
 
         for (int i = 0; i < enemies.size(); i++) {
@@ -1048,7 +1078,7 @@ public class GameEngine {
             if (targetPhysics != null && targetPhysics.activateOnCollide) {
                 int result = collideEntities(target, initiator);
 
-                if (result == Actions.REMOVE_FROM_ITERATOR) {
+                if (result == Actions.REMOVE_ENTITY) {
                     it.remove();
                     continue;
                 }
@@ -1078,7 +1108,7 @@ public class GameEngine {
                 if (success) {
                     // Remove entity from object stack - it is now located inside container.
                     // Otherwise, continue with execution
-                    return Actions.REMOVE_FROM_ITERATOR;
+                    return Actions.REMOVE_ENTITY;
                 }
             }
         }
@@ -1183,7 +1213,7 @@ public class GameEngine {
 
             gameInterface.addNarration(defenderName.value + " killed by trap!", TextColours.RED);
 
-            makeDead(victim);
+            kill(victim);
 
             AI defenderAi = (AI) componentManager.getEntityComponent(victim, AI.class.getSimpleName());
 
@@ -1274,7 +1304,7 @@ public class GameEngine {
             if (targetPhysics != null && targetPhysics.activateOnMove) {
                 int result = checkMovementActions(entityToCheck, entity);
 
-                if (result == Actions.REMOVE_FROM_ITERATOR) {
+                if (result == Actions.REMOVE_ENTITY) {
                     it.remove();
                     continue;
                 }
@@ -1287,6 +1317,10 @@ public class GameEngine {
                     break;
                 }
             }
+        }
+
+        if (inventoryPickupGroup.size() > 0) {
+            addItemPickupNarration();
         }
     }
 
@@ -1301,6 +1335,8 @@ public class GameEngine {
      * @return Constant from Actions class
      */
 
+    private ArrayList<Long> inventoryPickupGroup = new ArrayList<>();
+
     private int checkMovementActions(long target, long actor) {
         Collectable collectableComponent = (Collectable) componentManager.getEntityComponent(target, Collectable.class.getSimpleName());
 
@@ -1310,10 +1346,10 @@ public class GameEngine {
             if (actorContainer != null) {
                 boolean success = addToContainer(collectableComponent, actorContainer);
                 if (success) {
-                    addItemPickupNarration(target);
+                    inventoryPickupGroup.add(target);
+
                     // Remove entity from object stack - it is now located inside container.
-                    // Otherwise, continue with execution
-                    return Actions.REMOVE_FROM_ITERATOR;
+                    return Actions.REMOVE_ENTITY;
                 }
             }
         }
@@ -1353,7 +1389,13 @@ public class GameEngine {
         return Actions.NONE;
     }
 
-    private void addItemPickupNarration(long item) {
+    private void addItemPickupNarration() {
+        StringBuilder builder = new StringBuilder();
+        builder.append("You picked up the ");
+
+        int numberOfItems = inventoryPickupGroup.size();
+        long item = inventoryPickupGroup.get(0);
+
         InventoryCard details = getEntityDetails(item);
         String name = "";
 
@@ -1361,27 +1403,37 @@ public class GameEngine {
             if (componentManager.has(item, Wieldable.class.getSimpleName())) {
                 if (componentManager.has(item, Vitality.class.getSimpleName())) {
                     name = "unidentified armour";
-                }
-                else if (componentManager.has(item, Damage.class.getSimpleName())) {
+                } else if (componentManager.has(item, Damage.class.getSimpleName())) {
                     name = "unidentified weapon";
                 }
 
-            }
-
-            else if (componentManager.has(item, Usable.class.getSimpleName())) {
+            } else if (componentManager.has(item, Usable.class.getSimpleName())) {
                 name = "unidentified potion";
+            } else {
+                name = "something weird";
             }
-
-            else {
-                name = "something";
-            }
-        }
-
-        else {
+        } else {
             name = details.name;
         }
 
-        gameInterface.addNarration("You picked up the " + name + ".", TextColours.YELLOW);
+        builder.append(name);
+
+        if (numberOfItems > 1) {
+            builder.append(" and ");
+            builder.append(numberOfItems - 1);
+
+            if (numberOfItems - 1 > 1) {
+                builder.append(" other items.");
+            } else {
+                builder.append(" other item.");
+            }
+
+        } else {
+            builder.append(".");
+        }
+
+        gameInterface.addNarration(builder.toString(), TextColours.YELLOW);
+        inventoryPickupGroup.clear();
     }
 
 
@@ -1397,8 +1449,7 @@ public class GameEngine {
                 // Tell renderer to fade out content and display loading screen, generate
                 // terrain for new floor and fade in with new content
                 gameInterface.initFloorChange();
-                currentFloor++;
-                changeFloor(currentFloor, Directions.DOWN);
+                changeFloor(currentFloor + 1, Directions.DOWN);
                 advanceFrame();
                 gameInterface.transitionToNewContent();
                 break;
@@ -1406,8 +1457,7 @@ public class GameEngine {
             case Actions.GO_TO_PREV_FLOOR:
                 if (currentFloor > 1) {
                     gameInterface.initFloorChange();
-                    currentFloor--;
-                    changeFloor(currentFloor, Directions.UP);
+                    changeFloor(currentFloor - 1, Directions.UP);
                     advanceFrame();
                     gameInterface.transitionToNewContent();
                 }
@@ -1522,7 +1572,7 @@ public class GameEngine {
 
             applyXpReward(aggressor, defender);
 
-            makeDead(defender);
+            kill(defender);
 
             if (defenderAi == null || !defenderAi.computerControlled) {
                 // Check for other controllable characters, or end game
@@ -1532,26 +1582,6 @@ public class GameEngine {
         else {
             animations.add(AnimationFactory.getHitAnimation(blood, x, y));
         }
-    }
-
-    /**
-     *  Calculates effects of Damage component on target Vitality component.
-     */
-
-    private int doDamage(Damage attacker, Vitality defender) {
-        int damage = getDamage(attacker.strength, defender.endurance);
-
-        int defenderHp = defender.hp;
-
-        // Make sure that hp doesn't drop below 0. (at least for now)
-        if (defenderHp - damage >= 0) {
-            defender.hp -= damage;
-        }
-        else {
-            defender.hp = 0;
-        }
-
-        return damage;
     }
 
     private int doDamage(int strength, Vitality defender) {
@@ -1570,7 +1600,11 @@ public class GameEngine {
         return damage;
     }
 
-    private void makeDead(long entity) {
+    private int doDamage(Damage attacker, Vitality defender) {
+        return doDamage(attacker.strength, defender);
+    }
+
+    private void kill(long entity) {
         // Alter physics of entity so that it does not activate on collisions & is traversable.
         Physics physComponent = (Physics) componentManager.getEntityComponent(entity, Physics.class.getSimpleName());
         physComponent.activateOnCollide = false;

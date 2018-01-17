@@ -96,13 +96,13 @@
 			shader: "dynamic"
 		},
 		name: {
-			value: "Demon's Sword",
+			value: "Lifedrinker",
 			description: "A mysterious sword of unknown origin."
 		},
 		damage: {
 			strength: 10,
 			type: "slash",
-			bonus: "chaos"
+			bonus: "vampiric"
 		},
 		physics: {
 			blocking: false,

@@ -3,7 +3,7 @@ package com.sonicmax.bloodrogue.engine.components;
 import com.sonicmax.bloodrogue.engine.Component;
 
 /**
- *  Entities with static component will not move and are usually used to represent terrain.
+ *  Entities with stationary component will not move and are used to represent terrain.
  *  Type is used when handling interactions between entities with dynamic components and when
  *  generating terrain
  */

@@ -98,11 +98,27 @@ public class PotionSystem {
             case -1:
                 return "Unknown";
             case 0:
-                return "Potion of vitality";
+                return "Potion of Vitality";
             case 1:
-                return "Weak poison";
+                return "Weak Poison";
             case 2:
-                return "Potion of strength";
+                return "Potion of Strength";
+            default:
+                Log.e(LOG_TAG, "No corresponding value for effect ID \"" + effectId + "\"");
+                return "Unknown";
+        }
+    }
+
+    public static String getIdentifiedPotionNarration(int effectId) {
+        switch (effectId) {
+            case -1:
+                return "unidentified potion";
+            case 0:
+                return "potion of vitality";
+            case 1:
+                return "weak poison";
+            case 2:
+                return "potion of strength";
             default:
                 Log.e(LOG_TAG, "No corresponding value for effect ID \"" + effectId + "\"");
                 return "Unknown";

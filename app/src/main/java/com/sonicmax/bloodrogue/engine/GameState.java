@@ -20,6 +20,7 @@ public class GameState implements Serializable {
 
     public GameState() {
         this.floors = new ArrayList<>();
+        this.currentFloor = 1;
     }
 
     /**
@@ -32,6 +33,13 @@ public class GameState implements Serializable {
 
     public void addFloors(ArrayList<FloorData> floors) {
         this.floors = floors;
+    }
+
+    public void updateFloor(int floorNumber, FloorData floor) {
+        if (hasFloor(floorNumber)) {
+            int index = floorNumber - 1;
+            floors.set(index, floor);
+        }
     }
 
     public boolean hasFloor(int index) {
