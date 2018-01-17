@@ -2,20 +2,22 @@ package com.sonicmax.bloodrogue.generator;
 
 import com.sonicmax.bloodrogue.engine.Component;
 import com.sonicmax.bloodrogue.generator.factories.TerrainFactory;
+import com.sonicmax.bloodrogue.tilesets.ExteriorTileset;
 import com.sonicmax.bloodrogue.tilesets.GenericTileset;
 import com.sonicmax.bloodrogue.tilesets.MansionTileset;
 import com.sonicmax.bloodrogue.tilesets.RuinsTileset;
+import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 
 /**
- *  Class which decides which types of tiles to use depending on theme selected in ProceduralGenerator.
+ *  Class which decides which types of tiles to use depending on tileset selected in ProceduralGenerator.
  *  Contains methods which return String of path and methods that return GameObjects (Wall, Floor, etc)
  */
 
 public class Tiler {
-    private final String mTheme;
+    private final String tileset;
 
     public Tiler(String theme) {
-        this.mTheme = theme;
+        this.tileset = theme;
     }
 
     /*
@@ -27,7 +29,7 @@ public class Tiler {
     public Component[] getWallTile(int x, int y) {
         String sprite;
 
-        switch (mTheme) {
+        switch (tileset) {
             case MansionTileset.KEY:
                 sprite = MansionTileset.WALLPAPER_3;
                 break;
@@ -72,13 +74,17 @@ public class Tiler {
     public Component[] getFloorTile(int x, int y, int type) {
         String sprite;
 
-        switch (mTheme) {
+        switch (tileset) {
             case MansionTileset.KEY:
                 sprite = getMansionFloorTilePath(type);
                 break;
 
             case RuinsTileset.KEY:
                 sprite = RuinsTileset.FLOOR;
+                break;
+
+            case ExteriorTileset.KEY:
+                sprite = ExteriorTileset.GRASS;
                 break;
 
             default:
@@ -110,12 +116,15 @@ public class Tiler {
     */
 
     public String getBorderTilePath() {
-        switch (mTheme) {
+        switch (tileset) {
             case MansionTileset.KEY:
                 return MansionTileset.BRICK_WALL;
 
             case RuinsTileset.KEY:
                 return RuinsTileset.BORDER;
+
+            case ExteriorTileset.KEY:
+                return ExteriorTileset.TREES[new RandomNumberGenerator().getRandomInt(0, ExteriorTileset.TREES.length - 1)];
 
             default:
                 return GenericTileset.DEFAULT_BORDER;
@@ -129,7 +138,7 @@ public class Tiler {
     */
 
     public String getOpenDoorTilePath() {
-        switch (mTheme) {
+        switch (tileset) {
             case MansionTileset.KEY:
                 return MansionTileset.DOUBLE_DOORS_OPEN;
 
@@ -139,7 +148,7 @@ public class Tiler {
     }
 
     public String getClosedDoorTilePath() {
-        switch (mTheme) {
+        switch (tileset) {
             case MansionTileset.KEY:
                 return MansionTileset.DOUBLE_DOORS;
 
@@ -151,7 +160,7 @@ public class Tiler {
     public Component[] getDoorwayTile(int x, int y) {
         String sprite;
 
-        switch (mTheme) {
+        switch (tileset) {
             case MansionTileset.KEY:
                 sprite = MansionTileset.WOOD_FLOOR_1;
                 break;

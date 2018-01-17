@@ -6,6 +6,7 @@ import android.util.SparseIntArray;
 
 import com.sonicmax.bloodrogue.data.BlueprintParser;
 import com.sonicmax.bloodrogue.data.JSONLoader;
+import com.sonicmax.bloodrogue.engine.ComponentManager;
 import com.sonicmax.bloodrogue.engine.Directions;
 import com.sonicmax.bloodrogue.engine.collisions.AxisAlignedBoxTester;
 import com.sonicmax.bloodrogue.engine.Component;
@@ -17,11 +18,13 @@ import com.sonicmax.bloodrogue.engine.components.Stationary;
 import com.sonicmax.bloodrogue.generator.factories.DecalFactory;
 import com.sonicmax.bloodrogue.generator.factories.TerrainFactory;
 import com.sonicmax.bloodrogue.engine.systems.ComponentFinder;
+import com.sonicmax.bloodrogue.generator.mansion.Chunk;
+import com.sonicmax.bloodrogue.tilesets.ExteriorTileset;
 import com.sonicmax.bloodrogue.tilesets.MansionTileset;
 import com.sonicmax.bloodrogue.tilesets.RuinsTileset;
 import com.sonicmax.bloodrogue.utils.maths.Calculator;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
-import com.sonicmax.bloodrogue.engine.objects.Room;
+import com.sonicmax.bloodrogue.generator.mansion.Room;
 import com.sonicmax.bloodrogue.tilesets.GenericTileset;
 import com.sonicmax.bloodrogue.utils.Array2DHelper;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
@@ -43,12 +46,9 @@ public class ProceduralGenerator {
     public final static int CAVERN = 1;
     public final static int RUINS = 2;
     public final static int MANSION = 3;
+    public final static int EXTERIOR = 4;
 
-    private final int MAX_COMPONENTS = 18;
-
-    private final String FLOOR_TILE = "f";
-    private final String WALL_TILE = "w";
-    private final String DOORWAY_TILE = "d";
+    public final static int MAX_COMPONENTS = 18;
 
     private final static boolean CARVABLE = true;
     private final static boolean NOT_CARVABLE = false;
@@ -68,18 +68,17 @@ public class ProceduralGenerator {
     private int[][] mapRegions;
     private ArrayList<Component[]>[][] objectGrid;
 
+    // For region connecting method
     private int currentRegion = -1;
     private Set regions;
 
-    // Configuration for maze generator
+    // BSP room generation defaults
+    private int maxHallLimit = 8;
+    private int minChunkSize = 7;
+
+    // Corridor (maze) generation defaults
     private int extraConnectorChance = 40;
     private int windingPercent = 35;
-
-    // Configuration for cavern generator
-    private int birthLimit = 4;
-    private int deathLimit = 3;
-    private int numberOfSteps = 2;
-    private float chanceToStartAlive = 0.4F;
 
     // Configuration for room generation
     private int minRoomWidth = 3;
@@ -88,7 +87,7 @@ public class ProceduralGenerator {
     private int maxRoomHeight = 9;
     private int roomDensity = 2000; // Higher value = more attempts to place non-colliding rooms
 
-    private boolean generatingCorridors;
+    private int floorType;
     private int theme;
     private String themeKey;
     private int currentRoomTheme;
@@ -112,7 +111,6 @@ public class ProceduralGenerator {
         this.enemies = new ArrayList<>();
         this.doors = new HashMap<>();
         this.rng = new RandomNumberGenerator();
-        this.generatingCorridors = false;
         this.currentFloor = 1;
     }
 
@@ -123,7 +121,7 @@ public class ProceduralGenerator {
 	*/
 
     private void initGrids() {
-        mapGrid = new Component[mapWidth][mapHeight][MAX_COMPONENTS];
+        mapGrid = new Component[mapWidth][mapHeight][ComponentManager.MAX_COMPONENTS];
 
         for (int x = 0; x < mapWidth; x++) {
             for (int y = 0; y < mapHeight; y++) {
@@ -132,7 +130,12 @@ public class ProceduralGenerator {
                     mapGrid[x][y] = TerrainFactory.createBorder(x, y, tiler.getBorderTilePath());
                 }
                 else {
-                    mapGrid[x][y] = tiler.getWallTile(x, y);
+                    if (floorType == ProceduralGenerator.EXTERIOR) {
+                        mapGrid[x][y] = tiler.getFloorTile(x, y, theme);
+                    }
+                    else {
+                        mapGrid[x][y] = tiler.getWallTile(x, y);
+                    }
                 }
 
             }
@@ -158,34 +161,21 @@ public class ProceduralGenerator {
         return mapGrid;
     }
 
-/*
+    /*
     ---------------------------------------------
-    Dungeon floor generators
+    Theme setting
     ---------------------------------------------
 */
-    public void generate(int type) {
-        switch(type) {
-            case DUNGEON:
-                initGrids();
-                generateDungeon();
-                break;
 
-            case MANSION:
-                setThemeAsMansion();
-                tiler = new Tiler(themeKey);
-                initGrids();
-                generateDungeon();
-                break;
-
-            case RUINS:
-                setThemeAsRuins();
-                initGrids();
-                generateRuins();
-                break;
-
-            default:
-                throw new Error("Undefined map shader");
-        }
+    private void setThemeAsExterior() {
+        theme = RoomStyles.MANSION;
+        themeKey = ExteriorTileset.KEY;
+        minRoomWidth = 3;
+        maxRoomWidth = 7;
+        minRoomHeight = 3;
+        maxRoomHeight = 7;
+        roomDensity = 10;
+        windingPercent = 20;
     }
 
     private void setThemeAsDungeon() {
@@ -221,16 +211,62 @@ public class ProceduralGenerator {
         windingPercent = 20;
     }
 
+/*
+    ---------------------------------------------
+    Top-level methods for generation
+    ---------------------------------------------
+*/
+
+    /**
+     * Generates a floor for the provided type. Results can be accessed using getMapData()
+     * and getMapGrid() methods.
+     *
+     * @param type ProceduralGenerator.MANSION, ProceduralGenerator.RUINS, etc
+     */
+
+    public void generate(int type) {
+        floorType = type;
+
+        switch(type) {
+            case EXTERIOR:
+                setThemeAsExterior();
+                tiler = new Tiler(themeKey);
+                initGrids();
+                generateExterior();
+                break;
+
+            case DUNGEON:
+                initGrids();
+                generateDungeon();
+                break;
+
+            case MANSION:
+                setThemeAsMansion();
+                tiler = new Tiler(themeKey);
+                initGrids();
+                generateMansion();
+                break;
+
+            case RUINS:
+                setThemeAsRuins();
+                initGrids();
+                generateRuins();
+                break;
+
+            default:
+                throw new Error("Undefined map type: " + type);
+        }
+    }
+
     public void generateDungeon() {
-        generateRooms();
+        Chunk chunk = new Chunk(0, 0, mapWidth, mapHeight);
+        generateRandomRooms(chunk);
         carveRooms();
 
-        generatingCorridors = true;
-        generateCorridors();
+        generateCorridors(chunk);
         connectRegions();
         removeDeadEnds();
         checkForBrokenDoors();
-        generatingCorridors = false;
 
         calculateGoals();
 
@@ -246,50 +282,416 @@ public class ProceduralGenerator {
         removeInaccessibleCells();
     }
 
-    private void generateRuins() {
-        generateRooms();
+    private float mansionRuinChance = 0.1f;
+
+    private void generateMansion() {
+        // Ignore border tiles
+        Chunk map = new Chunk(1, 1, mapWidth - 2, mapHeight - 2);
+
+        ArrayList<Chunk> mapHalves = splitChunkInHalf(map);
+
+        rooms = new ArrayList<>();
+
+        ArrayList<Chunk> chunks = getHallwayChunks(map);
+        // chunks.addAll(getHallwayChunks(mapHalves.get(1)));
+        splitChunksIntoRooms(chunks);
         carveRooms();
-        generateCorridors();
+
+        generateCorridors(map);
+        connectRegions();
+        removeDeadEnds();
+        checkForBrokenDoors();
+        calculateGoals();
+
+        /*roomDensity = 100;
+        generateRandomRooms(mapHalves.get(1));
+        generateCorridors(mapHalves.get(1));
+
+        carveRooms();
+        connectRegions();
+        removeDeadEnds();
+        checkForBrokenDoors();
+        calculateGoals();
+
+        if (rng.getRandomFloat(0.0f, 1.0f) < mansionRuinChance) {
+            birthLimit = 4;
+            deathLimit = 3;
+            numberOfSmoothingSteps = 2;
+            chanceToStartAlive = 0.4F;
+            generateCaverns(mapHalves.get(1));
+        }*/
+
+        decorator = new MansionDecorator(mapWidth, mapHeight, theme, themeKey, assetManager);
+        decorator.setGeneratorData(mapGrid, objects, objectGrid, enemies);
+        decorator.decorateRooms(rooms);
+        objects = decorator.getObjects();
+        objectGrid = decorator.getObjectGrid();
+        enemies = decorator.getEnemies();
+        Log.v("log", "initial enemies size: " + enemies.size());
+    }
+
+    private void generateRuins() {
+        Chunk chunk = new Chunk(0, 0, mapWidth, mapHeight);
+        generateRandomRooms(chunk);
+        carveRooms();
+        generateCorridors(chunk);
         removeDeadEnds();
         checkForBrokenDoors();
         // decorateRooms();
 
-        generateCaverns();
+        generateCaverns(new Chunk(0, 0, mapWidth, mapHeight));
         removeHiddenWalls();
         removeInaccessibleCells();
         calculateGoals();
     }
 
 /*
-    ---------------------------------------------
-    Room generation
-    ---------------------------------------------
+    ------------------------------------------------------------------------------------------
+    Exterior generation
+
+    Uses random sampling & cellular automata to generate terrain features
+    (eg. swamps, lakes, bushes, etc)
+    ------------------------------------------------------------------------------------------
 */
 
-    private void generateRooms() {
-        rooms = new ArrayList<>();
+    public void generateExterior() {
+        Chunk map = new Chunk(1, 1, mapWidth - 2, mapHeight - 2);
+        floorEntrance = new Vector(1, 1);
+        floorExit = new Vector(3, 3);
 
+        PoissonDiskSampler sampler = new PoissonDiskSampler();
+        int minDistance = 3;
+        int pointCount = 5;
+        ArrayList<Vector> treePositions = sampler.generatePoisson(map.width, map.height, minDistance, pointCount);
+        for (Vector cell : treePositions) {
+            objects.add(DecalFactory.createDecoration(cell.x, cell.y, ExteriorTileset.TREES[rng.getRandomInt(0, ExteriorTileset.TREES.length - 1)]));
+        }
+
+        CellularAutomata automata = new CellularAutomata();
+        automata.setParams(4, 3, 2, 0.3f);
+        boolean[][] forest = automata.generate(map);
+
+        for (int x = 0; x < forest.length; x++) {
+            for (int y = 0; y < forest[0].length; y++) {
+                if (forest[x][y]) {
+                    objects.add(DecalFactory.createDecoration(x, y, ExteriorTileset.TREES[rng.getRandomInt(0, ExteriorTileset.TREES.length - 1)]));
+                }
+            }
+        }
+
+        automata.setParams(4, 3, 2, 0.3f);
+        boolean[][] lakes = automata.generate(map);
+
+        for (int x = 0; x < lakes.length; x++) {
+            for (int y = 0; y < lakes[0].length; y++) {
+                if (lakes[x][y]) {
+                    objects.add(DecalFactory.createDecoration(x, y, ExteriorTileset.WATER_1));
+                }
+            }
+        }
+    }
+
+/*
+    ------------------------------------------------------------------------------------------
+    Mansion generation
+
+    These types of floor are generated using binary space partition to place the hallways and
+    define chunks of rooms, which are then populated using a similar algorithm (with some
+    alterations to make sure the generated rooms meet certain parameters). At this point we can
+    connect the regions and place doors, and perform any other terrain generation we require
+    (ruined rooms, bodies of water, etcetc).
+    ------------------------------------------------------------------------------------------
+*/
+
+    private ArrayList<Chunk> getHallwayChunks(Chunk start) {
+        ArrayList<Chunk> generatedChunks = new ArrayList<>();
+        int totalHalls = 0;
+
+        ArrayList<Chunk> chunkQueue = new ArrayList<>();
+
+        // Ignore border tiles when defining starting chunk
+        chunkQueue.add(start);
+
+        // This boolean is inverted on each step so we carve alternating horizontal/vertical hallways
+        boolean horizontal = true;
+
+        while (chunkQueue.size() > 0 && totalHalls < maxHallLimit) {
+            Chunk chunk = chunkQueue.remove(0);
+
+            if (horizontal) {
+                // Horizontal split
+                int bottom = chunk.bottomLeft()[1] + minChunkSize;
+                int top = chunk.topLeft()[1] - minChunkSize;
+
+                if (bottom > top) {
+                    // Chunk was too small to split
+                    generatedChunks.add(chunk);
+                    continue;
+                }
+
+                int splitY = rng.getRandomInt(bottom, top);
+
+                startRegion();
+
+                for (int x = chunk.x; x <= chunk.width; x++) {
+                    carve(new Vector(x, splitY), MansionTileset.WOOD_FLOOR_1);
+                }
+
+                Chunk splitChunkA = new Chunk(chunk.x, chunk.y, chunk.width, splitY - chunk.y);
+                Chunk splitChunkB = new Chunk(chunk.x, splitY + 1, chunk.width, (chunk.y + chunk.height) - splitY - 1);
+
+                if (splitChunkA.width >= minChunkSize && splitChunkA.height >= minChunkSize) {
+                    // Add chunk to queue to continue splitting
+                    chunkQueue.add(splitChunkA);
+                }
+                else {
+                    // Finished with chunk
+                    generatedChunks.add(splitChunkA);
+                }
+
+                if (splitChunkB.width >= minChunkSize && splitChunkB.height >= minChunkSize) {
+                    chunkQueue.add(splitChunkB);
+                }
+                else {
+                    generatedChunks.add(splitChunkB);
+                }
+
+                totalHalls++;
+            }
+
+            else {
+                // Vertical split
+                int left = chunk.bottomLeft()[0] + minChunkSize;
+                int right = chunk.bottomRight()[0] - minChunkSize;
+
+                if (left > right) {
+                    generatedChunks.add(chunk);
+                    continue;
+                }
+
+                int splitX = rng.getRandomInt(left, right);
+
+                for (int y = chunk.y; y <= chunk.height; y++) {
+                    carve(new Vector(splitX, y), MansionTileset.WOOD_FLOOR_1);
+                }
+
+                Chunk splitChunkA = new Chunk(chunk.x, chunk.y, splitX - chunk.x, chunk.height);
+                Chunk splitChunkB = new Chunk(splitX + 1, chunk.y, (chunk.x + chunk.width) - splitX - 1, chunk.height);
+
+                if (splitChunkA.width > minChunkSize && splitChunkA.height > minChunkSize) {
+                    chunkQueue.add(splitChunkA);
+                }
+                else {
+                    generatedChunks.add(splitChunkA);
+                }
+
+                if (splitChunkB.width > minChunkSize && splitChunkB.height > minChunkSize) {
+                    chunkQueue.add(splitChunkB);
+                }
+                else {
+                    generatedChunks.add(splitChunkB);
+                }
+
+                totalHalls++;
+            }
+
+            horizontal = !horizontal;
+        }
+
+        return generatedChunks;
+    }
+
+    private ArrayList<Chunk> splitRoomChunk(Chunk start) {
+        final int MIN_ROOM_SIZE = 6;
+        ArrayList<Chunk> generatedChunks = new ArrayList<>();
+
+        ArrayList<Chunk> chunkQueue = new ArrayList<>();
+        chunkQueue.add(start);
+
+        while (chunkQueue.size() > 0) {
+            Chunk chunk = chunkQueue.remove(0);
+
+            boolean horizontal = true;
+
+            if (chunk.width == chunk.height) {
+                // Probably doesn't matter which way we align the rooms
+                horizontal = rng.coinflip();
+            }
+
+            else if (chunk.width > chunk.height) {
+                horizontal = false;
+            }
+
+            if (horizontal) {
+                // Horizontal split
+                int bottom = chunk.bottomLeft()[1] + MIN_ROOM_SIZE;
+                int top = chunk.topLeft()[1] - MIN_ROOM_SIZE;
+
+                if (bottom > top) {
+                    generatedChunks.add(chunk);
+                    continue;
+                }
+
+                int splitY = rng.getRandomInt(bottom, top);
+
+                Chunk splitChunkA = new Chunk(chunk.x, chunk.y, chunk.width, splitY - chunk.y);
+                Chunk splitChunkB = new Chunk(chunk.x, splitY + 1, chunk.width, (chunk.y + chunk.height) - splitY - 1);
+
+                if (splitChunkA.width >= MIN_ROOM_SIZE && splitChunkA.height >= MIN_ROOM_SIZE) {
+                    // Add chunk to queue to continue splitting
+                    chunkQueue.add(splitChunkA);
+                }
+                else {
+                    // Finished with chunk
+                    generatedChunks.add(splitChunkA);
+                }
+
+                if (splitChunkB.width >= MIN_ROOM_SIZE && splitChunkB.height >= MIN_ROOM_SIZE) {
+                    chunkQueue.add(splitChunkB);
+                }
+                else {
+                    generatedChunks.add(splitChunkB);
+                }
+            }
+
+            else {
+                // Vertical split
+                int left = chunk.bottomLeft()[0] + minChunkSize;
+                int right = chunk.bottomRight()[0] - minChunkSize;
+
+                if (left > right) {
+                    generatedChunks.add(chunk);
+                    continue;
+                }
+
+                int splitX = rng.getRandomInt(left, right);
+
+                Chunk splitChunkA = new Chunk(chunk.x, chunk.y, splitX - chunk.x, chunk.height);
+                Chunk splitChunkB = new Chunk(splitX + 1, chunk.y, (chunk.x + chunk.width) - splitX - 1, chunk.height);
+
+                if (splitChunkA.width >= minChunkSize && splitChunkA.height >= minChunkSize) {
+                    // Add chunk to queue to continue splitting
+                    chunkQueue.add(splitChunkA);
+                }
+                else {
+                    // Finished with chunk
+                    generatedChunks.add(splitChunkA);
+                }
+
+                if (splitChunkB.width >= minChunkSize && splitChunkB.height >= minChunkSize) {
+                    chunkQueue.add(splitChunkB);
+                }
+                else {
+                    generatedChunks.add(splitChunkB);
+                }
+            }
+        }
+
+        return generatedChunks;
+    }
+
+    private ArrayList<Chunk> splitChunkInHalf(Chunk chunk) {
+        ArrayList<Chunk> generatedChunks = new ArrayList<>();
+
+        boolean horizontal = true;
+
+        if (chunk.width == chunk.height) {
+            // Probably doesn't matter which way we align the rooms
+            horizontal = rng.coinflip();
+        }
+
+        else if (chunk.width > chunk.height) {
+            horizontal = false;
+        }
+
+        if (horizontal) {
+            // Horizontal split
+            int bottom = chunk.bottomLeft()[1];
+
+            int splitY = bottom + (chunk.height / 2);
+
+            Chunk splitChunkA = new Chunk(chunk.x, chunk.y, chunk.width, splitY - chunk.y);
+            Chunk splitChunkB = new Chunk(chunk.x, splitY + 1, chunk.width, (chunk.y + chunk.height) - splitY - 1);
+
+            // Finished with chunk
+            generatedChunks.add(splitChunkA);
+            generatedChunks.add(splitChunkB);
+        }
+
+        else {
+            // Vertical split
+            int left = chunk.bottomLeft()[0];
+
+            int splitX = left + (chunk.width / 2);
+
+            Chunk splitChunkA = new Chunk(chunk.x, chunk.y, splitX - chunk.x, chunk.height);
+            Chunk splitChunkB = new Chunk(splitX + 1, chunk.y, (chunk.x + chunk.width) - splitX - 1, chunk.height);
+
+            generatedChunks.add(splitChunkA);
+            generatedChunks.add(splitChunkB);
+        }
+
+        return generatedChunks;
+    }
+
+    private void splitChunksIntoRooms(ArrayList<Chunk> chunks) {
+        ArrayList<Chunk> secondPass = new ArrayList<>();
+
+        // First, split the chunks into multiple smaller ones
+        for (Chunk chunk : chunks) {
+            ArrayList<Chunk> splitRooms = splitRoomChunk(chunk);
+
+            for (Chunk room : splitRooms) {
+                if (room.width * room.height > 80) {
+                    secondPass.add(room);
+                }
+                else {
+                    rooms.add(new Room(room.x + 1, room.y + 1, room.width - 2, room.height - 2));
+                }
+            }
+        }
+
+        Log.v(LOG_TAG, "Second pass: " + secondPass.size());
+
+        // Now do a second pass where we try to split bigger rooms into smaller ones using brute force.
+        // It's not a huge problem to have larger rooms, but ideally these would be rare
+        for (Chunk chunk : secondPass) {
+            ArrayList<Chunk> splitRooms = splitChunkInHalf(chunk);
+
+            for (Chunk room : splitRooms) {
+                rooms.add(new Room(room.x + 1, room.y + 1, room.width - 2, room.height - 2));
+            }
+        }
+
+        Log.v(LOG_TAG, "Split chunks into " + rooms.size() + " rooms");
+    }
+/*
+    ------------------------------------------------------------------------------------------
+    Room generation
+    ------------------------------------------------------------------------------------------
+*/
+
+    private void generateRandomRooms(Chunk chunk) {
         for (int i = 0; i < roomDensity; i++) {
-            Room newRoom = generateRoom();
+            Room newRoom = generateRandomRoom(chunk);
             if (newRoom != null) {
                rooms.add(newRoom);
             }
         }
     }
 
-    private Room generateRoom() {
+    private Room generateRandomRoom(Chunk chunk) {
         int width = rng.getRandomInt(minRoomWidth, maxRoomWidth);
         int height = rng.getRandomInt(minRoomHeight, maxRoomHeight);
-        int x = rng.getRandomInt(1, mapWidth - width - 2);
-        int y = rng.getRandomInt(1, mapHeight - height - 2);
+        int x = rng.getRandomInt(chunk.x + 1, chunk.x + chunk.width - width - 2);
+        int y = rng.getRandomInt(chunk.y + 1, chunk.y + chunk.height - height - 2);
 
         Room newRoom = new Room(x, y, width, height);
 
         // If room is colliding with any existing rooms, return null.
         // Otherwise, return newly generated room
 
-        // Todo: this is really inefficient.
-
+        // Todo: this is really inefficient. But probably not a big deal
         for (Room room : rooms) {
             if (AxisAlignedBoxTester.test(room, newRoom)) {
                 return null;
@@ -346,49 +748,21 @@ public class ProceduralGenerator {
         }
     }
 
-    private ArrayList<Vector> getWallVectors(Room room) {
-        ArrayList<Vector> walls = new ArrayList<>();
-
-        int right = room.x() + room.width() + 1;
-        int top = room.y() + room.height();
-
-        for (int x = room.x() - 1; x <= right; x++) {
-            Vector north = new Vector(x, top);
-            Vector south = new Vector(x, room.y() - 1);
-
-            if (inBounds(north)) {
-                walls.add(north);
-            }
-
-            if (inBounds(south)) {
-                walls.add(south);
-            }
-        }
-
-        for (int y = room.y() - 1; y <= top; y++) {
-            Vector east = new Vector(room.x() - 1, y);
-            Vector west = new Vector(room.x() + room.width(), y);
-
-            if (inBounds(east)) {
-                walls.add(east);
-            }
-
-            if (inBounds(west)) {
-                walls.add(west);
-            }
-        }
-
-        return walls;
-    }
-
     private void carveRoomFloor(Room room) {
         int right = room.x() + room.width();
         int bottom = room.y() + room.height();
 
+        int carved = 0;
+
         for (int x = room.x(); x < right; x++) {
             for (int y = room.y(); y < bottom; y++) {
                 carve(new Vector(x, y), tiler.getFloorTile(x, y, currentRoomTheme));
+                carved++;
             }
+        }
+
+        if (carved == 0) {
+            Log.d(LOG_TAG, "Couldn't carve chunk: " + room.toString());
         }
     }
 
@@ -562,117 +936,28 @@ public class ProceduralGenerator {
     }
 
 /*
-    ---------------------------------------------
+    ------------------------------------------------------------------------------------------
     Cavern generation
-    ---------------------------------------------
+
+    Uses cellular automata to generate a cave-like structure in the chunk provided to
+    generateCaverns(). The result can be tweaked using various parameters, such as
+    numberOfSmoothingSteps (creates a more rounded cavern) and chanceToStartAlive (creates a
+    messier cavern).
+    ------------------------------------------------------------------------------------------
 */
 
-    private boolean[][] cellMap;
+    private void generateCaverns(Chunk chunk) {
+        CellularAutomata automata = new CellularAutomata();
+        boolean[][] cavern = automata.generate(chunk);
 
-    private void generateCaverns() {
-        cellMap = new boolean[mapWidth][mapHeight];
-
-        for (int x = 0; x < mapWidth; x++) {
-            for (int y = 0; y < mapHeight; y++) {
-                cellMap[x][y] = false;
-            }
-        }
-
-        initialiseCellMap();
-
-        for (int i = 0; i < numberOfSteps; i++) {
-            cellMap = doSimulationStep();
-        }
-
-        for (int x = 1; x < mapWidth - 1; x++) {
-            for (int y = 1; y < mapHeight - 1; y++) {
-                if (cellMap[x][y]) {
-                    carve(new Vector(x, y), RuinsTileset.FLOOR);
+        for (int x = 1; x < chunk.width - 1; x++) {
+            for (int y = 1; y < chunk.height - 1; y++) {
+                if (cavern[x][y]) {
+                    // Note: as cell map origin is 0,0, we have to translate coordinates
+                    carve(new Vector(x + chunk.x, y + chunk.y), RuinsTileset.FLOOR);
                 }
             }
         }
-
-        removeHiddenWalls();
-    }
-
-    private void initialiseCellMap() {
-        for (int x = 1; x < mapWidth - 1; x++) {
-            for (int y = 1; y < mapHeight - 1; y++) {
-                if (rng.getRandomFloat(0F, 1F) < chanceToStartAlive){
-                    cellMap[x][y] = true;
-                }
-            }
-        }
-    }
-
-    private boolean[][] doSimulationStep() {
-        boolean[][] newMap = new boolean[mapWidth][mapHeight];
-
-        for (int x = 0; x < mapWidth; x++) {
-            for (int y = 0; y < mapHeight; y++) {
-                newMap[x][y] = false;
-            }
-        }
-
-        //Loop over each row and column of the map
-        for (int x = 1; x < mapWidth - 1; x++) {
-            for (int y = 1; y < mapHeight - 1; y++) {
-
-                int neighbours = countAliveNeighbours(x, y);
-
-                //The new value is based on our simulation rules
-                //First, if a cell is alive but has too few neighbours, kill it.
-
-                if (cellMap[x][y]) {
-                    if (neighbours < deathLimit) {
-                        newMap[x][y] = false;
-                    }
-                    else {
-                        newMap[x][y] = true;
-                    }
-                }
-
-                //Otherwise, if the cell is dead now, check if it has the right number of neighbours to be 'born'
-                else {
-                    if (neighbours > birthLimit) {
-                        newMap[x][y] = true;
-                    }
-                    else {
-                        newMap[x][y] = false;
-                    }
-                }
-            }
-        }
-
-        return newMap;
-    }
-
-    private int countAliveNeighbours(int x, int y) {
-        int count = 0;
-
-        for (int i = -1; i < 2; i++) {
-            for (int j = -1; j < 2; j++) {
-                int neighbourX = x + i;
-                int neighbourY = y + j;
-
-                // Do nothing if we're looking at the middle point
-                if (i == 0 && j == 0) continue;
-
-                    //In case the index we're looking at it off the edge of the map
-                else if (neighbourX < 0 || neighbourY < 0
-                        || neighbourX >= mapWidth || neighbourY >= mapHeight) {
-
-                    count++;
-                }
-
-                // Otherwise, a normal check of the neighbour
-                else if (cellMap[neighbourX][neighbourY]) {
-                    count++;
-                }
-            }
-        }
-
-        return count;
     }
 
 /*
@@ -681,9 +966,12 @@ public class ProceduralGenerator {
     ---------------------------------------------
 */
 
-    private void generateCorridors() {
-        for (int x = 1; x < mapWidth - 1; x++) {
-            for (int y = 1; y < mapHeight - 1; y++) {
+    private void generateCorridors(Chunk chunk) {
+        int right = chunk.x + chunk.width;
+        int top = chunk.y + chunk.height;
+
+        for (int x = chunk.x + 1; x < right - 1; x++) {
+            for (int y = chunk.y - 1; y < top - 1; y++) {
                 Vector coords = new Vector(x, y);
                 Stationary stat = ComponentFinder.getStaticComponent(getMapObjectForCell(coords));
                 if (stat.type == Stationary.WALL && adjacentCellsAreCarvable(coords)) {

@@ -1,5 +1,7 @@
 package com.sonicmax.bloodrogue.utils.maths;
 
+import android.util.Log;
+
 import java.util.Random;
 
 public class RandomNumberGenerator {
@@ -15,5 +17,9 @@ public class RandomNumberGenerator {
 
     public float getRandomFloat(float min, float max) {
         return (float) (min + Math.random() * (max - min));
+    }
+
+    public boolean coinflip() {
+        return new Random().nextInt(2) == 1;
     }
 }

@@ -19,7 +19,7 @@ import com.sonicmax.bloodrogue.tilesets.MansionTileset;
 import com.sonicmax.bloodrogue.utils.maths.Calculator;
 import com.sonicmax.bloodrogue.data.JSONLoader;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
-import com.sonicmax.bloodrogue.engine.objects.Room;
+import com.sonicmax.bloodrogue.generator.mansion.Room;
 import com.sonicmax.bloodrogue.utils.Array2DHelper;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 
@@ -889,7 +889,15 @@ public class MansionDecorator {
         // Then choose random number between minimum enemy count + this value
 
         int enemyFit = (room.width() * room.height()) / 9;
-        int numberOfEnemies = rng.getRandomInt(minEnemies, Math.min(enemyFit, maxEnemies));
+        int numberOfEnemies;
+
+        // Todo: why is this happening?
+        if (minEnemies > Math.min(enemyFit, maxEnemies)) {
+            numberOfEnemies = minEnemies;
+        }
+        else {
+            numberOfEnemies = rng.getRandomInt(minEnemies, Math.min(enemyFit, maxEnemies));
+        }
 
         // We don't want player to be mobbed by several enemies when starting a new floor.
         if (room.isEntrance() && numberOfEnemies > 1) {

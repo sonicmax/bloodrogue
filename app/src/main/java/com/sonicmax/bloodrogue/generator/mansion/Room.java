@@ -1,5 +1,6 @@
-package com.sonicmax.bloodrogue.engine.objects;
+package com.sonicmax.bloodrogue.generator.mansion;
 
+import com.sonicmax.bloodrogue.engine.objects.GameObject;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 
 import java.util.ArrayList;
@@ -13,6 +14,8 @@ public class Room {
     private boolean isEntrance = false;
     public boolean isAccessible = true;
     public boolean furnished = false;
+
+    // Todo: this should just extend Chunk class
 
     public Room(int x, int y, int width, int height) {
         this.x = x;
@@ -59,5 +62,11 @@ public class Room {
 
     public void addObject(GameObject object) {
         this.objects.add(object);
+    }
+
+    // For debugging
+
+    public String toString() {
+        return "(" + this.x + ", " + this.y + ") width: " + this.width + ", height: " + this.height;
     }
 }

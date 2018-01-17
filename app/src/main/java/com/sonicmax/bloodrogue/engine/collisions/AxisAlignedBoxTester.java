@@ -1,6 +1,6 @@
 package com.sonicmax.bloodrogue.engine.collisions;
 
-import com.sonicmax.bloodrogue.engine.objects.Room;
+import com.sonicmax.bloodrogue.generator.mansion.Room;
 
 public class AxisAlignedBoxTester {
 

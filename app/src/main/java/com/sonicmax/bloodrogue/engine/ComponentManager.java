@@ -40,9 +40,12 @@ import java.util.Iterator;
  */
 
 public class ComponentManager {
-    private static ComponentManager INSTANCE = null;
+    // Note: update this whenever new components are added
+    public final static int MAX_COMPONENTS = 18;
 
     private final String LOG_TAG = this.getClass().getSimpleName();
+
+    private static ComponentManager INSTANCE = null;
 
     private HashMap<Long, Animation> animationComponents;
     private HashMap<Long, Barrier> barrierComponents;
