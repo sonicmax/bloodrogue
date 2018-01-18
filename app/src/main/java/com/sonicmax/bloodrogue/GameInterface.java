@@ -241,7 +241,7 @@ public class GameInterface {
      */
 
     private void handleTouchMove(float x, float y, long duration) {
-        final long SCROLL_THRESHOLD = 50L;  // Number of milliseconds to wait before scrolling
+        final long SCROLL_THRESHOLD = 100L;  // Number of milliseconds to wait before scrolling
 
         // If player is currently selecting a path, we should update the path destination with current position
         if (!inputLock && pathSelection) {
@@ -320,7 +320,7 @@ public class GameInterface {
     }
 
     public boolean handleScaleBegin(ScaleGestureDetector detector) {
-        gameRenderer.startZoom();
+        gameRenderer.startZoom(detector);
         return true;
     }
 

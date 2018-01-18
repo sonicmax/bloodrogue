@@ -44,13 +44,13 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onTouchEvent(MotionEvent e) {
-        if (mScaleDetector != null) {
-            if (e.getPointerCount() > 1) {
-                return mScaleDetector.onTouchEvent(e);
-            }
+        if (e.getPointerCount() > 1) {
+            return mScaleDetector.onTouchEvent(e);
         }
 
-        return mGameInterface.handleTouchEvent(e);
+        else {
+            return mGameInterface.handleTouchEvent(e);
+        }
     }
 
     private class ScaleListener

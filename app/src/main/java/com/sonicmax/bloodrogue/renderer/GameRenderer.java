@@ -5,6 +5,7 @@ import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
 import android.util.Log;
+import android.view.ScaleGestureDetector;
 
 import com.sonicmax.bloodrogue.GameInterface;
 import com.sonicmax.bloodrogue.engine.Component;
@@ -414,8 +415,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private float uiGridSize;
 
     private void centreAtPlayerPos() {
-        touchScrollDx = 0f - (gridSize * position.x) + (screenWidth / 2);
-        touchScrollDy = 0f - (gridSize * position.y) + (screenHeight / 2);
+        touchScrollDx = (gridSize * position.x) - (screenWidth / 2 / zoomLevel);
+        touchScrollDy = (gridSize * position.y) - (screenHeight / 2 / zoomLevel);
         touchScrollDx /= zoomLevel;
         touchScrollDy /= zoomLevel;
     }
@@ -506,8 +507,27 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     public void setTouchScrollCoords(float dx, float dy) {
-        this.touchScrollDx -= dx;
-        this.touchScrollDy += dy;
+        // Note: Y coord of touch event has opposite origin to grid
+        this.touchScrollDx += dx;
+        this.touchScrollDy -= dy;
+
+        if (this.touchScrollDx < 0) {
+            this.touchScrollDx = 0;
+        }
+        if (this.touchScrollDy < 0) {
+            this.touchScrollDy = 0;
+        }
+
+        float rightBound = (mapGridWidth / fullChunkWidth) * screenWidth;
+        float topBound = (mapGridHeight / fullChunkHeight) * screenHeight;
+
+        if (this.touchScrollDx > topBound) {
+            this.touchScrollDx = topBound;
+        }
+
+        if (this.touchScrollDy > rightBound) {
+            this.touchScrollDy = rightBound;
+        }
     }
 
     /*
@@ -608,12 +628,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     private void translateMatrixForScroll() {
-        if (touchScrollDx != 0 || touchScrollDy != 0) {
-            Matrix.translateM(
-                    scrollMatrix, 0,
-                    mvpMatrix, 0,
-                    touchScrollDx * zoomLevel, touchScrollDy * zoomLevel, 0f);
-        }
+        Matrix.translateM(
+                scrollMatrix, 0,
+                mvpMatrix, 0,
+                -touchScrollDx * zoomLevel, -touchScrollDy * zoomLevel, 0f);
     }
 
     public void fadeOutAndDisplaySplash() {
@@ -1204,8 +1222,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         float correctedY = height - y;
 
         // Account for scrolling and zooming
-        x -= touchScrollDx;
-        correctedY -= touchScrollDy;
+        x += touchScrollDx;
+        correctedY += touchScrollDy;
 
         float spriteSize = (SPRITE_SIZE * scaleFactor) / zoomLevel;
 
@@ -1215,24 +1233,31 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         return new Vector((int) gridX, (int) gridY);
     }
 
+    private float fullChunkWidth;
+    private float fullChunkHeight;
+
     private void setGridChunkToRender() {
         float x = 0;
         float y = 0;
 
         // Account for touch scrolling
-        x -= (touchScrollDx);
-        y -= (touchScrollDy);
+        x += (touchScrollDx);
+        y += (touchScrollDy);
 
         float spriteSize = (SPRITE_SIZE * scaleFactor) / zoomLevel;
 
         int originX = (int) (x / spriteSize);
         int originY = (int) (y / spriteSize);
 
-        // Sprite slightly larger chunk of grid than is actually visible, without exceeding bounds of map
+        // Use slightly larger chunk of grid than is actually visible, without exceeding bounds of map
         chunkStartX = Math.max(originX - 1, 0);
         chunkStartY = Math.max(originY - 1, 0);
         chunkEndX = Math.min(originX + visibleGridWidth + 2, mapGridWidth);
         chunkEndY = Math.min(originY + visibleGridHeight + 2, mapGridHeight);
+
+        // For some methods we need to retain the total visible chunk
+        fullChunkWidth = (originX + visibleGridWidth + 2) - (originX - 1);
+        fullChunkHeight = (originY + visibleGridHeight + 2) - (originY - 1);
     }
 
     public int[] getChunkSize() {
@@ -1252,8 +1277,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         // Subtract scroll offset to find visible surface coords
         if (withScroll) {
-            x += touchScrollDx;
-            y += touchScrollDy;
+            x -= touchScrollDx;
+            y -= touchScrollDy;
         }
 
         return new float[] {x, y};
@@ -1268,29 +1293,23 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
     }
 
-    private float zoomFocusX;
-    private float zoomFocusY;
-
-    public void startZoom() {
-        zoomFocusX = touchScrollDx;
-        zoomFocusY = touchScrollDy;
-    }
+    public void startZoom(ScaleGestureDetector detector) {}
 
     public void setZoom(float zoomLevel) {
+        float diff = 1 + (zoomLevel - this.zoomLevel);
+
         this.zoomLevel = zoomLevel;
 
         // Make sure that scroll position is maintained during zoom
-        touchScrollDx = zoomFocusX / zoomLevel;
-        touchScrollDy = zoomFocusY / zoomLevel;
+        touchScrollDx = touchScrollDx / diff;
+        touchScrollDy = touchScrollDy / diff;
 
         setupMatrixes();
         calculateContentGrid();
         setGridChunkToRender();
     }
 
-    public void endZoom() {
-
-    }
+    public void endZoom() {}
 
     public void setHasGameData() {
         hasResources = true;
