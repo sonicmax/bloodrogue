@@ -1,6 +1,5 @@
 package com.sonicmax.bloodrogue.generator;
 
-import com.sonicmax.bloodrogue.generator.mansion.Chunk;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 
 public class CellularAutomata {

@@ -18,7 +18,6 @@ import com.sonicmax.bloodrogue.engine.components.Stationary;
 import com.sonicmax.bloodrogue.generator.factories.DecalFactory;
 import com.sonicmax.bloodrogue.generator.factories.TerrainFactory;
 import com.sonicmax.bloodrogue.engine.systems.ComponentFinder;
-import com.sonicmax.bloodrogue.generator.mansion.Chunk;
 import com.sonicmax.bloodrogue.tilesets.ExteriorTileset;
 import com.sonicmax.bloodrogue.tilesets.MansionTileset;
 import com.sonicmax.bloodrogue.tilesets.RuinsTileset;
@@ -359,36 +358,88 @@ public class ProceduralGenerator {
         floorEntrance = new Vector(1, 1);
         floorExit = new Vector(3, 3);
 
+        startRegion();
+
+        boolean[][] occupied = new boolean[mapWidth][mapHeight];
+
+        // First, generate all the organic terrain - trees, flowers, lakes, etc
+
         PoissonDiskSampler sampler = new PoissonDiskSampler();
         int minDistance = 3;
         int pointCount = 5;
         ArrayList<Vector> treePositions = sampler.generatePoisson(map.width, map.height, minDistance, pointCount);
         for (Vector cell : treePositions) {
             objects.add(DecalFactory.createDecoration(cell.x, cell.y, ExteriorTileset.TREES[rng.getRandomInt(0, ExteriorTileset.TREES.length - 1)]));
+            occupied[cell.x][cell.y] = true;
         }
 
         CellularAutomata automata = new CellularAutomata();
+
+        automata.setParams(4, 3, 3, 0.3f);
+        boolean[][] lakes = automata.generate(map);
+
+        String texture = ExteriorTileset.WATER[rng.getRandomInt(0, ExteriorTileset.WATER.length - 1)];
+
+        for (int x = 0; x < lakes.length; x++) {
+            for (int y = 0; y < lakes[0].length; y++) {
+                if (lakes[x][y] && !occupied[x][y]) {
+                    objects.add(DecalFactory.createLiquid(x, y, texture));
+                    setTile(new Vector(x, y), GenericTileset.DEFAULT_BORDER);
+                    occupied[x][y] = true;
+                }
+            }
+        }
+
         automata.setParams(4, 3, 2, 0.3f);
         boolean[][] forest = automata.generate(map);
 
         for (int x = 0; x < forest.length; x++) {
             for (int y = 0; y < forest[0].length; y++) {
-                if (forest[x][y]) {
+                if (forest[x][y] && !occupied[x][y]) {
                     objects.add(DecalFactory.createDecoration(x, y, ExteriorTileset.TREES[rng.getRandomInt(0, ExteriorTileset.TREES.length - 1)]));
+                    occupied[x][y] = true;
                 }
             }
         }
 
-        automata.setParams(4, 3, 2, 0.3f);
-        boolean[][] lakes = automata.generate(map);
+        boolean[][] flowers = automata.generate(map);
 
-        for (int x = 0; x < lakes.length; x++) {
-            for (int y = 0; y < lakes[0].length; y++) {
-                if (lakes[x][y]) {
-                    objects.add(DecalFactory.createDecoration(x, y, ExteriorTileset.WATER_1));
+        for (int x = 0; x < flowers.length; x++) {
+            for (int y = 0; y < flowers[0].length; y++) {
+                if (flowers[x][y] && !occupied[x][y]) {
+                    String flower = ExteriorTileset.DECALS[rng.getRandomInt(0, ExteriorTileset.DECALS.length - 1)];
+                    objects.add(DecalFactory.createTraversableDecoration(x, y, flower));
                 }
             }
         }
+
+        // Now place some buildings
+        rooms = new ArrayList<>();
+        setThemeAsMansion();
+        tiler = new Tiler(themeKey);
+        int minWidth = 10;
+        int maxWidth = 20;
+        int minHeight = 10;
+        int maxHeight = 20;
+        Chunk building = generateRandomChunk(map, minWidth, maxWidth, minHeight, maxHeight);
+        Log.v(LOG_TAG, building.toString());
+        prepareBuilding(building);
+        ArrayList<Chunk> chunks = getHallwayChunks(building);
+        splitChunksIntoRooms(chunks);
+        carveRooms();
+        generateCorridors(map);
+        connectRegions();
+        removeDeadEnds();
+        checkForBrokenDoors();
+        calculateGoals();
+
+        decorator = new MansionDecorator(mapWidth, mapHeight, theme, themeKey, assetManager);
+        decorator.setGeneratorData(mapGrid, objects, objectGrid, enemies);
+        decorator.decorateRooms(rooms);
+        objects = decorator.getObjects();
+        objectGrid = decorator.getObjectGrid();
+        enemies = decorator.getEnemies();
+        Log.v("log", "initial enemies size: " + enemies.size());
     }
 
 /*
@@ -667,17 +718,54 @@ public class ProceduralGenerator {
     }
 /*
     ------------------------------------------------------------------------------------------
-    Room generation
+    Building generation
     ------------------------------------------------------------------------------------------
 */
 
-    private void generateRandomRooms(Chunk chunk) {
+    /**
+     * Builds brick wall around edges of chunk and fills with wall tiles.
+     * Warning: this will also erase any objects inside chunk.
+     *
+     * @param chunk Chunk to build on
+     */
+
+    private void prepareBuilding(Chunk chunk) {
+        Iterator it = objects.iterator();
+        while (it.hasNext()) {
+            Component[] object = (Component[]) it.next();
+            Position position = (Position) object[0];
+
+            if ((position.x >= chunk.x && position.x < chunk.x + chunk.width)
+                    && (position.y >= chunk.y && position.y < chunk.y + chunk.height)) {
+
+                it.remove();
+            }
+        }
+
+        for (int x = chunk.x; x < chunk.x + chunk.width; x++) {
+            for (int y = chunk.y; y < chunk.y + chunk.height; y++) {
+                if (x == chunk.x || x == chunk.x + chunk.width - 1
+                        || y == chunk.y || y == chunk.y + chunk.height - 1) {
+                    mapGrid[x][y] = TerrainFactory.createBorder(x, y, tiler.getBorderTilePath());
+                }
+                else {
+                    mapGrid[x][y] = tiler.getWallTile(x, y);
+                }
+            }
+        }
+    }
+
+    private void generateRandomRooms(Chunk chunk, int roomDensity) {
         for (int i = 0; i < roomDensity; i++) {
             Room newRoom = generateRandomRoom(chunk);
             if (newRoom != null) {
-               rooms.add(newRoom);
+                rooms.add(newRoom);
             }
         }
+    }
+
+    private void generateRandomRooms(Chunk chunk) {
+        generateRandomRooms(chunk, roomDensity);
     }
 
     private Room generateRandomRoom(Chunk chunk) {
@@ -699,6 +787,15 @@ public class ProceduralGenerator {
         }
 
         return newRoom;
+    }
+
+    private Chunk generateRandomChunk(Chunk chunk, int minWidth, int maxWidth, int minHeight, int maxHeight) {
+        int width = rng.getRandomInt(minWidth, maxWidth);
+        int height = rng.getRandomInt(minHeight, maxHeight);
+        int x = rng.getRandomInt(chunk.x + 1, chunk.x + chunk.width - width - 2);
+        int y = rng.getRandomInt(chunk.y + 1, chunk.y + chunk.height - height - 2);
+
+        return new Chunk(x, y, width, height);
     }
 
     private void carveRooms() {

@@ -212,6 +212,34 @@ public class DecalFactory {
         return array;
     }
 
+    public static Component[] createLiquid(int x, int y, String tile) {
+        Entity entity = new Entity();
+
+        Component[] array = new Component[4];
+
+        Position position = new Position(entity.id);
+        position.x = x;
+        position.y = y;
+
+        Sprite sprite = new Sprite(entity.id);
+        sprite.shader = Sprite.WAVE;
+        sprite.path = tile;
+
+        Stationary s = new Stationary(Stationary.DEFAULT, entity.id);
+
+        Physics physics = new Physics(entity.id);
+        physics.isBlocking = false;
+        physics.isTraversable = false;
+        physics.isGasOrLiquid = true;
+
+        array[0] = position;
+        array[1] = sprite;
+        array[2] = s;
+        array[3] = physics;
+
+        return array;
+    }
+
     public static Component[] createTraversableDecoration(int x, int y, String tile) {
         Entity entity = new Entity();
 

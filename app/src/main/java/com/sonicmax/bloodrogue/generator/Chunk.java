@@ -1,4 +1,4 @@
-package com.sonicmax.bloodrogue.generator.mansion;
+package com.sonicmax.bloodrogue.generator;
 
 /**
  *  Defines a square/rectangle space of the map area. Used when generating mansion hallways and rooms
@@ -23,6 +23,22 @@ public class Chunk {
         this.y = y;
         this.width = width;
         this.height = height;
+    }
+
+    public int x() {
+        return this.x;
+    }
+
+    public int y() {
+        return this.y;
+    }
+
+    public int width() {
+        return this.width;
+    }
+
+    public int height() {
+        return this.height;
     }
 
     public int[] bottomLeft() {
