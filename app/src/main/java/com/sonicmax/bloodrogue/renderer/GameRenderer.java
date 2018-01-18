@@ -17,7 +17,6 @@ import com.sonicmax.bloodrogue.engine.components.Sprite;
 import com.sonicmax.bloodrogue.engine.components.Vitality;
 import com.sonicmax.bloodrogue.renderer.sprites.ImageLoader;
 import com.sonicmax.bloodrogue.renderer.sprites.SpriteRenderer;
-import com.sonicmax.bloodrogue.renderer.sprites.TerrainRenderer;
 import com.sonicmax.bloodrogue.renderer.sprites.WaveEffectSpriteRenderer;
 import com.sonicmax.bloodrogue.renderer.ui.Animation;
 import com.sonicmax.bloodrogue.renderer.ui.InventoryCard;
@@ -60,7 +59,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private ArrayList<Sprite> movingSprites;
 
     // Renderers
-    private TerrainRenderer terrainRenderer;
     private SpriteRenderer spriteRenderer;
     private SpriteRenderer uiRenderer;
     private WaveEffectSpriteRenderer waveRenderer;
@@ -104,17 +102,17 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private int visibleGridWidth;
     private int visibleGridHeight;
     private float targetUiWidth = 448f;
-    private float targetWidth = 448f; // This should be multiple of 64
+    private float targetWidth = 640f; // This should be multiple of 64
 
     private float zoomLevel;
     private float scaleFactor;
     private float uiScaleFactor;
 
     // Visible grid chunk
-    private int chunkOriginX;
-    private int chunkOriginY;
-    private int chunkWidth;
-    private int chunkHeight;
+    private int chunkStartX;
+    private int chunkStartY;
+    private int chunkEndX;
+    private int chunkEndY;
 
     // Scrolling
     private float touchScrollDx = 0f;
@@ -288,7 +286,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         uiMatrix = mvpMatrix.clone();
 
         prepareTextRenderer();
-        prepareTerrainRenderer();
         prepareSpriteRenderer();
         prepareWaveRenderers();
         prepareUiRenderer();
@@ -304,25 +301,14 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         GLES20.glEnable(GLES20.GL_BLEND);
         GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA);
 
-        GLES20.glDisable(GLES20.GL_DITHER);
-
         // We can cull the back faces as we wouldn't be able to see them in the first palce
         GLES20.glEnable(GL10.GL_CULL_FACE);
         GLES20.glCullFace(GL10.GL_BACK);
 
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST);
-    }
-
-    private void prepareTerrainRenderer() {
-        terrainRenderer = new TerrainRenderer();
-        terrainRenderer.initShader(spriteShaderProgram);
-        terrainRenderer.setSpriteSheetHandle(textureHandles.get("sprite_sheets/sheet.png"));
-        terrainRenderer.setUniformScale(scaleFactor);
-        terrainRenderer.setMapSize(mapGridWidth, mapGridHeight);
-        terrainRenderer.precalculateUv(spriteIndexes.size());
+        // GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
+        // GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
+        // GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
+        // GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST);
     }
 
     private void prepareSpriteRenderer() {
@@ -430,6 +416,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private void centreAtPlayerPos() {
         touchScrollDx = 0f - (gridSize * position.x) + (screenWidth / 2);
         touchScrollDy = 0f - (gridSize * position.y) + (screenHeight / 2);
+        touchScrollDx /= zoomLevel;
+        touchScrollDy /= zoomLevel;
     }
 
     private void scaleUi() {
@@ -552,7 +540,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 visitedTiles = currentFloorData.getVisitedTiles();
                 calculateScrollOffset();
                 translateMatrixForScroll();
-                cacheTerrainLayer();
+                cachedTerrain = cacheTerrainSprites();
 
                 float left[] = getRenderCoordsForObject(new Vector(1, 0), false);
                 float right[] = getRenderCoordsForObject(new Vector(visibleGridWidth - 1, 0), false);
@@ -581,10 +569,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             // Otherwise you may see drift between layers
             translateMatrixForScroll();
 
-            baseLiquidLayer.renderWaveEffect(scrollMatrix, dt);
-            terrainRenderer.renderSprites(scrollMatrix);
-            spriteRenderer.renderSprites(scrollMatrix);
             waveRenderer.renderWaveEffect(scrollMatrix, dt);
+            spriteRenderer.renderSprites(scrollMatrix);
             textRenderer.renderText(uiMatrix);
             uiRenderer.renderSprites(uiMatrix);
             uiTextRenderer.renderText(uiMatrix);
@@ -609,16 +595,11 @@ public class GameRenderer implements GLSurfaceView.Renderer {
      */
 
     private void cacheTerrainLayer() {
-        int size = mapGridWidth * mapGridHeight;
-        terrainRenderer.initArrays(size);
-        terrainRenderer.prepareIndices(mapGridWidth, mapGridHeight);
         cachedTerrain = cacheTerrainSprites();
-        terrainRenderer.setupVBOs();
     }
 
     private void initArrays() {
         // Get total sprite count and pass to renderer so we can init arrays used to store rendering data
-        terrainRenderer.initLightingArray();
         spriteRenderer.resetInternalCount();
         waveRenderer.resetInternalCount();
         textRenderer.initArrays(countTextObjects() * 2);
@@ -778,9 +759,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         for (int y = 0; y < mapGridHeight; y++) {
             for (int x = 0; x < mapGridWidth; x++) {
-                terrainRenderer.addSpriteData(
-                        x, y,
-                        spriteIndexes.get(mapGrid[x][y].path));
+                cached[x][y] = spriteIndexes.get(mapGrid[x][y].path);
             }
         }
 
@@ -791,13 +770,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         ArrayList<Sprite> objects = currentFloorData.getObjects();
         ArrayList<Animation> animations = currentFloorData.getAnimations();
 
-        for (int y = chunkOriginY; y < chunkHeight; y++) {
-            for (int x = chunkOriginX; x < chunkWidth; x++) {
-                if (!inBounds(x, y)) continue;
-
-                float lighting = (float) getLightingForGrid(x, y);
-
-                terrainRenderer.addLightingUpdate(x, y, lighting);
+        for (int y = chunkStartY; y < chunkEndY; y++) {
+            for (int x = chunkStartX; x < chunkEndX; x++) {
+                spriteRenderer.addSpriteData(x, y, cachedTerrain[x][y], (float) getLightingForGrid(x, y));
             }
         }
 
@@ -810,7 +785,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             int x = object.x;
             int y = object.y;
 
-            // if (!inVisibleBounds(x, y, true)) continue;
+            if (!inVisibleBounds(x, y)) continue;
 
             float lighting = (float) getLightingForGrid(x, y);
 
@@ -1026,11 +1001,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         int x = animation.x;
         int y = animation.y;
-        int screenPosX = x - scrollOffsetX;
-        int screenPosY = y - scrollOffsetY;
 
         if (!inBounds(x, y)) return TRANSPARENT;
-        if (!inVisibleBounds(screenPosX, screenPosY, false)) return TRANSPARENT;
 
         try {
             if (animation.isFinished()) {
@@ -1187,13 +1159,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     ---------------------------------------------
     */
 
-    private boolean inVisibleBounds(int x, int y, boolean offset) {
-        if (offset) {
-            x -= scrollOffsetX;
-            y -= scrollOffsetY;
-        }
-
-        return (x >= 0 && x <= visibleGridWidth) && (y >= 0 && y <= visibleGridHeight);
+    private boolean inVisibleBounds(int x, int y) {
+        return (x >= chunkStartX && x <= chunkEndX)
+                && (y >= chunkStartY && y <= chunkEndY);
     }
 
     private boolean inBounds(int x, int y) {
@@ -1236,11 +1204,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         float correctedY = height - y;
 
         // Account for scrolling and zooming
-        x -= (touchScrollDx / zoomLevel);
-        correctedY -= (touchScrollDy / zoomLevel);
+        x -= touchScrollDx;
+        correctedY -= touchScrollDy;
 
-        float spriteSize = SPRITE_SIZE * scaleFactor;
-        spriteSize /= zoomLevel;
+        float spriteSize = (SPRITE_SIZE * scaleFactor) / zoomLevel;
 
         float gridX = x / spriteSize;
         float gridY = correctedY / spriteSize;
@@ -1253,23 +1220,23 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         float y = 0;
 
         // Account for touch scrolling
-        x -= touchScrollDx;
-        y -= touchScrollDy;
+        x -= (touchScrollDx);
+        y -= (touchScrollDy);
 
-        float spriteSize = SPRITE_SIZE * scaleFactor;
+        float spriteSize = (SPRITE_SIZE * scaleFactor) / zoomLevel;
 
         int originX = (int) (x / spriteSize);
         int originY = (int) (y / spriteSize);
 
         // Sprite slightly larger chunk of grid than is actually visible, without exceeding bounds of map
-        chunkOriginX = Math.max(originX - 1, 0);
-        chunkOriginY = Math.max(originY - 1, 0);
-        chunkWidth = Math.min(originX + visibleGridWidth + 1, mapGridWidth);
-        chunkHeight = Math.min(originY + visibleGridHeight + 1, mapGridHeight);
+        chunkStartX = Math.max(originX - 1, 0);
+        chunkStartY = Math.max(originY - 1, 0);
+        chunkEndX = Math.min(originX + visibleGridWidth + 2, mapGridWidth);
+        chunkEndY = Math.min(originY + visibleGridHeight + 2, mapGridHeight);
     }
 
     public int[] getChunkSize() {
-        return new int[] {chunkOriginX, chunkOriginY, chunkWidth, chunkHeight};
+        return new int[] {chunkStartX, chunkStartY, chunkEndX, chunkEndY};
     }
 
     public float[] getRenderCoordsForObject(Vector objectPos, boolean withScroll) {
@@ -1301,11 +1268,28 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
     }
 
+    private float zoomFocusX;
+    private float zoomFocusY;
+
+    public void startZoom() {
+        zoomFocusX = touchScrollDx;
+        zoomFocusY = touchScrollDy;
+    }
+
     public void setZoom(float zoomLevel) {
         this.zoomLevel = zoomLevel;
+
+        // Make sure that scroll position is maintained during zoom
+        touchScrollDx = zoomFocusX / zoomLevel;
+        touchScrollDy = zoomFocusY / zoomLevel;
+
         setupMatrixes();
         calculateContentGrid();
         setGridChunkToRender();
+    }
+
+    public void endZoom() {
+
     }
 
     public void setHasGameData() {

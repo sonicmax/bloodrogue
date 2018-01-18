@@ -89,7 +89,7 @@ public class WaveEffectSpriteRenderer {
         // How many bytes we need to skip in VBO to find new entry for same data shader.
         stride = (FLOATS_PER_POSITION + FLOATS_PER_COLOUR + FLOATS_PER_UV) * FLOAT_SIZE;
 
-        int length = 128;
+        int length = 1024;
         int packedSize = (length * POSITION_SIZE) + (length * COLOUR_SIZE) + (length * UV_SIZE);
 
         packedFloats = new float[packedSize];

@@ -8,7 +8,6 @@ import android.view.ScaleGestureDetector;
 import android.view.WindowManager;
 
 import com.sonicmax.bloodrogue.GameInterface;
-import com.sonicmax.bloodrogue.renderer.GameRenderer;
 import com.sonicmax.bloodrogue.renderer.GameSurfaceView;
 
 public class MainActivity extends AppCompatActivity {
@@ -58,8 +57,18 @@ public class MainActivity extends AppCompatActivity {
             extends ScaleGestureDetector.SimpleOnScaleGestureListener {
 
         @Override
+        public boolean onScaleBegin(ScaleGestureDetector detector) {
+            return mGameInterface.handleScaleBegin(detector);
+        }
+
+        @Override
         public boolean onScale(ScaleGestureDetector detector) {
-            return mGameInterface.handleScaleEvent(detector);
+            return mGameInterface.handleScaleChange(detector);
+        }
+
+        @Override
+        public void onScaleEnd(ScaleGestureDetector detector) {
+            mGameInterface.handleScaleEnd(detector);
         }
     }
 

@@ -319,6 +319,11 @@ public class GameInterface {
         }
     }
 
+    public boolean handleScaleBegin(ScaleGestureDetector detector) {
+        gameRenderer.startZoom();
+        return true;
+    }
+
     /**
      * Passes scale gestures to renderer to we can set zoom level.
      *
@@ -326,13 +331,17 @@ public class GameInterface {
      * @return True if event was consumed
      */
 
-    public boolean handleScaleEvent(ScaleGestureDetector detector) {
+    public boolean handleScaleChange(ScaleGestureDetector detector) {
         scaleFactor *= detector.getScaleFactor();
 
         // Don't let the object get too small or too large.
         scaleFactor = Math.max(0.5f, Math.min(scaleFactor, 2.0f));
         gameRenderer.setZoom(scaleFactor);
         return true;
+    }
+
+    public void handleScaleEnd(ScaleGestureDetector detector) {
+        gameRenderer.endZoom();
     }
 
     public long processInventoryClick(int index) {

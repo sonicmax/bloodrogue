@@ -83,11 +83,8 @@ public class SpriteRenderer {
         // How many bytes we need to skip in VBO to find new entry for same data shader.
         stride = (FLOATS_PER_POSITION + FLOATS_PER_COLOUR + FLOATS_PER_UV) * FLOAT_SIZE;
 
-        int length = 128;
-        int packedSize = (length * POSITION_SIZE) + (length * COLOUR_SIZE) + (length * UV_SIZE);
-
-        packedFloats = new float[packedSize];
-        indices = new short[length * INDICES_SIZE];
+        // Todo: this is stupid
+        initArrays(1500);
     }
 
     public void setUniformScale(float uniformScale) {
@@ -102,6 +99,13 @@ public class SpriteRenderer {
 
     public void setSpriteSheetHandle(int val) {
         mSpriteSheetHandle = val;
+    }
+
+    public void initArrays(int length) {
+        int packedSize = (length * POSITION_SIZE) + (length * COLOUR_SIZE) + (length * UV_SIZE);
+
+        packedFloats = new float[packedSize];
+        indices = new short[length * INDICES_SIZE];
     }
 
     public void resetInternalCount() {
