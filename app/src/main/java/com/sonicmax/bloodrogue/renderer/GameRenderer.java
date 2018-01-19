@@ -3,6 +3,7 @@ package com.sonicmax.bloodrogue.renderer;
 import android.content.Context;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
+import android.opengl.GLU;
 import android.opengl.Matrix;
 import android.util.Log;
 import android.view.ScaleGestureDetector;
@@ -84,7 +85,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     // Matrixes for GL surface
     private final float[] mvpMatrix;
     private final float[] projMatrix;
-    private final float[] viewMatrix;
+    private final float[] modelViewMatrix;
     private float[] uiMatrix;
     private float[] scrollMatrix;
 
@@ -114,6 +115,13 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private int chunkStartY;
     private int chunkEndX;
     private int chunkEndY;
+    private float fullChunkWidth;
+    private float fullChunkHeight;
+
+    private float gridSize;
+    private float uiGridSize;
+    private int uiGridWidth;
+    private int uiGridHeight;
 
     // Scrolling
     private float touchScrollDx = 0f;
@@ -170,7 +178,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         isRendering = false;
 
         projMatrix = new float[16];
-        viewMatrix = new float[16];
+        modelViewMatrix = new float[16];
         mvpMatrix = new float[16];
         uiMatrix = new float[16];
         scrollMatrix = new float[16];
@@ -249,6 +257,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
     }
 
+    private int viewPort;
+
     @Override
     public void onSurfaceChanged(GL10 unused, int width, int height) {
         GLES20.glViewport(0, 0, width, height);
@@ -302,12 +312,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         GLES20.glEnable(GLES20.GL_BLEND);
         GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA);
 
-        // We can cull the back faces as we wouldn't be able to see them in the first palce
+        // We can cull the back faces
         GLES20.glEnable(GL10.GL_CULL_FACE);
         GLES20.glCullFace(GL10.GL_BACK);
 
-        // GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
-        // GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
         // GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
         // GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST);
     }
@@ -397,28 +407,28 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             screenHeight = ScreenSizeGetter.getHeight();
         }
 
-        Matrix.orthoM(projMatrix, 0, 0f, screenWidth * zoomLevel, 0.0f, screenHeight * zoomLevel, 0, 50);
 
-        // Set the camera position (View matrix)
-        Matrix.setLookAtM(viewMatrix, 0,
-                0f, 0f, 1f,
-                0f, 0f, 0f,
+        Matrix.orthoM(projMatrix, 0,
+                (-screenWidth / 2) * zoomLevel, (screenWidth / 2) * zoomLevel,
+                (-screenHeight / 2) * zoomLevel, (screenHeight / 2) * zoomLevel, -1, 1);
+
+        // Set the camera position
+        Matrix.setLookAtM(modelViewMatrix, 0,
+                1f, 0f, 1f,
+                1f, 0f, 0f,
                 0f, 1.0f, 0.0f);
 
         // Calculate the projection and view transformation
-        Matrix.multiplyMM(mvpMatrix, 0, projMatrix, 0, viewMatrix, 0);
+        Matrix.multiplyMM(mvpMatrix, 0, projMatrix, 0, modelViewMatrix, 0);
 
-
+        // Finally, translate so that origin is in bottom-left corner
+        Matrix.translateM(mvpMatrix, 0,
+                -screenWidth / 2, -screenHeight / 2, 0f);
     }
 
-    private float gridSize;
-    private float uiGridSize;
-
     private void centreAtPlayerPos() {
-        touchScrollDx = (gridSize * position.x) - (screenWidth / 2 / zoomLevel);
-        touchScrollDy = (gridSize * position.y) - (screenHeight / 2 / zoomLevel);
-        touchScrollDx /= zoomLevel;
-        touchScrollDy /= zoomLevel;
+        touchScrollDx = (gridSize * position.x) - (screenWidth / 2);
+        touchScrollDy = (gridSize * position.y) - (screenHeight / 2);
     }
 
     private void scaleUi() {
@@ -466,11 +476,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             scaleFactor = resX;
         }
 
-        gridSize = SPRITE_SIZE * zoomLevel * scaleFactor;
+        gridSize = SPRITE_SIZE * scaleFactor;
     }
-
-    private int uiGridWidth;
-    private int uiGridHeight;
 
     private void calculateUiGrid() {
         float width = ScreenSizeGetter.getWidth();
@@ -489,13 +496,13 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         float width = ScreenSizeGetter.getWidth();
         float height = ScreenSizeGetter.getHeight();
 
+        width *= zoomLevel;
+        height *= zoomLevel;
+
         float spriteSize = SPRITE_SIZE * scaleFactor;
 
         double xInterval = width / spriteSize;
         double yInterval = height / spriteSize;
-
-        xInterval *= zoomLevel;
-        yInterval *= zoomLevel;
 
         visibleGridWidth = (int) xInterval;
         visibleGridHeight = (int) yInterval;
@@ -559,7 +566,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 fieldOfVision = currentFloorData.getFov();
                 visitedTiles = currentFloorData.getVisitedTiles();
                 calculateScrollOffset();
-                translateMatrixForScroll();
+                translateScrollMatrix();
                 cachedTerrain = cacheTerrainSprites();
 
                 float left[] = getRenderCoordsForObject(new Vector(1, 0), false);
@@ -587,7 +594,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
             // Get scroll matrix inside render loop to make sure each renderer uses the same values.
             // Otherwise you may see drift between layers
-            translateMatrixForScroll();
+            translateScrollMatrix();
 
             waveRenderer.renderWaveEffect(scrollMatrix, dt);
             spriteRenderer.renderSprites(scrollMatrix);
@@ -608,16 +615,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
     }
 
-    /**
-     *  Creates VBO containing cached terrain data and holds it in GPU memory.
-     *  We need to do this every time terrain layer changes (eg. after changing floor).
-     *  Generally doing this on first render will be adequate
-     */
-
-    private void cacheTerrainLayer() {
-        cachedTerrain = cacheTerrainSprites();
-    }
-
     private void initArrays() {
         // Get total sprite count and pass to renderer so we can init arrays used to store rendering data
         spriteRenderer.resetInternalCount();
@@ -627,11 +624,11 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         uiTextRenderer.initArrays(countTextObjects());
     }
 
-    private void translateMatrixForScroll() {
+    private void translateScrollMatrix() {
         Matrix.translateM(
                 scrollMatrix, 0,
                 mvpMatrix, 0,
-                -touchScrollDx * zoomLevel, -touchScrollDy * zoomLevel, 0f);
+                -touchScrollDx, -touchScrollDy, 0f);
     }
 
     public void fadeOutAndDisplaySplash() {
@@ -734,10 +731,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
      */
 
     private void buildUiTextObjects() {
-        // Actor player = (Actor) currentFloorData.getPlayer();
         hp = "HP: " + vitality.hp;
         xp = "XP: " + experience.xp;
-        floor = "Floor " + currentFloorData.getIndex();
+        floor = "(" + ((int) touchScrollDx) + ", " + ((int) touchScrollDy) + ")";
         fps = fpsCount + " fps";
 
         if (inventorySelection && inventoryCard != null) {
@@ -769,6 +765,13 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         return narrationSize + statusSize + uiText + uiBuilder.getDetailTextSize() * 2;
     }
+
+    /**
+     * As terrain tiles are mostly static, it would save time if we cached the sprite indexes
+     * before rendering and reused them each frame.
+     *
+     * @return 2d array containing terrain sprite index for each cell
+     */
 
     private int[][] cacheTerrainSprites() {
         Sprite[][] mapGrid = currentFloorData.getTerrain();
@@ -1217,37 +1220,45 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     */
 
     public Vector getGridCellForTouchCoords(float x, float y) {
-        // NOTE: Origin for touch events is top-left, origin for game area is bottom-left.
-        float height = ScreenSizeGetter.getHeight();
-        float correctedY = height - y;
+        // NOTE: Origin for touch events is top-left, so y needs to be inverted
+        float correctedY = screenHeight - y;
 
-        // Account for scrolling and zooming
-        x += touchScrollDx;
-        correctedY += touchScrollDy;
+        float[] worldCoords = transformCoordsToWorld(x, correctedY);
 
-        float spriteSize = (SPRITE_SIZE * scaleFactor) / zoomLevel;
+        float spriteSize = SPRITE_SIZE * scaleFactor;
 
-        float gridX = x / spriteSize;
-        float gridY = correctedY / spriteSize;
+        float gridX = worldCoords[0] / spriteSize;
+        float gridY = worldCoords[1] / spriteSize;
 
         return new Vector((int) gridX, (int) gridY);
     }
 
-    private float fullChunkWidth;
-    private float fullChunkHeight;
+    public float[] transformCoordsToWorld(float x, float y) {
+        float[] coords = {0.0f, 0.0f, 0.0f, 0.0f};
+
+        int[] viewPort = new int[] {0, 0, screenWidth, screenHeight};
+
+        // We need to reverse any modifications made to the zoom level using gluUnProject
+        GLU.gluUnProject(x, y, -1.0f, modelViewMatrix, 0, projMatrix, 0, viewPort, 0, coords, 0);
+
+        // Original origin is centre of screen, so we need to translate back to bottom-left
+        coords[0] += (screenWidth / 2);
+        coords[1] += (screenHeight / 2);
+
+        // Account for scrolling
+        coords[0] += touchScrollDx;
+        coords[1] += touchScrollDy;
+
+        return coords;
+    }
 
     private void setGridChunkToRender() {
-        float x = 0;
-        float y = 0;
+        float[] origin = transformCoordsToWorld(0, 0);
 
-        // Account for touch scrolling
-        x += (touchScrollDx);
-        y += (touchScrollDy);
+        float spriteSize = SPRITE_SIZE * scaleFactor;
 
-        float spriteSize = (SPRITE_SIZE * scaleFactor) / zoomLevel;
-
-        int originX = (int) (x / spriteSize);
-        int originY = (int) (y / spriteSize);
+        int originX = (int) (origin[0] / spriteSize);
+        int originY = (int) (origin[1] / spriteSize);
 
         // Use slightly larger chunk of grid than is actually visible, without exceeding bounds of map
         chunkStartX = Math.max(originX - 1, 0);
@@ -1267,7 +1278,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     public float[] getRenderCoordsForObject(Vector objectPos, boolean withScroll) {
         float x = objectPos.x();
         float y = objectPos.y();
-        float spriteSize = SPRITE_SIZE * zoomLevel * scaleFactor;
+        float spriteSize = SPRITE_SIZE * scaleFactor;
 
         x *= spriteSize;
         y *= spriteSize;
@@ -1296,13 +1307,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     public void startZoom(ScaleGestureDetector detector) {}
 
     public void setZoom(float zoomLevel) {
-        float diff = 1 + (zoomLevel - this.zoomLevel);
-
         this.zoomLevel = zoomLevel;
-
-        // Make sure that scroll position is maintained during zoom
-        touchScrollDx = touchScrollDx / diff;
-        touchScrollDy = touchScrollDy / diff;
 
         setupMatrixes();
         calculateContentGrid();
