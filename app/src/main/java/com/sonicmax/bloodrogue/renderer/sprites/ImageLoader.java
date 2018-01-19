@@ -56,7 +56,7 @@ public class ImageLoader {
             for (String sheet : sheets) {
                 InputStream is = assetManager.open(SHEET_PATH + sheet);
                 BitmapFactory.Options opts = new BitmapFactory.Options();
-                opts.inPreferredConfig = Bitmap.Config.ARGB_4444;
+                opts.inPreferredConfig = Bitmap.Config.ARGB_8888;
                 Bitmap bitmap = BitmapFactory.decodeStream(is, null, opts);
                 int textureHandle = loadTexture(bitmap);
                 textureHandles.put(SHEET_PATH + sheet, textureHandle);
@@ -67,7 +67,7 @@ public class ImageLoader {
             for (String path : fontPaths) {
                 InputStream is = assetManager.open(FONT_PATH + path);
                 BitmapFactory.Options opts = new BitmapFactory.Options();
-                opts.inPreferredConfig = Bitmap.Config.ARGB_4444;
+                opts.inPreferredConfig = Bitmap.Config.ARGB_8888;
                 Bitmap bitmap = BitmapFactory.decodeStream(is, null, opts);
                 int textureHandle = loadTexture(bitmap);
                 textureHandles.put(FONT_PATH + path, textureHandle);
