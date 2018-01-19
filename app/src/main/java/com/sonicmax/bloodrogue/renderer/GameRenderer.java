@@ -1192,7 +1192,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         // We periodically want to check narrations to see if we need to remove any of them.
         // Narrations are only updated once a second, so it's pointless checking every single frame
-        if (currentFrameTime >= 500) {
+        if (currentFrameTime >= 500 && !halfSecPassed) {
             gameInterface.checkNarrations();
             halfSecPassed = true;
         }
