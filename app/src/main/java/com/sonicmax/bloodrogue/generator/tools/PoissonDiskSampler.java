@@ -1,4 +1,4 @@
-package com.sonicmax.bloodrogue.generator;
+package com.sonicmax.bloodrogue.generator.tools;
 
 import com.sonicmax.bloodrogue.engine.Directions;
 import com.sonicmax.bloodrogue.utils.maths.Calculator;

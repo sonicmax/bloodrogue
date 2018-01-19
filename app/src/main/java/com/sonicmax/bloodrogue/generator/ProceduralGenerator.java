@@ -18,6 +18,8 @@ import com.sonicmax.bloodrogue.engine.components.Stationary;
 import com.sonicmax.bloodrogue.generator.factories.DecalFactory;
 import com.sonicmax.bloodrogue.generator.factories.TerrainFactory;
 import com.sonicmax.bloodrogue.engine.systems.ComponentFinder;
+import com.sonicmax.bloodrogue.generator.tools.CellularAutomata;
+import com.sonicmax.bloodrogue.generator.tools.PoissonDiskSampler;
 import com.sonicmax.bloodrogue.tilesets.ExteriorTileset;
 import com.sonicmax.bloodrogue.tilesets.MansionTileset;
 import com.sonicmax.bloodrogue.tilesets.RuinsTileset;
