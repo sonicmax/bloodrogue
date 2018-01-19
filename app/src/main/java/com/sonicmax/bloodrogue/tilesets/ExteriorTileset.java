@@ -5,6 +5,8 @@ public class ExteriorTileset {
 
     public final static String GRASS = "sprites/grass.png";
 
+    public final static String DIRT_1 = "sprites/dirt_1.png";
+
     public final static String TREE_1 = "sprites/tree_1.png";
     public final static String TREE_2 = "sprites/tree_2.png";
     public final static String TREE_3 = "sprites/tree_3.png";

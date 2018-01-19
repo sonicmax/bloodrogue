@@ -19,6 +19,7 @@ import com.sonicmax.bloodrogue.generator.factories.DecalFactory;
 import com.sonicmax.bloodrogue.generator.factories.TerrainFactory;
 import com.sonicmax.bloodrogue.engine.systems.ComponentFinder;
 import com.sonicmax.bloodrogue.generator.tools.CellularAutomata;
+import com.sonicmax.bloodrogue.generator.tools.MazeGenerator;
 import com.sonicmax.bloodrogue.generator.tools.PoissonDiskSampler;
 import com.sonicmax.bloodrogue.tilesets.ExteriorTileset;
 import com.sonicmax.bloodrogue.tilesets.MansionTileset;
@@ -71,7 +72,6 @@ public class ProceduralGenerator {
 
     // For region connecting method
     private int currentRegion = -1;
-    private Set regions;
 
     // BSP room generation defaults
     private int maxHallLimit = 8;
@@ -107,7 +107,6 @@ public class ProceduralGenerator {
         this.assetManager = assetManager;
         this.furnitureBlueprints = JSONLoader.loadFurniture(assetManager);
 
-        this.regions = new HashSet();
         this.objects = new ArrayList<>();
         this.enemies = new ArrayList<>();
         this.doors = new HashMap<>();
@@ -264,9 +263,10 @@ public class ProceduralGenerator {
         generateRandomRooms(chunk);
         carveRooms();
 
-        generateCorridors(chunk);
-        connectRegions();
-        removeDeadEnds();
+        // generateCorridors(chunk);
+        // connectRegions();
+        // removeDeadEnds();
+
         checkForBrokenDoors();
 
         calculateGoals();
@@ -283,8 +283,6 @@ public class ProceduralGenerator {
         removeInaccessibleCells();
     }
 
-    private float mansionRuinChance = 0.1f;
-
     private void generateMansion() {
         // Ignore border tiles
         Chunk map = new Chunk(1, 1, mapWidth - 2, mapHeight - 2);
@@ -298,9 +296,9 @@ public class ProceduralGenerator {
         splitChunksIntoRooms(chunks);
         carveRooms();
 
-        generateCorridors(map);
-        connectRegions();
-        removeDeadEnds();
+        // generateCorridors(map);
+        // connectRegions();
+        // removeDeadEnds();
         checkForBrokenDoors();
         calculateGoals();
 
@@ -335,8 +333,8 @@ public class ProceduralGenerator {
         Chunk chunk = new Chunk(0, 0, mapWidth, mapHeight);
         generateRandomRooms(chunk);
         carveRooms();
-        generateCorridors(chunk);
-        removeDeadEnds();
+        // generateCorridors(chunk);
+        // removeDeadEnds();
         checkForBrokenDoors();
         // decorateRooms();
 
@@ -428,12 +426,49 @@ public class ProceduralGenerator {
         prepareBuilding(building);
         ArrayList<Chunk> chunks = getHallwayChunks(building);
         splitChunksIntoRooms(chunks);
+
+        // Use MazeGenerator to add corridors to building
+        MazeGenerator mazeGen = new MazeGenerator();
+        mazeGen.setChunk(building);
+
+        for (Room room : rooms) {
+            mazeGen.carveChunkFromMaze(room);
+        }
+
+        boolean[][] carvedTiles = mazeGen.generate();
+
+        for (int x = 0; x < building.width; x++) {
+            for (int y = 0; y < building.height; y++) {
+                if (carvedTiles[x][y]) {
+                    Vector translatedCell = new Vector(building.x + x, building.y + y);
+                    carve(translatedCell, MansionTileset.WOOD_FLOOR_1);
+                }
+            }
+        }
+
+        for (Vector cell : mazeGen.getJunctions()) {
+            addJunction(new Vector(building.x + cell.x, building.y + cell.y));
+        }
+
         carveRooms();
-        generateCorridors(map);
-        connectRegions();
-        removeDeadEnds();
         checkForBrokenDoors();
         calculateGoals();
+
+        // Now use maze generator to add paths to map?
+        mazeGen.setChunk(map);
+        mazeGen.excludeChunkFromMaze(building);
+        mazeGen.setWindingPercent(5);
+        boolean[][] carvedPath = mazeGen.generate();
+
+        for (int x = 0; x < map.width; x++) {
+            for (int y = 0; y < map.height; y++) {
+                if (carvedPath[x][y]) {
+                    Vector cell = new Vector(x, y);
+                    carve(cell, ExteriorTileset.DIRT_1);
+                    objectGrid[x][y].clear();
+                }
+            }
+        }
 
         decorator = new MansionDecorator(mapWidth, mapHeight, theme, themeKey, assetManager);
         decorator.setGeneratorData(mapGrid, objects, objectGrid, enemies);
@@ -1065,217 +1100,6 @@ public class ProceduralGenerator {
     ---------------------------------------------
 */
 
-    private void generateCorridors(Chunk chunk) {
-        int right = chunk.x + chunk.width;
-        int top = chunk.y + chunk.height;
-
-        for (int x = chunk.x + 1; x < right - 1; x++) {
-            for (int y = chunk.y - 1; y < top - 1; y++) {
-                Vector coords = new Vector(x, y);
-                Stationary stat = ComponentFinder.getStaticComponent(getMapObjectForCell(coords));
-                if (stat.type == Stationary.WALL && adjacentCellsAreCarvable(coords)) {
-                    carveMaze(coords);
-                }
-            }
-        }
-    }
-
-    private void carveMaze(Vector start) {
-        ArrayList<Vector> cells = new ArrayList<>();
-        Vector lastCell = null;
-        startRegion();
-        carve(start, MansionTileset.WOOD_FLOOR_1);
-        cells.add(start);
-
-        while (cells.size() > 0) {
-            Vector cell = cells.remove(cells.size() - 1);
-
-            // See which adjacent cells are open.
-            HashMap<String, Vector> unmadeCells = new HashMap<>();
-
-            HashMap<String, Vector> adjacentCells = getAdjacentCells(cell, 1, CARVABLE);
-
-            for (Map.Entry pair : adjacentCells.entrySet()) {
-                String direction = (String) pair.getKey();
-                Vector adjacentCell = (Vector) pair.getValue();
-
-                if (canCarve(adjacentCell, getVectorForDirection(direction))) {
-                    unmadeCells.put(adjacentCell.toString(), adjacentCell);
-                }
-            }
-
-            if (unmadeCells.size() > 0) {
-                Vector firstCarve;
-
-                if (lastCell != null && unmadeCells.containsKey(lastCell.toString()) && rng.getRandomInt(0, 100) > windingPercent) {
-                    firstCarve = lastCell;
-                } else {
-                    firstCarve = (Vector) unmadeCells.values().toArray()[rng.getRandomInt(0, unmadeCells.size() - 1)];
-                }
-
-                Vector secondCarve = firstCarve.add(getVectorForDirection(firstCarve.getDirection()));
-
-                carve(firstCarve, MansionTileset.WOOD_FLOOR_1);
-                carve(secondCarve, MansionTileset.WOOD_FLOOR_1);
-
-                cells.add(secondCarve);
-                lastCell = firstCarve;
-            }
-
-            else {
-                // No adjacent uncarved cells.
-                if (cells.size() > 0) {
-                    cells.remove(cells.size() - 1);
-                }
-
-                // This path has ended.
-                lastCell = null;
-            }
-        }
-    }
-
-    private void connectRegions() {
-        // Find all of the tiles that can connect two (or more) regions.
-        HashMap<Vector, Set> connectorRegions = new HashMap<>();
-
-        for (int x = 1; x < mapWidth; x++) {
-            for (int y = 1; y < mapHeight; y++) {
-                Vector cell = new Vector(x, y, "");
-
-                // Ignore everything but walls
-                Stationary stat = ComponentFinder.getStaticComponent(getMapObjectForCell(cell));
-                if (stat.type != Stationary.WALL) continue;
-
-                Set<Integer> regions = new HashSet<>();
-
-                HashMap<String, Vector> adjacentCells = getAdjacentCells(cell, 1, CARVABLE);
-
-                for (Vector adjacentCell : adjacentCells.values()) {
-                    if (!inBounds(adjacentCell)) continue;
-
-                    int region = mapRegions[adjacentCell.x()][adjacentCell.y()];
-                    if (region > -1) {
-                        regions.add(region);
-                    }
-                }
-
-                if (regions.size() < 2) continue;
-
-                connectorRegions.put(cell, regions);
-            }
-        }
-
-        // Get array of connecting vectors from connectorRegions
-        ArrayList<Vector> connectors = new ArrayList<>(connectorRegions.keySet());
-
-        // Keep track of which regions have been merged. This maps an original region index to the one it has been merged to.
-        SparseIntArray merged = new SparseIntArray();
-        Set<Integer> openRegions = new HashSet<>();
-
-        for (int i = 0; i <= currentRegion; i++) {
-            merged.put(i, i);
-            openRegions.add(i);
-        }
-
-        // Keep connecting regions until we're down to one.
-        while (openRegions.size() > 1 && connectors.size() > 0) {
-            Vector connector = connectors.get(rng.getRandomInt(0, connectors.size() - 1));
-
-            addJunction(connector);
-
-            // Merge the connected regions. We'll pick one region (arbitrarily) and map all of the other regions to its index.
-            ArrayList<Integer> arrayFromConnector = new ArrayList<>(connectorRegions.get(connector));
-            ArrayList<Integer> regions = new ArrayList<>();
-
-            for (int region : arrayFromConnector) {
-                regions.add(merged.get(region));
-            }
-
-            int dest = regions.get(0);
-            List<Integer> sources = regions.subList(1, regions.size());
-
-            // Merge all of the affected regions. We have to look at *all* of the
-            // regions because other regions may have previously been merged with
-            // some of the ones we're merging now.
-            for (int i = 0; i <= currentRegion; i++) {
-                if (sources.contains(merged.get(i))) {
-                    merged.put(i, dest);
-                }
-            }
-
-            // The sources are no longer in use.
-            for (int source : sources) {
-                openRegions.remove(source);
-            }
-
-            // Remove any connectors that aren't needed anymore
-            Iterator<Vector> it = connectors.iterator();
-
-            while (it.hasNext()) {
-                Vector pos = it.next();
-
-                // Don't allow connectors right next to each other.
-                if (connector.subtract(pos).getMagnitude() < 2) {
-                    it.remove();
-                    continue;
-                }
-
-                // If the connector no long spans different regions, we don't need it.
-
-                ArrayList<Integer> regionsArray = new ArrayList<>(connectorRegions.get(pos));
-                HashSet<Integer> spannedRegions = new HashSet<>();
-
-                for (int region : regionsArray) {
-                    spannedRegions.add(merged.get(region));
-                }
-
-                if (spannedRegions.size() <= 1)  {
-                    // This connecter isn't needed, but connect it occasionally so that the
-                    // dungeon isn't singly-connected.
-                    if (rng.getRandomInt(0, extraConnectorChance) == 0) {
-                        addJunction(pos);
-                    }
-
-                    it.remove();
-                }
-            }
-        }
-    }
-
-    private void removeDeadEnds() {
-        boolean done = false;
-
-        while (!done) {
-            done = true;
-
-            for (int x = 1; x < mapWidth - 1; x++) {
-                for (int y = 1; y < mapHeight - 1; y++) {
-                    Vector cell = new Vector(x, y);
-                    Stationary stat = ComponentFinder.getStaticComponent(getMapObjectForCell(cell));
-                    if (stat.type == Stationary.WALL) continue;
-
-                    // If it only has one exit, it's a dead end.
-                    int exits = 0;
-
-                    HashMap<String, Vector> adjacentCells = getAdjacentCells(cell, 1, CARVABLE);
-
-                    for (Vector adjacentCell : adjacentCells.values()) {
-                        stat = ComponentFinder.getStaticComponent(getMapObjectForCell(adjacentCell));
-                        if (stat.type != Stationary.WALL) {
-                            exits++;
-                        }
-                    }
-
-                    if (exits != 1) continue;
-
-                    done = false;
-
-                    setTile(cell, MansionTileset.WALL);
-                }
-            }
-        }
-    }
-
     private void addJunction(Vector cell) {
         setTile(cell, MansionTileset.DOORWAY);
 
@@ -1313,12 +1137,6 @@ public class ProceduralGenerator {
 
     private boolean inBounds(Vector cell) {
         return (cell.x() >= 0 && cell.x() < mapWidth && cell.y() >= 0 && cell.y() < mapHeight);
-    }
-
-    private boolean canCarve(Vector cell, Vector direction) {
-        return inBounds(cell)
-                && adjacentCellsAreCarvable(cell)
-                && adjacentCellsAreCarvable(cell.add(direction));
     }
 
     private void removeInaccessibleCells() {
