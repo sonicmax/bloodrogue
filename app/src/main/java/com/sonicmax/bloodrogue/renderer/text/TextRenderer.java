@@ -63,8 +63,10 @@ public class TextRenderer {
 
     private int stride;
 
-    private int mTextureHandle;
-    private int mShaderHandle;
+    private int textureHandle;
+    private int shaderHandle;
+    private int uniformMatrix;
+    private int uniformTexture;
 
     private float uniformScale;
 
@@ -73,11 +75,13 @@ public class TextRenderer {
     }
 
     public void setTextureHandle(int val) {
-        mTextureHandle = val;
+        textureHandle = val;
     }
 
-    public void setShaderProgramHandle(int handle) {
-        mShaderHandle = handle;
+    public void initShader(int handle) {
+        shaderHandle = handle;
+        uniformMatrix = GLES20.glGetUniformLocation(shaderHandle, "u_MVPMatrix");
+        uniformTexture = GLES20.glGetUniformLocation(shaderHandle, "u_Texture");
     }
 
     public void setUniformscale(float uniformscale) {
@@ -498,7 +502,7 @@ public class TextRenderer {
     }
 
     public void renderText(float[] matrix) {
-        GLES20.glUseProgram(mShaderHandle);
+        GLES20.glUseProgram(shaderHandle);
 
         if (packedCount == 0) {
             return;
@@ -514,15 +518,12 @@ public class TextRenderer {
         ShortBuffer drawListBuffer = dlb.asShortBuffer();
         BufferUtils.copy(indices, 0, drawListBuffer, indices.length);
 
-        GLES20.glEnableVertexAttribArray(Shader.POSITION);
-        GLES20.glEnableVertexAttribArray(Shader.TEXCOORD);
-        GLES20.glEnableVertexAttribArray(Shader.COLOUR);
-
         // Add pointers to buffer for each attribute.
 
         // GLES20.glVertexAttribPointer() doesn't have offset parameter, so we have to
         // add the offset manually using Buffer.duplicate().position()
 
+        GLES20.glEnableVertexAttribArray(Shader.POSITION);
         GLES20.glVertexAttribPointer(
                 Shader.POSITION,
                 FLOATS_PER_POSITION,
@@ -531,28 +532,28 @@ public class TextRenderer {
                 stride,
                 floatBuffer);
 
+        GLES20.glEnableVertexAttribArray(Shader.COLOUR);
         GLES20.glVertexAttribPointer(
                 Shader.COLOUR,
                 FLOATS_PER_COLOUR,
                 GLES20.GL_FLOAT,
                 false,
                 stride,
-                floatBuffer.duplicate().position(FLOATS_PER_POSITION));
+                floatBuffer.position(FLOATS_PER_POSITION));
 
+        GLES20.glEnableVertexAttribArray(Shader.TEXCOORD);
         GLES20.glVertexAttribPointer(
                 Shader.TEXCOORD,
                 FLOATS_PER_UV,
                 GLES20.GL_FLOAT,
                 false,
                 stride,
-                floatBuffer.duplicate().position(FLOATS_PER_POSITION + FLOATS_PER_COLOUR));
+                floatBuffer.position(FLOATS_PER_POSITION + FLOATS_PER_COLOUR));
 
-        int uniformMatrix = GLES20.glGetUniformLocation(mShaderHandle, "u_MVPMatrix");
         GLES20.glUniformMatrix4fv(uniformMatrix, 1, false, matrix, 0);
 
-        int uniformTexture = GLES20.glGetUniformLocation(mShaderHandle, "u_Texture");
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mTextureHandle);
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureHandle);
         GLES20.glUniform1i(uniformTexture, 0);
 
         // render the triangle
