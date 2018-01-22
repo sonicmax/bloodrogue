@@ -1,6 +1,7 @@
 package com.sonicmax.bloodrogue.renderer.sprites;
 
 import android.opengl.GLES20;
+import android.util.Log;
 
 import com.sonicmax.bloodrogue.renderer.Shader;
 import com.sonicmax.bloodrogue.utils.BufferUtils;
@@ -44,7 +45,6 @@ public class WaveEffectSpriteRenderer {
     private float[][] cachedUvs;
 
     private int packedCount;
-    private int lastPackedCount;
     private int stride;
 
     private final int POSITION_SIZE = 12;
@@ -68,11 +68,11 @@ public class WaveEffectSpriteRenderer {
     private float mUniformScale;
 
     // Handles for OpenGL
-    private int mSpriteSheetHandle;
-    private int mWaveShaderHandle;
+    private int spriteSheetHandle;
+    private int waveShaderHandle;
 
-    private FloatBuffer floatBuffer;
-    private ShortBuffer drawListBuffer;
+    private ByteBuffer bb1;
+    private ByteBuffer bb2;
 
     private int matrixLocation;
     private int textureLocation;
@@ -102,19 +102,19 @@ public class WaveEffectSpriteRenderer {
     }
 
     public void setWaveShader(int handle) {
-        mWaveShaderHandle = handle;
+        waveShaderHandle = handle;
     }
 
     public void setShaderVariableLocations() {
-        GLES20.glUseProgram(mWaveShaderHandle);
+        GLES20.glUseProgram(waveShaderHandle);
 
-        matrixLocation = GLES20.glGetUniformLocation(mWaveShaderHandle, "u_MVPMatrix");
-        textureLocation = GLES20.glGetUniformLocation (mWaveShaderHandle, "u_Texture");
-        waveDataLocation = GLES20.glGetUniformLocation(mWaveShaderHandle, "u_waveData");
+        matrixLocation = GLES20.glGetUniformLocation(waveShaderHandle, "u_MVPMatrix");
+        textureLocation = GLES20.glGetUniformLocation (waveShaderHandle, "u_Texture");
+        waveDataLocation = GLES20.glGetUniformLocation(waveShaderHandle, "u_waveData");
     }
 
     public void setSpriteSheetHandle(int val) {
-        mSpriteSheetHandle = val;
+        spriteSheetHandle = val;
     }
 
     public void resetInternalCount() {
@@ -363,31 +363,26 @@ public class WaveEffectSpriteRenderer {
      */
 
     public void renderWaveEffect(float[] matrix, float dt) {
-        GLES20.glUseProgram(mWaveShaderHandle);
+        GLES20.glUseProgram(waveShaderHandle);
 
         if (packedCount == 0) {
             return;
         }
 
-        ByteBuffer bb = ByteBuffer.allocateDirect(packedFloats.length * FLOAT_SIZE);
-        bb.order(ByteOrder.nativeOrder());
-        floatBuffer = bb.asFloatBuffer();
+        checkBufferCapacity();
+
+        FloatBuffer floatBuffer = bb1.asFloatBuffer();
         BufferUtils.copy(packedFloats, floatBuffer, packedCount, 0);
 
-        ByteBuffer dlb = ByteBuffer.allocateDirect(indices.length * SHORT_SIZE);
-        dlb.order(ByteOrder.nativeOrder());
-        drawListBuffer = dlb.asShortBuffer();
+        ShortBuffer drawListBuffer = bb2.asShortBuffer();
         BufferUtils.copy(indices, 0, drawListBuffer, indices.length);
-
-        GLES20.glEnableVertexAttribArray(Shader.POSITION);
-        GLES20.glEnableVertexAttribArray(Shader.COLOUR);
-        GLES20.glEnableVertexAttribArray(Shader.TEXCOORD);
 
         // Add pointers to buffer for each attribute.
 
         // GLES20.glVertexAttribPointer() doesn't have offset parameter, so we have to
-        // add the offset manually using Buffer.duplicate().position()
+        // add the offset manually using Buffer.position()
 
+        GLES20.glEnableVertexAttribArray(Shader.POSITION);
         GLES20.glVertexAttribPointer(
                 Shader.POSITION,
                 FLOATS_PER_POSITION,
@@ -396,21 +391,23 @@ public class WaveEffectSpriteRenderer {
                 stride,
                 floatBuffer);
 
+        GLES20.glEnableVertexAttribArray(Shader.COLOUR);
         GLES20.glVertexAttribPointer(
                 Shader.COLOUR,
                 FLOATS_PER_COLOUR,
                 GLES20.GL_FLOAT,
                 false,
                 stride,
-                floatBuffer.duplicate().position(FLOATS_PER_POSITION));
+                floatBuffer.position(FLOATS_PER_POSITION));
 
+        GLES20.glEnableVertexAttribArray(Shader.TEXCOORD);
         GLES20.glVertexAttribPointer(
                 Shader.TEXCOORD,
                 FLOATS_PER_UV,
                 GLES20.GL_FLOAT,
                 false,
                 stride,
-                floatBuffer.duplicate().position(FLOATS_PER_POSITION + FLOATS_PER_COLOUR));
+                floatBuffer.position(FLOATS_PER_POSITION + FLOATS_PER_COLOUR));
 
         // Pass MVP matrix to shader
         GLES20.glUniformMatrix4fv(matrixLocation, 1, false, matrix, 0);
@@ -418,10 +415,6 @@ public class WaveEffectSpriteRenderer {
         // Pass updated angle & amplitude to shader
         updateWaveVariables(dt);
         GLES20.glUniform2f(waveDataLocation, angleWave, amplitudeWave);
-
-        // Bind texture to unit 0 and render triangles
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mSpriteSheetHandle);
         GLES20.glUniform1i(textureLocation, 0);
 
         GLES20.glDrawElements(GLES20.GL_TRIANGLES, indices.length, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);
@@ -434,6 +427,41 @@ public class WaveEffectSpriteRenderer {
 
         while (angleWave > PI2) {
             angleWave -= PI2;
+        }
+    }
+
+    /**
+     * Makes sure that we have enough capacity in our buffers for our packed floats and shorts.
+     * This should strike a good balance between performance (as reallocating buffers every single
+     * frame is expensive) and not making things explode.
+     */
+
+    private void checkBufferCapacity() {
+        int floatBufferSize = packedFloats.length * FLOAT_SIZE;
+        int shortBufferSize = indices.length * SHORT_SIZE;
+
+        if (bb1 == null) {
+            bb1 = ByteBuffer.allocateDirect(floatBufferSize);
+            bb1.order(ByteOrder.nativeOrder());
+        }
+
+        else if (packedFloats.length > bb1.capacity()) {
+            Log.v(LOG_TAG, "Reallocating floats! old: " + bb1.capacity() + ", new: " + packedFloats.length);
+            bb1 = null;
+            bb1 = ByteBuffer.allocateDirect(floatBufferSize);
+            bb1.order(ByteOrder.nativeOrder());
+        }
+
+        if (bb2 == null) {
+            bb2 = ByteBuffer.allocateDirect(shortBufferSize);
+            bb2.order(ByteOrder.nativeOrder());
+        }
+
+        else if (indices.length > bb2.capacity()) {
+            Log.v(LOG_TAG, "Reallocating shorts! old: " + bb2.capacity() + ", new: " + indices.length);
+            bb2 = null;
+            bb2 = ByteBuffer.allocateDirect(shortBufferSize);
+            bb2.order(ByteOrder.nativeOrder());
         }
     }
 }
