@@ -58,7 +58,7 @@ public class ImageLoader {
                 BitmapFactory.Options opts = new BitmapFactory.Options();
                 opts.inPreferredConfig = Bitmap.Config.ARGB_8888;
                 Bitmap bitmap = BitmapFactory.decodeStream(is, null, opts);
-                int textureHandle = loadTexture(bitmap);
+                int textureHandle = loadTexture(bitmap, GLES20.GL_TEXTURE0);
                 textureHandles.put(SHEET_PATH + sheet, textureHandle);
             }
 
@@ -69,7 +69,7 @@ public class ImageLoader {
                 BitmapFactory.Options opts = new BitmapFactory.Options();
                 opts.inPreferredConfig = Bitmap.Config.ARGB_8888;
                 Bitmap bitmap = BitmapFactory.decodeStream(is, null, opts);
-                int textureHandle = loadTexture(bitmap);
+                int textureHandle = loadTexture(bitmap, GLES20.GL_TEXTURE1);
                 textureHandles.put(FONT_PATH + path, textureHandle);
             }
 
@@ -89,13 +89,14 @@ public class ImageLoader {
         return this.textureHandles;
     }
 
-    public int loadTexture(Bitmap bitmap) {
+    public int loadTexture(Bitmap bitmap, int id) {
         final int[] textureHandle = new int[1];
 
         GLES20.glGenTextures(1, textureHandle, 0);
 
         if (textureHandle[0] != 0) {
             // Bind to the texture in OpenGL
+            GLES20.glActiveTexture(id);
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureHandle[0]);
 
             // Set filtering

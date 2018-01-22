@@ -56,6 +56,9 @@ public class TextRenderer {
     private float[] packedFloats;
     private short[] indices;
 
+    private ByteBuffer bb1;
+    private ByteBuffer bb2;
+
     private int packedCount;
     private int lastPackedCount;
     private int vertCount;
@@ -72,10 +75,14 @@ public class TextRenderer {
 
     public TextRenderer() {
         stride = (FLOATS_PER_POSITION + FLOATS_PER_COLOUR + FLOATS_PER_UV) * FLOAT_SIZE;
+        bb1 = null;
+        bb2 = null;
     }
 
-    public void setTextureHandle(int val) {
-        textureHandle = val;
+    public void setTextureHandle(int handle) {
+        // GLES20.glActiveTexture(GLES20.GL_TEXTURE1);
+        // GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, handle);
+        textureHandle = handle;
     }
 
     public void initShader(int handle) {
@@ -508,20 +515,18 @@ public class TextRenderer {
             return;
         }
 
-        ByteBuffer bb = ByteBuffer.allocateDirect(packedFloats.length * FLOAT_SIZE);
-        bb.order(ByteOrder.nativeOrder());
-        FloatBuffer floatBuffer = bb.asFloatBuffer();
+        checkBufferCapacity();
+
+        FloatBuffer floatBuffer = bb1.asFloatBuffer();
         BufferUtils.copy(packedFloats, floatBuffer, packedCount, 0);
 
-        ByteBuffer dlb = ByteBuffer.allocateDirect(indices.length * SHORT_SIZE);
-        dlb.order(ByteOrder.nativeOrder());
-        ShortBuffer drawListBuffer = dlb.asShortBuffer();
-        BufferUtils.copy(indices, 0, drawListBuffer, indices.length);
+        ShortBuffer drawListBuffer = bb2.asShortBuffer();
+        BufferUtils.copy(indices, 0, drawListBuffer, indicesCount);
 
         // Add pointers to buffer for each attribute.
 
         // GLES20.glVertexAttribPointer() doesn't have offset parameter, so we have to
-        // add the offset manually using Buffer.duplicate().position()
+        // add the offset manually using Buffer.position()
 
         GLES20.glEnableVertexAttribArray(Shader.POSITION);
         GLES20.glVertexAttribPointer(
@@ -552,11 +557,44 @@ public class TextRenderer {
 
         GLES20.glUniformMatrix4fv(uniformMatrix, 1, false, matrix, 0);
 
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureHandle);
-        GLES20.glUniform1i(uniformTexture, 0);
+        GLES20.glUniform1i(uniformTexture, 1);
 
         // render the triangle
-        GLES20.glDrawElements(GLES20.GL_TRIANGLES, indices.length, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);
+        GLES20.glDrawElements(GLES20.GL_TRIANGLES, indicesCount, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);
+    }
+
+    /**
+     * Makes sure that we have enough capacity in our buffers for our packed floats and shorts.
+     * This should strike a good balance between performance (as reallocating buffers every single
+     * frame is expensive) and not making things explode.
+     */
+
+    private void checkBufferCapacity() {
+        int floatBufferSize = packedFloats.length * FLOAT_SIZE;
+        int shortBufferSize = indices.length * SHORT_SIZE;
+
+        if (bb1 == null) {
+            bb1 = ByteBuffer.allocateDirect(floatBufferSize);
+            bb1.order(ByteOrder.nativeOrder());
+        }
+
+        else if (packedFloats.length > bb1.capacity()) {
+            Log.v(LOG_TAG, "Reallocating floats! old: " + bb1.capacity() + ", new: " + packedFloats.length);
+            bb1 = null;
+            bb1 = ByteBuffer.allocateDirect(floatBufferSize);
+            bb1.order(ByteOrder.nativeOrder());
+        }
+
+        if (bb2 == null) {
+            bb2 = ByteBuffer.allocateDirect(shortBufferSize);
+            bb2.order(ByteOrder.nativeOrder());
+        }
+
+        else if (indices.length > bb2.capacity()) {
+            Log.v(LOG_TAG, "Reallocating shorts! old: " + bb2.capacity() + ", new: " + indices.length);
+            bb2 = null;
+            bb2 = ByteBuffer.allocateDirect(shortBufferSize);
+            bb2.order(ByteOrder.nativeOrder());
+        }
     }
 }
