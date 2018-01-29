@@ -2,6 +2,7 @@ package com.sonicmax.bloodrogue.renderer;
 
 import android.content.Context;
 import android.opengl.GLES20;
+import android.util.Log;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -21,17 +22,20 @@ public class GLShaderLoader {
     private final String BASIC_FRAG_PATH = "shaders/basic.frag";
     private final String NOISE_FRAG_PATH = "shaders/perlin_noise.frag";
 
-    private Context mContext;
+    private final String WATER_RIPPLE_FRAG = "shaders/water_ripple.frag";
+    private final String RIPPLE_FRAG_PATH = "shaders/ripple.frag";
+
+    private Context context;
 
     public GLShaderLoader(Context context) {
-        this.mContext = context;
+        this.context = context;
     }
 
     public int compileSolidColourShader() {
         try {
-            InputStream inputStream = mContext.getAssets().open(COLOUR_VERT_PATH);
+            InputStream inputStream = context.getAssets().open(COLOUR_VERT_PATH);
             String vertCode = readStringFromStream(inputStream);
-            inputStream = mContext.getAssets().open(COLOUR_FRAG_PATH);
+            inputStream = context.getAssets().open(COLOUR_FRAG_PATH);
             String fragCode = readStringFromStream(inputStream);
             inputStream.close();
 
@@ -58,9 +62,9 @@ public class GLShaderLoader {
 
     public int compileSpriteShader() {
         try {
-            InputStream inputStream = mContext.getAssets().open(BASIC_VERT_PATH);
+            InputStream inputStream = context.getAssets().open(BASIC_VERT_PATH);
             String vertCode = readStringFromStream(inputStream);
-            inputStream = mContext.getAssets().open(BASIC_FRAG_PATH);
+            inputStream = context.getAssets().open(BASIC_FRAG_PATH);
             String fragCode = readStringFromStream(inputStream);
             inputStream.close();
 
@@ -88,9 +92,9 @@ public class GLShaderLoader {
 
     public int compileWaveShader() {
         try {
-            InputStream inputStream = mContext.getAssets().open(WAVE_VERT_PATH);
+            InputStream inputStream = context.getAssets().open(BASIC_VERT_PATH);
             String vertCode = readStringFromStream(inputStream);
-            inputStream = mContext.getAssets().open(BASIC_FRAG_PATH);
+            inputStream = context.getAssets().open(WATER_RIPPLE_FRAG);
             String fragCode = readStringFromStream(inputStream);
             inputStream.close();
 
@@ -115,7 +119,6 @@ public class GLShaderLoader {
             return 0;
         }
     }
-
 
     /**
      * Compiles provided source code for shader and returns reference int

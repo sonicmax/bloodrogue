@@ -23,10 +23,10 @@ public class WaveEffectSpriteRenderer {
      * These will be upscaled to 64x64 when rendering
      */
 
-    private final float SPRITE_BOX_WIDTH = 0.03125f; // 1f / 32 sprites per row
-    private final float SPRITE_BOX_HEIGHT = 0.03125f; // 1f / 32 sprites per column
+    private final float SPRITE_BOX_WIDTH = 1f; // 1f / 32 sprites per row 0.03125f
+    private final float SPRITE_BOX_HEIGHT = 1f; // 1f / 32 sprites per column 0.03125f
     private final float TARGET_WIDTH = 64f; // Upscaled from 16
-    private final int SPRITES_PER_ROW = 32;
+    private final int SPRITES_PER_ROW = 1;
     private final float PI2 = 3.1415926535897932384626433832795f * 2.0f;
 
     private final short[] mIndices = {
@@ -76,12 +76,13 @@ public class WaveEffectSpriteRenderer {
 
     private int matrixLocation;
     private int textureLocation;
+    private int waveTimeLocation;
     private int waveDataLocation;
 
     // Values for wave effect. angleWave and amplitudeWave are set as vec2 in vertex shader.
-    private float amplitudeWave = 6f;
+    private float amplitudeWave = 0.01f;
     private float angleWave = 0.0f;
-    private float angleWaveSpeed = 1.0f;
+    private float angleWaveSpeed = 0.025f;
 
     public WaveEffectSpriteRenderer() {
         mUniformScale = 1f;
@@ -111,6 +112,7 @@ public class WaveEffectSpriteRenderer {
         matrixLocation = GLES20.glGetUniformLocation(waveShaderHandle, "u_MVPMatrix");
         textureLocation = GLES20.glGetUniformLocation (waveShaderHandle, "u_Texture");
         waveDataLocation = GLES20.glGetUniformLocation(waveShaderHandle, "u_waveData");
+        waveTimeLocation = GLES20.glGetUniformLocation(waveShaderHandle, "u_Time");
     }
 
     public void setSpriteSheetHandle(int val) {
@@ -208,6 +210,9 @@ public class WaveEffectSpriteRenderer {
     }
 
     public void addSpriteData(int x, int y, int spriteIndex, float lighting) {
+        if (spriteIndex == -1) {
+            return;
+        }
 
         baseColours[0] = lighting; // r
         baseColours[1] = lighting; // g
@@ -362,8 +367,9 @@ public class WaveEffectSpriteRenderer {
      * @param matrix Model-view-projection matrix to use when rendering
      */
 
-    public void renderWaveEffect(float[] matrix, float dt) {
+    public void renderWaveEffect(float[] matrix, float dt, float time) {
         GLES20.glUseProgram(waveShaderHandle);
+        GLES20.glEnable(GLES20.GL_BLEND);
 
         if (packedCount == 0) {
             return;
@@ -413,9 +419,11 @@ public class WaveEffectSpriteRenderer {
         GLES20.glUniformMatrix4fv(matrixLocation, 1, false, matrix, 0);
 
         // Pass updated angle & amplitude to shader
-        updateWaveVariables(dt);
-        GLES20.glUniform2f(waveDataLocation, angleWave, amplitudeWave);
-        GLES20.glUniform1i(textureLocation, 0);
+        // updateWaveVariables(dt);
+        // GLES20.glUniform2f(waveDataLocation, angleWave, amplitudeWave);
+
+        GLES20.glUniform1f(waveTimeLocation, time);
+        GLES20.glUniform1i(textureLocation, 2);
 
         GLES20.glDrawElements(GLES20.GL_TRIANGLES, indices.length, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);
     }
