@@ -25,6 +25,7 @@ public class TerrainFactory {
         Physics physics = new Physics(entity.id);
         physics.isBlocking = false;
         physics.isTraversable = true;
+        physics.isDestructable = false;
 
         array[0] = position;
         array[1] = sprite;
@@ -51,6 +52,7 @@ public class TerrainFactory {
         Physics physics = new Physics(entity.id);
         physics.isBlocking = true;
         physics.isTraversable = false;
+        physics.isDestructable = false;
 
         array[0] = position;
         array[1] = sprite;
@@ -77,6 +79,36 @@ public class TerrainFactory {
         Physics physics = new Physics(entity.id);
         physics.isBlocking = false;
         physics.isTraversable = true;
+        physics.isDestructable = false;
+
+        array[0] = position;
+        array[1] = sprite;
+        array[2] = s;
+        array[3] = physics;
+
+        return array;
+    }
+
+    public static Component[] createBackground(int x, int y, String tile) {
+        Entity entity = new Entity();
+
+        Component[] array = new Component[4];
+
+        Position position = new Position(entity.id);
+        position.x = x;
+        position.y = y;
+
+        Sprite sprite = new Sprite(entity.id);
+        sprite.path = tile;
+        sprite.layer = Sprite.BACKGROUND;
+
+        Stationary s = new Stationary(Stationary.FLOOR, entity.id);
+
+        Physics physics = new Physics(entity.id);
+        physics.isBlocking = false;
+        // Background tiles are effectively gaps in the terrain layer and have to be moved around
+        physics.isTraversable = false;
+        physics.isDestructable = false;
 
         array[0] = position;
         array[1] = sprite;
@@ -103,6 +135,7 @@ public class TerrainFactory {
         Physics physics = new Physics(entity.id);
         physics.isBlocking = true;
         physics.isTraversable = false;
+        physics.isDestructable = false;
 
         array[0] = position;
         array[1] = sprite;

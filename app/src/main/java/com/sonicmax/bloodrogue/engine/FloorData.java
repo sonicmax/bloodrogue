@@ -15,20 +15,17 @@ public class FloorData implements Serializable {
     public final int index;
     public final Component[][][] terrain;
     public final ArrayList<Component[]>[][] objects;
-    public final ArrayList<Component[]>[][] animations;
     public final Component[] player;
 
     public Vector entrancePosition;
     public Vector exitPosition;
 
 
-    public FloorData(int index, Component[][][] terrain, ArrayList<Component[]>[][] objects,
-                     ArrayList<Component[]>[][] animations, Component[] player) {
+    public FloorData(int index, Component[][][] terrain, ArrayList<Component[]>[][] objects, Component[] player) {
 
         this.index = index;
         this.terrain = terrain;
         this.objects = objects;
-        this.animations = animations;
         this.player = player;
     }
 
@@ -46,10 +43,6 @@ public class FloorData implements Serializable {
 
     public ArrayList<Component[]>[][] getObjects() {
         return this.objects;
-    }
-
-    public ArrayList<Component[]>[][] getAnimations() {
-        return this.animations;
     }
 
     public Component[] getPlayer() {

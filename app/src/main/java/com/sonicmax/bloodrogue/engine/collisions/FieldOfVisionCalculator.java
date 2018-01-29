@@ -148,8 +148,10 @@ public class FieldOfVisionCalculator {
         long terrainEntity = mapGrid[x][y];
         Stationary stat = (Stationary) componentManager.getEntityComponent(terrainEntity, Stationary.class.getSimpleName());
 
-        if (stat != null && stat.type == Stationary.WALL) {
-            return true;
+        if (stat != null) {
+            if (stat.type == Stationary.WALL || stat.type == Stationary.BORDER) {
+                return true;
+            }
         }
 
         int objectsSize = objectGrid[x][y].size();

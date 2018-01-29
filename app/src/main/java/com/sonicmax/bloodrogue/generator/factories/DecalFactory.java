@@ -185,7 +185,7 @@ public class DecalFactory {
         }
     }
 
-    public static Component[] createDecoration(int x, int y, String tile) {
+    public static Component[] createDecal(int x, int y, String tile) {
         Entity entity = new Entity();
 
         Component[] array = new Component[4];
@@ -202,6 +202,33 @@ public class DecalFactory {
 
         Physics physics = new Physics(entity.id);
         physics.isBlocking = false;
+        physics.isTraversable = false;
+
+        array[0] = position;
+        array[1] = sprite;
+        array[2] = s;
+        array[3] = physics;
+
+        return array;
+    }
+
+    public static Component[] createFovBlockingDecal(int x, int y, String tile) {
+        Entity entity = new Entity();
+
+        Component[] array = new Component[4];
+
+        Position position = new Position(entity.id);
+        position.x = x;
+        position.y = y;
+
+        Sprite sprite = new Sprite(entity.id);
+        sprite.shader = Sprite.STATIC;
+        sprite.path = tile;
+
+        Stationary s = new Stationary(Stationary.DEFAULT, entity.id);
+
+        Physics physics = new Physics(entity.id);
+        physics.isBlocking = true;
         physics.isTraversable = false;
 
         array[0] = position;
@@ -258,6 +285,33 @@ public class DecalFactory {
         Physics physics = new Physics(entity.id);
         physics.isBlocking = false;
         physics.isTraversable = true;
+
+        array[0] = position;
+        array[1] = sprite;
+        array[2] = s;
+        array[3] = physics;
+
+        return array;
+    }
+
+    public static Component[] createTransparentDecal(int x, int y, String tile) {
+        Entity entity = new Entity();
+
+        Component[] array = new Component[4];
+
+        Position position = new Position(entity.id);
+        position.x = x;
+        position.y = y;
+
+        Sprite sprite = new Sprite(entity.id);
+        sprite.shader = Sprite.STATIC;
+        sprite.path = tile;
+
+        Stationary s = new Stationary(Stationary.DEFAULT, entity.id);
+
+        Physics physics = new Physics(entity.id);
+        physics.isBlocking = false;
+        physics.isTraversable = false;
 
         array[0] = position;
         array[1] = sprite;

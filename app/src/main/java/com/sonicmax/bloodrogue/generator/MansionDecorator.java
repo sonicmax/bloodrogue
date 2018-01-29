@@ -4,6 +4,7 @@ import android.content.res.AssetManager;
 import android.util.Log;
 
 import com.sonicmax.bloodrogue.data.BlueprintParser;
+import com.sonicmax.bloodrogue.engine.ComponentManager;
 import com.sonicmax.bloodrogue.engine.collisions.AxisAlignedBoxTester;
 import com.sonicmax.bloodrogue.engine.Directions;
 import com.sonicmax.bloodrogue.engine.Component;
@@ -14,13 +15,12 @@ import com.sonicmax.bloodrogue.engine.systems.PotionSystem;
 import com.sonicmax.bloodrogue.generator.factories.DecalFactory;
 import com.sonicmax.bloodrogue.generator.factories.TerrainFactory;
 import com.sonicmax.bloodrogue.engine.systems.ComponentFinder;
+import com.sonicmax.bloodrogue.tilesets.BuildingTileset;
 import com.sonicmax.bloodrogue.tilesets.GenericTileset;
-import com.sonicmax.bloodrogue.tilesets.MansionTileset;
 import com.sonicmax.bloodrogue.utils.maths.Calculator;
 import com.sonicmax.bloodrogue.data.JSONLoader;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 import com.sonicmax.bloodrogue.generator.mansion.Room;
-import com.sonicmax.bloodrogue.utils.Array2DHelper;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 
 import org.json.JSONObject;
@@ -48,10 +48,8 @@ public class MansionDecorator {
     private int theme;
     private String themeKey;
 
-    private Component[][][] mapGrid;
-    private ArrayList<Component[]> objects;
-    private ArrayList<Component[]> enemies;
-    private ArrayList<Component[]>[][] objectGrid;
+    private long[][] terrainEntities;
+    private ArrayList<Long>[][] objectEntities;
 
     private JSONObject furnitureBlueprints;
     private JSONObject weaponBlueprints;
@@ -59,6 +57,7 @@ public class MansionDecorator {
 
     private RandomNumberGenerator rng;
     private AssetManager assetManager;
+    private ComponentManager componentManager;
 
     public MansionDecorator(int mapWidth, int mapHeight, int theme, String key, AssetManager assetManager) {
         this.mapWidth = mapWidth;
@@ -69,28 +68,14 @@ public class MansionDecorator {
         this.furnitureBlueprints = JSONLoader.loadFurniture(assetManager);
         this.weaponBlueprints = JSONLoader.loadWeapons(assetManager);
         this.potionBlueprints = PotionSystem.generateRandomPotionEffects(JSONLoader.loadPotions(assetManager));
+        this.componentManager = ComponentManager.getInstance();
 
         this.rng = new RandomNumberGenerator();
     }
 
-    public void setGeneratorData(Component[][][] mapGrid, ArrayList<Component[]> objects,
-                                 ArrayList<Component[]>[][] objectGrid, ArrayList<Component[]> enemies) {
-        this.mapGrid = mapGrid;
-        this.objects = objects;
-        this.objectGrid = objectGrid;
-        this.enemies = enemies;
-    }
-
-    public ArrayList<Component[]> getObjects() {
-        return objects;
-    }
-
-    public ArrayList<Component[]>[][] getObjectGrid() {
-        return objectGrid;
-    }
-
-    public ArrayList<Component[]> getEnemies() {
-        return enemies;
+    public void setGeneratorData(long[][] terrainEntities, ArrayList<Long>[][] objectEntities) {
+        this.terrainEntities = terrainEntities;
+        this.objectEntities = objectEntities;
     }
 
     /**
@@ -146,6 +131,8 @@ public class MansionDecorator {
             furnishRoom(room);
         }
 
+        int windowCount = 0;
+
         // Iterate over unmodified rooms array and add lighting/chests/enemies/etc
         for (Room room : rooms) {
 
@@ -187,29 +174,28 @@ public class MansionDecorator {
         Vector topLeft = new Vector(room.x(), room.y() + room.height());
         Vector topRight = new Vector(room.x() + room.width(), room.y() + room.height());
 
-        ArrayList<String> paintings = new ArrayList<>(Arrays.asList(MansionTileset.PAINTINGS));
+        ArrayList<String> paintings = new ArrayList<>(Arrays.asList(BuildingTileset.PAINTINGS));
 
         for (int x = topLeft.x(); x < topRight.x(); x += 2) {
             Vector cell = new Vector(x, room.y() + room.height());
-            Component[] object = getMapObjectForCell(cell);
 
-            Stationary stat = ComponentFinder.getStaticComponent(object);
+            Stationary stat = getStationaryTerrainComponent(cell);
 
             if (stat.type == Stationary.WALL && paintings.size() > 0) {
                 int random = rng.getRandomInt(0, paintings.size() - 1);
-                Component[] painting = DecalFactory.createDecoration(x, cell.y, paintings.remove(random));
+                Component[] painting = DecalFactory.createDecal(x, cell.y, paintings.remove(random));
 
-                objects.add(painting);
+                objectEntities[x][cell.y].add(painting[0].id);
+                componentManager.sortComponentArray(painting);
 
-                Component[] pedestal = DecalFactory.createDecoration(x, cell.y - 1, MansionTileset.PEDESTAL);
+                Component[] pedestal = DecalFactory.createDecal(x, cell.y - 1, BuildingTileset.PEDESTAL);
 
                 if (!blocksDoorway(new Vector(x, cell.y - 1))) {
-                    objects.add(pedestal);
+                    objectEntities[x][cell.y - 1].add(pedestal[0].id);
+                    componentManager.sortComponentArray(pedestal);
                 }
             }
         }
-
-        populateObjectGrid();
 
         ArrayList<Vector> corners = getCornerTiles(room);
 
@@ -217,15 +203,18 @@ public class MansionDecorator {
 
         for (Vector corner : corners) {
             if (statueCount < 3 && !detectCollisions(corner) && !blocksDoorway(corner)) {
-                String tile = MansionTileset.STATUES[rng.getRandomInt(0, MansionTileset.STATUES.length - 1)];
-                objects.add(DecalFactory.createDecoration(corner.x, corner.y, tile));
+                String tile = BuildingTileset.STATUES[rng.getRandomInt(0, BuildingTileset.STATUES.length - 1)];
+
+                Component[] decal = DecalFactory.createDecal(corner.x, corner.y, tile);
+                objectEntities[corner.x][corner.y].add(decal[0].id);
+                componentManager.sortComponentArray(decal);
+
                 statueCount++;
             }
         }
 
-        retextureFloor(room, MansionTileset.MARBLE_FLOOR_1);
+        retextureFloor(room, BuildingTileset.MARBLE_FLOOR_1);
 
-        populateObjectGrid();
         galleryCount++;
     }
 
@@ -250,14 +239,18 @@ public class MansionDecorator {
             if (!deskAdded) {
                 if (blocksDoorway(corner)) continue;
 
-                objects.add(DecalFactory.createDecoration(corner.x, corner.y, MansionTileset.OFFICE_DESK));
+                Component[] desk = DecalFactory.createDecal(corner.x, corner.y, BuildingTileset.OFFICE_DESK);
+                objectEntities[corner.x][corner.y].add(desk[0].id);
+                componentManager.sortComponentArray(desk);
 
                 // Find adjacent space to place office chair. Can be skipped
 
                 for (Vector direction : Directions.Cardinal.values()) {
                     Vector adjacent = corner.add(direction);
                     if (!detectCollisions(adjacent) && !blocksDoorway(adjacent)) {
-                        objects.add(DecalFactory.createDecoration(adjacent.x, adjacent.y, MansionTileset.OFFICE_CHAIR));
+                        Component[] chair = DecalFactory.createDecal(adjacent.x, adjacent.y, BuildingTileset.OFFICE_CHAIR);
+                        objectEntities[adjacent.x][adjacent.y].add(chair[0].id);
+                        componentManager.sortComponentArray(chair);
                         break;
                     }
                 }
@@ -269,7 +262,9 @@ public class MansionDecorator {
             if (!filingCabinetAdded) {
                 if (blocksDoorway(corner)) return;
 
-                objects.add(DecalFactory.createDecoration(corner.x, corner.y, MansionTileset.FILING_CABINET));
+                Component[] cabinet = DecalFactory.createDecal(corner.x, corner.y, BuildingTileset.FILING_CABINET);
+                objectEntities[corner.x][corner.y].add(cabinet[0].id);
+                componentManager.sortComponentArray(cabinet);
 
                 filingCabinetAdded = true;
                 continue;
@@ -278,16 +273,17 @@ public class MansionDecorator {
             if (!plantAdded) {
                 if (blocksDoorway(corner)) return;
 
-                objects.add(DecalFactory.createDecoration(corner.x, corner.y, MansionTileset.OFFICE_PLANT));
+                Component[] plant = DecalFactory.createDecal(corner.x, corner.y, BuildingTileset.OFFICE_PLANT);
+                objectEntities[corner.x][corner.y].add(plant[0].id);
+                componentManager.sortComponentArray(plant);
 
-                String[] floorTiles = new String[] {MansionTileset.WOOD_FLOOR_1, MansionTileset.WOOD_FLOOR_2, MansionTileset.WOOD_FLOOR_3};
+                String[] floorTiles = new String[] {BuildingTileset.WOOD_FLOOR_1, BuildingTileset.WOOD_FLOOR_2, BuildingTileset.WOOD_FLOOR_3};
                 retextureFloor(room, floorTiles[rng.getRandomInt(0, floorTiles.length - 1)]);
 
                 plantAdded = true;
             }
         }
 
-        populateObjectGrid();
         officeCount++;
     }
 
@@ -306,14 +302,18 @@ public class MansionDecorator {
             if (!bedAdded) {
                 if (blocksDoorway(corner)) continue;
 
-                objects.add(DecalFactory.createDecoration(corner.x, corner.y, MansionTileset.BEDS[rng.getRandomInt(0, 1)]));
+                Component[] bed = DecalFactory.createDecal(corner.x, corner.y, BuildingTileset.BEDS[rng.getRandomInt(0, 1)]);
+                objectEntities[corner.x][corner.y].add(bed[0].id);
+                componentManager.sortComponentArray(bed);
 
                 // Find adjacent space to place bedside cabinet. Can be skipped
 
                 for (Vector direction : Directions.Cardinal.values()) {
                     Vector adjacent = corner.add(direction);
                     if (!detectCollisions(adjacent) && !blocksDoorway(adjacent)) {
-                        objects.add(DecalFactory.createDecoration(adjacent.x, adjacent.y, MansionTileset.BEDSIDE_CABINET));
+                        Component[] cabinet = DecalFactory.createDecal(adjacent.x, adjacent.y, BuildingTileset.BEDSIDE_CABINET);
+                        objectEntities[adjacent.x][adjacent.y].add(cabinet[0].id);
+                        componentManager.sortComponentArray(cabinet);
                         break;
                     }
                 }
@@ -325,7 +325,10 @@ public class MansionDecorator {
             if (!wardrobeAdded) {
                 if (blocksDoorway(corner)) continue;
 
-                objects.add(DecalFactory.createDecoration(corner.x, corner.y, MansionTileset.WARDROBE));
+                Component[] wardrobe = DecalFactory.createDecal(corner.x, corner.y, BuildingTileset.WARDROBE);
+                objectEntities[corner.x][corner.y].add(wardrobe[0].id);
+                componentManager.sortComponentArray(wardrobe);
+
                 wardrobeAdded = true;
                 continue;
             }
@@ -333,16 +336,18 @@ public class MansionDecorator {
             if (!plantAdded) {
                 if (blocksDoorway(corner)) continue;
 
-                objects.add(DecalFactory.createDecoration(corner.x, corner.y, MansionTileset.OFFICE_PLANT));
+                Component[] plant = DecalFactory.createDecal(corner.x, corner.y, BuildingTileset.OFFICE_PLANT);
+                objectEntities[corner.x][corner.y].add(plant[0].id);
+                componentManager.sortComponentArray(plant);
+
                 plantAdded = true;
             }
         }
 
         // We want bedrooms to have wooden floors
-        String[] floor = new String[] {MansionTileset.WOOD_FLOOR_1, MansionTileset.WOOD_FLOOR_2, MansionTileset.WOOD_FLOOR_3};
+        String[] floor = new String[] {BuildingTileset.WOOD_FLOOR_1, BuildingTileset.WOOD_FLOOR_2, BuildingTileset.WOOD_FLOOR_3};
         retextureFloor(room, floor[rng.getRandomInt(0, floor.length - 1)]);
 
-        populateObjectGrid();
         bedroomCount++;
     }
 
@@ -361,7 +366,10 @@ public class MansionDecorator {
             if (!toiletAdded) {
                 if (blocksDoorway(corner)) continue;
 
-                objects.add(DecalFactory.createDecoration(corner.x, corner.y, MansionTileset.TOILET));
+                Component[] decal = DecalFactory.createDecal(corner.x, corner.y, BuildingTileset.TOILET);
+                objectEntities[corner.x][corner.y].add(decal[0].id);
+                componentManager.sortComponentArray(decal);
+
                 toiletAdded = true;
                 continue;
             }
@@ -369,7 +377,11 @@ public class MansionDecorator {
             if (!sinkAdded) {
                 if (blocksDoorway(corner)) return;
 
-                objects.add(DecalFactory.createDecoration(corner.x, corner.y, MansionTileset.SINK));
+                Component[] decal = DecalFactory.createDecal(corner.x, corner.y, BuildingTileset.SINK);
+                objectEntities[corner.x][corner.y].add(decal[0].id);
+                componentManager.sortComponentArray(decal);
+
+
                 sinkAdded = true;
                 continue;
             }
@@ -377,15 +389,17 @@ public class MansionDecorator {
             if (!bathAdded) {
                 if (blocksDoorway(corner)) return;
 
-                objects.add(DecalFactory.createDecoration(corner.x, corner.y, MansionTileset.BATH));
+                Component[] decal = DecalFactory.createDecal(corner.x, corner.y, BuildingTileset.BATH);
+                objectEntities[corner.x][corner.y].add(decal[0].id);
+                componentManager.sortComponentArray(decal);
+
                 bathAdded = true;
             }
         }
 
         // Give bathrooms a marble tiled floor
-        retextureFloor(room, MansionTileset.MARBLE_FLOOR_2);
+        retextureFloor(room, BuildingTileset.MARBLE_FLOOR_2);
 
-        populateObjectGrid();
         bathroomCount++;
     }
 
@@ -403,10 +417,11 @@ public class MansionDecorator {
     private boolean blocksDoorway(Vector cell) {
         for (Vector direction : Directions.Cardinal.values()) {
             Vector adjacent = cell.add(direction);
-            Component[] object = getMapObjectForCell(adjacent);
-            Stationary stat = ComponentFinder.getStaticComponent(object);
-            if (stat.type == Stationary.DOORWAY) {
-                return true;
+            if (inBounds(adjacent)) {
+                Stationary stat = getStationaryTerrainComponent(adjacent);
+                if (stat.type == Stationary.DOORWAY) {
+                    return true;
+                }
             }
         }
 
@@ -419,10 +434,10 @@ public class MansionDecorator {
 
         for (int x = topLeft.x(); x < topRight.x(); x++) {
             Vector cell = new Vector(x, room.y() + room.height());
-            GameObject object = getMapObjectForCell(cell);
+            GameObject object = getStationaryTerrainComponent(cell);
 
             if (object.shader == Stationary.WALL && adjacentCellsAreCarvable(cell)) {
-                object.setSprite(MansionTileset.WALLPAPER_1);
+                object.setSprite(BuildingTileset.WALLPAPER_1);
             }
         }*/
     }
@@ -444,8 +459,7 @@ public class MansionDecorator {
         // Check for doors
         for (int x = topLeft.x(); x < topRight.x(); x++) {
             Vector cell = new Vector(x, room.y() + room.height());
-            Component[] object = getMapObjectForCell(cell);
-            Stationary stat = ComponentFinder.getStaticComponent(object);
+            Stationary stat = getStationaryTerrainComponent(cell);
             if (stat.type == Stationary.DOORWAY) {
                 numberOfDoors++;
                 doorPosition = cell;
@@ -470,8 +484,7 @@ public class MansionDecorator {
                 itemCoord = new Vector(doorPosition.x() + (int) Math.floor(lengthB / 2), topLeft.y());
             }
 
-            Component[] tile = getMapObjectForCell(itemCoord.add(Directions.Cardinal.get("NORTH")));
-            Stationary stat = ComponentFinder.getStaticComponent(tile);
+            Stationary stat = getStationaryTerrainComponent(itemCoord.add(Directions.Cardinal.get("NORTH")));
 
             if (stat.type == Stationary.FLOOR) {
                 // Ignore single-tiled walls
@@ -484,8 +497,10 @@ public class MansionDecorator {
             itemCoord = new Vector(room.x() + (int) Math.floor(room.width() / 2), topLeft.y());
         }
 
-        objects.add(DecalFactory.createDecoration(itemCoord.x, itemCoord.y,
-                MansionTileset.DECORATIONS[rng.getRandomInt(0, MansionTileset.DECORATIONS.length - 1)]));
+        Component[] decal = DecalFactory.createDecal(itemCoord.x, itemCoord.y,
+                BuildingTileset.DECORATIONS[rng.getRandomInt(0, BuildingTileset.DECORATIONS.length - 1)]);
+        objectEntities[itemCoord.x][itemCoord.y].add(decal[0].id);
+        componentManager.sortComponentArray(decal);
     }
 
     /**
@@ -499,11 +514,13 @@ public class MansionDecorator {
         for (int x = room.x(); x < right; x++) {
             for (int y = room.y(); y < bottom; y++) {
                 Vector pos = new Vector(x, y);
-                Component[] components = mapGrid[x][y];
-                Stationary s = ComponentFinder.getStaticComponent(components);
+                long entity = terrainEntities[x][y];
+                Stationary s = (Stationary) componentManager.getEntityComponent(entity, Stationary.class.getSimpleName());
 
                 if (s != null && inBounds(pos) && s.type == Stationary.FLOOR) {
-                    mapGrid[x][y] = TerrainFactory.createFloor(x, y, imgPath);
+                    Component[] floor = TerrainFactory.createFloor(x, y, imgPath);
+                    terrainEntities[x][y] = floor[0].id;
+                    componentManager.sortComponentArray(floor);
                 }
             }
         }
@@ -560,30 +577,31 @@ public class MansionDecorator {
             }
         }
 
-        retextureFloor(room, MansionTileset.MARBLE_FLOOR_1);
+        retextureFloor(room, BuildingTileset.MARBLE_FLOOR_1);
 
-        populateObjectGrid();
         libraryCount++;
     }
 
     private void addBookshelfColumn(Vector cell, boolean isEven) {
-        while (inBounds(cell) && ((Stationary) getMapObjectForCell(cell)[2]).type == Stationary.FLOOR) {
+        while (inBounds(cell) && getStationaryTerrainComponent(cell).type == Stationary.FLOOR) {
 
-            Component[] floor = getMapObjectForCell(cell);
+            Stationary floor = getStationaryTerrainComponent(cell);
 
-            if (((Stationary) floor[2]).type == Stationary.DOORWAY) return;
+            if (floor.type == Stationary.DOORWAY) return;
 
             Vector lookahead = cell.add(Directions.Cardinal.get("NORTH"));
 
-            if (!inBounds(lookahead) || ((Stationary) getMapObjectForCell(cell)[2]).type == Stationary.FLOOR) {
+            if (inBounds(lookahead) && getStationaryTerrainComponent(cell).type == Stationary.FLOOR) {
 
-                floor = getMapObjectForCell(lookahead);
+                floor = getStationaryTerrainComponent(lookahead);
 
-                if (((Stationary) floor[2]).type == Stationary.DOORWAY) return;
+                if (floor.type == Stationary.DOORWAY) return;
 
                 if (!cellBlocksDoorway(cell, isEven)) {
-                    String tile = MansionTileset.BOOKSHELVES[rng.getRandomInt(0, MansionTileset.BOOKSHELVES.length - 1)];
-                    objects.add(DecalFactory.createDecoration(cell.x, cell.y, tile));
+                    String tile = BuildingTileset.BOOKSHELVES[rng.getRandomInt(0, BuildingTileset.BOOKSHELVES.length - 1)];
+                    Component[] decal = DecalFactory.createDecal(cell.x, cell.y, tile);
+                    objectEntities[cell.x][cell.y].add(decal[0].id);
+                    componentManager.sortComponentArray(decal);
                 }
             }
 
@@ -597,23 +615,25 @@ public class MansionDecorator {
 
     private void addBookshelfRow(Vector cell, boolean isEven) {
 
-        while (inBounds(cell) && ((Stationary) getMapObjectForCell(cell)[2]).type == Stationary.FLOOR) {
+        while (inBounds(cell) && getStationaryTerrainComponent(cell).type == Stationary.FLOOR) {
 
-            Component[] floor = getMapObjectForCell(cell);
+            Stationary floor = getStationaryTerrainComponent(cell);
 
-            if (((Stationary) floor[2]).type == Stationary.DOORWAY) return;
+            if (floor.type == Stationary.DOORWAY) return;
 
             Vector lookahead = cell.add(Directions.Cardinal.get("EAST"));
 
-            if (!inBounds(lookahead) || ((Stationary) getMapObjectForCell(cell)[2]).type == Stationary.FLOOR) {
+            if (inBounds(lookahead) && getStationaryTerrainComponent(cell).type == Stationary.FLOOR) {
 
-                floor = getMapObjectForCell(lookahead);
+                floor = getStationaryTerrainComponent(lookahead);
 
-                if (((Stationary) floor[2]).type == Stationary.DOORWAY) return;
+                if (floor.type == Stationary.DOORWAY) return;
 
                 else if (!cellBlocksDoorway(cell, isEven)) {
-                    String tile = MansionTileset.BOOKSHELVES[rng.getRandomInt(0, MansionTileset.BOOKSHELVES.length - 1)];
-                    objects.add(DecalFactory.createDecoration(cell.x, cell.y, tile));
+                    String tile = BuildingTileset.BOOKSHELVES[rng.getRandomInt(0, BuildingTileset.BOOKSHELVES.length - 1)];
+                    Component[] decal = DecalFactory.createDecal(cell.x, cell.y, tile);
+                    objectEntities[cell.x][cell.y].add(decal[0].id);
+                    componentManager.sortComponentArray(decal);
                 }
             }
 
@@ -632,9 +652,9 @@ public class MansionDecorator {
 
             if (!inBounds(vector)) continue;
 
-            Component[] object = getMapObjectForCell(vector);
+            Stationary object = getStationaryTerrainComponent(vector);
 
-            if (((Stationary) object[2]).type == Stationary.DOORWAY) {
+            if (object.type == Stationary.DOORWAY) {
                 return true;
             }
 
@@ -644,8 +664,8 @@ public class MansionDecorator {
             Vector newCell = cell.add(direction.scale(2));
 
             if (inBounds(newCell)) {
-                object = getMapObjectForCell(cell.add(direction.scale(2)));
-                if (isEven && ((Stationary) object[2]).type == Stationary.DOORWAY) {
+                object = getStationaryTerrainComponent(cell.add(direction.scale(2)));
+                if (isEven && object.type == Stationary.DOORWAY) {
                     return true;
                 }
             }
@@ -660,7 +680,7 @@ public class MansionDecorator {
         Vector direction = Directions.Cardinal.get(bearing);
         Vector cell = room.roundedCentre();
 
-        while (inBounds(cell) && ((Stationary) getMapObjectForCell(cell)[2]).type == Stationary.FLOOR) {
+        while (inBounds(cell) && getStationaryTerrainComponent(cell).type == Stationary.FLOOR) {
             cell = cell.add(direction);
         }
 
@@ -668,24 +688,24 @@ public class MansionDecorator {
             return;
         }
 
-        Component[] object = getMapObjectForCell(cell);
+        Stationary object = getStationaryTerrainComponent(cell);
 
-        if (((Stationary) object[2]).type != Stationary.FLOOR && ((Stationary) object[2]).type != Stationary.DOORWAY) {
-            Component[] lightSource = DecalFactory.createDecoration(cell.x, cell.y, getLightSourceTile(bearing));
-            objects.add(lightSource);
+        if (object.type != Stationary.FLOOR && object.type != Stationary.DOORWAY) {
+            Component[] lightSource = DecalFactory.createDecal(cell.x, cell.y, getLightSourceTile(bearing));
+            objectEntities[cell.x][cell.y].add(lightSource[0].id);
+            componentManager.sortComponentArray(lightSource);
         }
 
-        populateObjectGrid();
     }
 
     private String getLightSourceTile(String bearing) {
         switch (themeKey) {
-            case MansionTileset.KEY:
+            case BuildingTileset.KEY:
                 if (bearing.equals("EAST")) {
-                    return MansionTileset.WALL_LANTERN_EAST;
+                    return BuildingTileset.WALL_LANTERN_EAST;
                 }
 
-                else return MansionTileset.WALL_LANTERN;
+                else return BuildingTileset.WALL_LANTERN;
 
             default:
                 return GenericTileset.LIGHT_SOURCE;
@@ -702,15 +722,15 @@ public class MansionDecorator {
         for (Vector direction : Directions.All.values()) {
             Vector cell = room.roundedCentre();
 
-            while (inBounds(cell) && ((Stationary) getMapObjectForCell(cell)[2]).type == Stationary.FLOOR) {
+            while (inBounds(cell) && getStationaryTerrainComponent(cell).type == Stationary.FLOOR) {
                 cell = cell.add(direction);
             }
 
             cell = cell.subtract(direction);
 
-            Component[] object = getMapObjectForCell(cell);
+            Stationary object = getStationaryTerrainComponent(cell);
 
-            if (((Stationary) object[2]).type != Stationary.FLOOR || ((Stationary) object[2]).type == Stationary.DOORWAY) continue;
+            if (object.type != Stationary.FLOOR || object.type == Stationary.DOORWAY) continue;
 
             if (detectCollisions(cell) || blocksDoorway(cell)) continue;
 
@@ -733,8 +753,8 @@ public class MansionDecorator {
             position.y = cell.y;
 
             if (!objectBlockingPath(cell)) {
-                objects.add(chest);
-                populateObjectGrid();
+                objectEntities[cell.x][cell.y].add(chest[0].id);
+                componentManager.sortComponentArray(chest);
                 return;
             }
         }
@@ -750,15 +770,15 @@ public class MansionDecorator {
         for (Vector direction : Directions.All.values()) {
             Vector cell = room.roundedCentre();
 
-            while (inBounds(cell) && ((Stationary) getMapObjectForCell(cell)[2]).type == Stationary.FLOOR) {
+            while (inBounds(cell) && getStationaryTerrainComponent(cell).type == Stationary.FLOOR) {
                 cell = cell.add(direction);
             }
 
             cell = cell.subtract(direction);
 
-            Component[] object = getMapObjectForCell(cell);
+            Stationary object = getStationaryTerrainComponent(cell);
 
-            if (((Stationary) object[2]).type != Stationary.FLOOR || ((Stationary) object[2]).type == Stationary.DOORWAY) continue;
+            if (object.type != Stationary.FLOOR || object.type == Stationary.DOORWAY) continue;
 
             if (detectCollisions(cell) || blocksDoorway(cell)) continue;
 
@@ -780,8 +800,8 @@ public class MansionDecorator {
             position.y = cell.y;
 
             if (!objectBlockingPath(cell)) {
-                objects.add(chest);
-                populateObjectGrid();
+                objectEntities[cell.x][cell.y].add(chest[0].id);
+                componentManager.sortComponentArray(chest);
                 return;
             }
         }
@@ -941,19 +961,23 @@ public class MansionDecorator {
             int level = rng.getRandomInt(1, maxEnemyLevel);
 
             Component[] enemy = BlueprintParser.getComponentArrayForBlueprint(enemyBlueprints, keyArray.get(type));
-            Position positionComponent = ComponentFinder.getPositionComponent(enemy);
 
-            if (positionComponent != null) {
-                positionComponent.x = vector.x;
-                positionComponent.y = vector.y;
-                enemies.add(enemy);
+            if (enemy != null) {
+                objectEntities[vector.x][vector.y].add(enemy[0].id);
+                componentManager.sortComponentArray(enemy);
+
+                Position positionComponent = (Position) componentManager.getEntityComponent(enemy[0].id, Position.class.getSimpleName());
+
+                if (positionComponent != null) {
+                    positionComponent.x = vector.x;
+                    positionComponent.y = vector.y;
+                }
             }
 
             else {
-                Log.e(LOG_TAG, "No position component found - skipping");
+                Log.e(LOG_TAG, "Enemy Component[] was null - error in blueprint?");
             }
 
-            populateObjectGrid();
             count++;
         }
     }
@@ -973,13 +997,13 @@ public class MansionDecorator {
             Vector south = new Vector(x, room.y() - 1);
 
             if (inBounds(north)) {
-                if (((Stationary) getMapObjectForCell(north)[2]).type == Stationary.DOORWAY) {
+                if (getStationaryTerrainComponent(north).type == Stationary.DOORWAY) {
                     doorCount++;
                 }
             }
 
             if (inBounds(south)) {
-                if (((Stationary) getMapObjectForCell(south)[2]).type == Stationary.DOORWAY) {
+                if (getStationaryTerrainComponent(south).type == Stationary.DOORWAY) {
                     doorCount++;
                 }
             }
@@ -990,13 +1014,13 @@ public class MansionDecorator {
             Vector west = new Vector(room.x() + room.width(), y);
 
             if (inBounds(east)) {
-                if (((Stationary) getMapObjectForCell(east)[2]).type == Stationary.DOORWAY) {
+                if (getStationaryTerrainComponent(east).type == Stationary.DOORWAY) {
                     doorCount++;
                 }
             }
 
             if (inBounds(west)) {
-                if (((Stationary) getMapObjectForCell(west)[2]).type == Stationary.DOORWAY) {
+                if (getStationaryTerrainComponent(west).type == Stationary.DOORWAY) {
                     doorCount++;
                 }
             }
@@ -1011,19 +1035,6 @@ public class MansionDecorator {
     ---------------------------------------------
     */
 
-    private void addObjectToStack(int x, int y, Component[] object) {
-        objectGrid[x][y].add(object);
-    }
-
-    private Component[] getMapObjectForCell(Vector coords) {
-        if (inBounds(coords)) {
-            return mapGrid[coords.x()][coords.y()];
-        }
-        else {
-            throw new Error("Coords (" + coords.x() + ", " + coords.y() + ") are not in bounds");
-        }
-    }
-
     /**
      * Tests grid square to see if there are any objects that can be collided with
      *
@@ -1035,15 +1046,8 @@ public class MansionDecorator {
         int x = position.x();
         int y = position.y();
 
-        Component[] mapTile = mapGrid[x][y];
-        Physics physics = null;
-
-        for (int i = 0; i < mapTile.length; i++) {
-            if (mapTile[i] instanceof Physics) {
-                physics = (Physics) mapTile[i];
-                break;
-            }
-        }
+        long terrainEntity = terrainEntities[x][y];
+        Physics physics = (Physics) componentManager.getEntityComponent(terrainEntity, Physics.class.getSimpleName());
 
         if (physics.isBlocking) {
             // Log.v("log", "map getSprite " + mapTile.getSprite() + " was blocking");
@@ -1055,20 +1059,11 @@ public class MansionDecorator {
             return true;
         }
 
-        ArrayList<Component[]> objectStack = objectGrid[x][y];
+        ArrayList<Long> objectStack = objectEntities[x][y];
 
-        if (objectStack == null) return false;
+        for (Long object : objectStack) {
 
-        for (Component[] object : objectStack) {
-
-            physics = null;
-
-            for (int i = 0; i < object.length; i++) {
-                if (object[i] instanceof Physics) {
-                    physics = (Physics) object[i];
-                    break;
-                }
-            }
+            physics = (Physics) componentManager.getEntityComponent(object, Physics.class.getSimpleName());
 
             if (physics == null) {
                 Log.e(LOG_TAG, "Physics was null");
@@ -1076,12 +1071,10 @@ public class MansionDecorator {
             }
 
             if (physics.isBlocking) {
-                // Log.v("log", "object getSprite " + object.getSprite() + " was blocking");
                 return true;
             }
 
             else if (!physics.isTraversable) {
-                // Log.v("log", "object getSprite " + object.getSprite() + " was not traversable");
                 return true;
             }
         }
@@ -1089,38 +1082,13 @@ public class MansionDecorator {
         return false;
     }
 
-    private void populateObjectGrid() {
-        objectGrid = Array2DHelper.createComponentGrid(mapWidth, mapHeight);
-
-        for (Component[] object : objects) {
-            Position position = null;
-
-            for (int i = 0; i < object.length; i++) {
-                if (object[i] instanceof Position) {
-                    position = (Position) object[i];
-                    break;
-                }
-            }
-
-            addObjectToStack(position.x, position.y, object);
-        }
-
-        for (Component[] enemy : enemies) {
-            Position position = null;
-
-            for (int i = 0; i < enemy.length; i++) {
-                if (enemy[i] instanceof Position) {
-                    position = (Position) enemy[i];
-                    break;
-                }
-            }
-
-            addObjectToStack(position.x, position.y, enemy);
-        }
-    }
-
     private boolean inBounds(Vector cell) {
         return (cell.x() >= 0 && cell.x() < mapWidth && cell.y() >= 0 && cell.y() < mapHeight);
+    }
+
+    private Stationary getStationaryTerrainComponent(Vector cell) {
+        return (Stationary) componentManager.getEntityComponent(terrainEntities[cell.x][cell.y],
+                Stationary.class.getSimpleName());
     }
 
     private ArrayList<Vector> getWallVectors(Room room) {

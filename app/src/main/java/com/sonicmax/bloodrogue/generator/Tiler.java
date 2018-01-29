@@ -2,9 +2,9 @@ package com.sonicmax.bloodrogue.generator;
 
 import com.sonicmax.bloodrogue.engine.Component;
 import com.sonicmax.bloodrogue.generator.factories.TerrainFactory;
+import com.sonicmax.bloodrogue.tilesets.BuildingTileset;
 import com.sonicmax.bloodrogue.tilesets.ExteriorTileset;
 import com.sonicmax.bloodrogue.tilesets.GenericTileset;
-import com.sonicmax.bloodrogue.tilesets.MansionTileset;
 import com.sonicmax.bloodrogue.tilesets.RuinsTileset;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 
@@ -14,10 +14,14 @@ import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
  */
 
 public class Tiler {
-    private final String tileset;
+    private String tileset;
 
     public Tiler(String theme) {
         this.tileset = theme;
+    }
+
+    public void setTileset(String tileset) {
+        this.tileset = tileset;
     }
 
     /*
@@ -26,42 +30,37 @@ public class Tiler {
     ---------------------------------------------
     */
 
-    public Component[] getWallTile(int x, int y) {
+    public String getWallTile(int x, int y, int theme) {
         String sprite;
 
         switch (tileset) {
-            case MansionTileset.KEY:
-                sprite = MansionTileset.WALLPAPER_3;
-                break;
+            case BuildingTileset.KEY:
+                return BuildingTileset.WALLPAPER_3;
 
             case RuinsTileset.KEY:
-                sprite = RuinsTileset.WALL;
-                break;
+                return RuinsTileset.WALL;
 
             default:
-                sprite = MansionTileset.WALLPAPER_3;
-                break;
+                return BuildingTileset.WALLPAPER_3;
         }
-
-        return TerrainFactory.createWall(x, y, sprite);
     }
 
     public String getMansionWallTilePath(int type) {
         switch (type) {
             case 0:
-                return MansionTileset.WALLPAPER_1;
+                return BuildingTileset.WALLPAPER_1;
 
             case 1:
-                return MansionTileset.WALLPAPER_2;
+                return BuildingTileset.WALLPAPER_2;
 
             case 2:
-                return MansionTileset.WALLPAPER_3;
+                return BuildingTileset.WALLPAPER_3;
 
             case 3:
-                return MansionTileset.WOOD_WALL;
+                return BuildingTileset.WOOD_WALL;
 
             default:
-                return MansionTileset.WOOD_WALL;
+                return BuildingTileset.WOOD_WALL;
         }
     }
 
@@ -71,41 +70,33 @@ public class Tiler {
     ---------------------------------------------
     */
 
-    public Component[] getFloorTile(int x, int y, int type) {
-        String sprite;
-
+    public String getFloorTile(int x, int y, int type) {
         switch (tileset) {
-            case MansionTileset.KEY:
-                sprite = getMansionFloorTilePath(type);
-                break;
+            case BuildingTileset.KEY:
+                return getMansionFloorTilePath(type);
 
             case RuinsTileset.KEY:
-                sprite = RuinsTileset.FLOOR;
-                break;
+                return RuinsTileset.FLOOR;
 
             case ExteriorTileset.KEY:
-                sprite = ExteriorTileset.GRASS;
-                break;
+                return ExteriorTileset.GRASS[new RandomNumberGenerator().getRandomInt(0, ExteriorTileset.GRASS.length - 1)];
 
             default:
-                sprite = MansionTileset.FLOOR;
-                break;
+                return BuildingTileset.FLOOR;
         }
-
-        return TerrainFactory.createFloor(x, y, sprite);
     }
 
     public String getMansionFloorTilePath(int type) {
         switch (type) {
             case 0:
-                return MansionTileset.WOOD_FLOOR_1;
+                return BuildingTileset.WOOD_FLOOR_1;
 
             case 1:
-                return MansionTileset.WOOD_FLOOR_2;
+                return BuildingTileset.WOOD_FLOOR_2;
 
             case 2:
             default:
-                return MansionTileset.WOOD_FLOOR_3;
+                return BuildingTileset.WOOD_FLOOR_3;
         }
     }
 
@@ -117,8 +108,24 @@ public class Tiler {
 
     public String getBorderTilePath() {
         switch (tileset) {
-            case MansionTileset.KEY:
-                return MansionTileset.BRICK_WALL;
+            case BuildingTileset.KEY:
+                return BuildingTileset.BRICK_WALL;
+
+            case RuinsTileset.KEY:
+                return RuinsTileset.BORDER;
+
+            case ExteriorTileset.KEY:
+                return ExteriorTileset.GRASS_1;
+
+            default:
+                return GenericTileset.TRANSPARENT;
+        }
+    }
+
+    public String getBorderObjectPath() {
+        switch (tileset) {
+            case BuildingTileset.KEY:
+                return BuildingTileset.BRICK_WALL;
 
             case RuinsTileset.KEY:
                 return RuinsTileset.BORDER;
@@ -127,7 +134,7 @@ public class Tiler {
                 return ExteriorTileset.TREES[new RandomNumberGenerator().getRandomInt(0, ExteriorTileset.TREES.length - 1)];
 
             default:
-                return GenericTileset.DEFAULT_BORDER;
+                return GenericTileset.TRANSPARENT;
         }
     }
 
@@ -139,21 +146,21 @@ public class Tiler {
 
     public String getOpenDoorTilePath() {
         switch (tileset) {
-            case MansionTileset.KEY:
-                return MansionTileset.DOUBLE_DOORS_OPEN;
+            case BuildingTileset.KEY:
+                return BuildingTileset.DOUBLE_DOORS_OPEN;
 
             default:
-                return MansionTileset.OPEN_DOOR;
+                return BuildingTileset.OPEN_DOOR;
         }
     }
 
     public String getClosedDoorTilePath() {
         switch (tileset) {
-            case MansionTileset.KEY:
-                return MansionTileset.DOUBLE_DOORS;
+            case BuildingTileset.KEY:
+                return BuildingTileset.DOUBLE_DOORS;
 
             default:
-                return MansionTileset.CLOSED_DOOR;
+                return BuildingTileset.CLOSED_DOOR;
         }
     }
 
@@ -161,8 +168,8 @@ public class Tiler {
         String sprite;
 
         switch (tileset) {
-            case MansionTileset.KEY:
-                sprite = MansionTileset.WOOD_FLOOR_1;
+            case BuildingTileset.KEY:
+                sprite = BuildingTileset.WOOD_FLOOR_1;
                 break;
 
             case RuinsTileset.KEY:
@@ -170,7 +177,7 @@ public class Tiler {
                 break;
 
             default:
-                sprite = MansionTileset.WOOD_FLOOR_1;
+                sprite = BuildingTileset.WOOD_FLOOR_1;
                 break;
         }
 

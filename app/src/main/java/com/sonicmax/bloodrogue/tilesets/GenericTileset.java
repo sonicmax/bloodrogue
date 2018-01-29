@@ -2,7 +2,7 @@ package com.sonicmax.bloodrogue.tilesets;
 
 public class GenericTileset {
     public final static String KEY = "GenericTileset";
-    public final static String DEFAULT_BORDER = "sprites/transparent.png";
+    public final static String TRANSPARENT = "sprites/transparent.png";
     public final static String LIGHT_SOURCE = "sprites/fire.png";
 
     public final static String[] BLOOD_DROPS = new String[] {"sprites/blood_drops_1.png",

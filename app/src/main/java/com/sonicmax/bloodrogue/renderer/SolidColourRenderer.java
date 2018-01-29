@@ -159,13 +159,12 @@ public class SolidColourRenderer {
 
         positionBuffer.unbind();
 
-        GLES20.glEnableVertexAttribArray(Shader.COLOUR);
-
         ByteBuffer bb = ByteBuffer.allocateDirect(colours.length * FLOAT_SIZE);
         bb.order(ByteOrder.nativeOrder());
         FloatBuffer colourBuffer = bb.asFloatBuffer();
         BufferUtils.copy(colours, colourBuffer, colours.length, 0);
 
+        GLES20.glEnableVertexAttribArray(Shader.COLOUR);
         GLES20.glVertexAttribPointer(
                 Shader.COLOUR,
                 FLOATS_PER_COLOUR,

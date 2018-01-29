@@ -13,6 +13,7 @@ public class Physics extends Component {
     public boolean isGasOrLiquid;
     public boolean activateOnCollide;
     public boolean activateOnMove;
+    public boolean isDestructable;
 
     public Physics(long id) {
         super(id);
@@ -23,5 +24,6 @@ public class Physics extends Component {
         this.isGasOrLiquid = false;
         this.activateOnCollide = false;
         this.activateOnMove = false;
+        this.isDestructable = true;
     }
 }

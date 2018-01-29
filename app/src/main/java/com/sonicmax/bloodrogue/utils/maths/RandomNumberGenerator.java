@@ -22,4 +22,30 @@ public class RandomNumberGenerator {
     public boolean coinflip() {
         return new Random().nextInt(2) == 1;
     }
+
+    public String getRandomItemFromStringArray(String[] array) {
+        return array[getRandomInt(0, array.length - 1)];
+    }
+
+    public int d6(int numberOfDice) {
+        int total = 0;
+
+        for (int i = 0; i < numberOfDice; i++) {
+            total += getRandomInt(1, 6);
+        }
+
+        return total;
+    }
+
+    public boolean d6(int numberOfDice, int target) {
+        for (int i = 0; i < numberOfDice; i++) {
+
+            int roll = getRandomInt(1, 6);
+            if (roll == target) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

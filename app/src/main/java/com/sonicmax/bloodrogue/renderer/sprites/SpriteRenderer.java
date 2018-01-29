@@ -209,6 +209,10 @@ public class SpriteRenderer {
     }
 
     public void addSpriteData(int x, int y, int spriteIndex, float lighting) {
+        if (spriteIndex == -1) {
+            return;
+        }
+
         baseColours[0] = lighting; // r
         baseColours[1] = lighting; // g
         baseColours[2] = lighting; // b
@@ -251,6 +255,10 @@ public class SpriteRenderer {
     }
 
     public void addSpriteData(int x, int y, int spriteIndex, float lighting, float offsetX, float offsetY) {
+        if (spriteIndex == -1) {
+            return;
+        }
+
         baseColours[0] = lighting; // r
         baseColours[1] = lighting; // g
         baseColours[2] = lighting; // b

@@ -73,6 +73,13 @@ public class ImageLoader {
                 textureHandles.put(FONT_PATH + path, textureHandle);
             }
 
+            InputStream is = assetManager.open(IMG_PATH + "water_overlay.png");
+            BitmapFactory.Options opts = new BitmapFactory.Options();
+            opts.inPreferredConfig = Bitmap.Config.ARGB_8888;
+            Bitmap bitmap = BitmapFactory.decodeStream(is, null, opts);
+            int textureHandle = loadTexture(bitmap, GLES20.GL_TEXTURE2);
+            textureHandles.put(IMG_PATH + "water_overlay.png", textureHandle);
+
             long stopTime = System.nanoTime();
             Log.v(LOG_TAG, "Loaded images in " + TimeUnit.MILLISECONDS.convert(stopTime - startTime, TimeUnit.NANOSECONDS) + " ms");
 
@@ -100,6 +107,9 @@ public class ImageLoader {
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureHandle[0]);
 
             // Set filtering
+           GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_REPEAT);
+           GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_REPEAT);
+
             GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
             GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST);
 

@@ -15,6 +15,9 @@ public class Sprite extends Component {
     public static int WAVE = 2; // Same as dynamic, but rendered using wave shader
     public static int ANIMATION = 3; // Todo: animation support
 
+    public static int BACKGROUND = 0;
+    public static int FOREGROUND = 1;
+
     public String path;
     public int spriteIndex;
     public int shader;
@@ -39,6 +42,8 @@ public class Sprite extends Component {
     public int lastY;
     public int movementStep;
 
+    public int layer;
+
     public Sprite(long id) {
         super(id);
         this.path = "sprites/transparent.png";
@@ -55,6 +60,8 @@ public class Sprite extends Component {
 
         this.lastX = -1;
         this.lastY = -1;
+
+        this.layer = Sprite.FOREGROUND;
     }
 
     /**
@@ -75,5 +82,6 @@ public class Sprite extends Component {
         this.lastX = sprite.lastX;
         this.lastY = sprite.lastY;
         this.movementStep = sprite.movementStep;
+        this.layer = sprite.layer;
     }
 }

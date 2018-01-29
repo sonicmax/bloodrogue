@@ -22,36 +22,6 @@ public class ComponentFinder {
         return null;
     }
 
-    public static Sprite getSpriteComponent(Component[] components) {
-        for (int i = 0; i < components.length; i++) {
-            if (components[i] instanceof Sprite) {
-                return (Sprite) components[i];
-            }
-        }
-
-        return null;
-    }
-
-    public static Stationary getStaticComponent(Component[] components) {
-        for (int i = 0; i < components.length; i++) {
-            if (components[i] instanceof Stationary) {
-                return (Stationary) components[i];
-            }
-        }
-
-        return null;
-    }
-
-    public static Physics getPhysicsComponent(Component[] components) {
-        for (int i = 0; i < components.length; i++) {
-            if (components[i] instanceof Physics) {
-                return (Physics) components[i];
-            }
-        }
-
-        return null;
-    }
-
     public static Portal getPortalComponent(Component[] components) {
         for (int i = 0; i < components.length; i++) {
             if (components[i] instanceof Portal) {

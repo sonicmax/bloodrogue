@@ -30,16 +30,15 @@ import com.sonicmax.bloodrogue.engine.components.Wieldable;
 import com.sonicmax.bloodrogue.engine.systems.EntitySystem;
 import com.sonicmax.bloodrogue.engine.systems.PotionSystem;
 import com.sonicmax.bloodrogue.engine.systems.WeaponsSystem;
+import com.sonicmax.bloodrogue.generator.ProceduralGenerator;
 import com.sonicmax.bloodrogue.generator.factories.AnimationFactory;
 import com.sonicmax.bloodrogue.generator.factories.DecalFactory;
-import com.sonicmax.bloodrogue.engine.systems.ComponentFinder;
 import com.sonicmax.bloodrogue.generator.MapData;
-import com.sonicmax.bloodrogue.generator.ProceduralGenerator;
 import com.sonicmax.bloodrogue.renderer.text.TextColours;
 import com.sonicmax.bloodrogue.renderer.ui.Animation;
 import com.sonicmax.bloodrogue.renderer.ui.InventoryCard;
+import com.sonicmax.bloodrogue.tilesets.BuildingTileset;
 import com.sonicmax.bloodrogue.tilesets.CorpseTileset;
-import com.sonicmax.bloodrogue.tilesets.MansionTileset;
 import com.sonicmax.bloodrogue.utils.maths.Calculator;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
@@ -65,9 +64,6 @@ public class GameEngine {
     private ComponentManager componentManager;
 
     private GameState gameState;
-    private ArrayList<Component[]>[][] rawObjectComponents;
-    private Component[][][] rawTerrainComponents;
-    private ArrayList<Component[]>[][] rawAnimationComponents;
     private int[][] playerDesireMap;
     private double[][] fieldOfVision;
     private Component[] player;
@@ -84,8 +80,8 @@ public class GameEngine {
 
     private Vector pathDestination;
 
-    private Sprite[][] terrain;
-    private ArrayList<Sprite> objects;
+    private Sprite[][] terrainSprites;
+    private ArrayList<Sprite> objectSprites;
     private ArrayList<Animation> animations;
 
     // ECS storage and management
@@ -97,9 +93,9 @@ public class GameEngine {
     public GameEngine(GameInterface gameInterface) {
         this.playerMoveLock = false;
 
-        this.sightRadius = 7;
-        this.mapWidth = 32;
-        this.mapHeight = 32;
+        this.sightRadius = 10;
+        this.mapWidth = 64;
+        this.mapHeight = 64;
         this.currentFloor = 1;
 
         this.gameInterface = gameInterface;
@@ -121,11 +117,11 @@ public class GameEngine {
     }
 
     public Frame getCurrentFrameData() {
-        return new Frame(currentFloor, terrain, objects, animations, fieldOfVision, fovCalculator.getVisitedTiles(), player);
+        return new Frame(currentFloor, terrainSprites, objectSprites, animations, fieldOfVision, fovCalculator.getVisitedTiles(), player);
     }
 
-    public FloorData getCurrentFloorData() {
-        return new FloorData(currentFloor, rawTerrainComponents, rawObjectComponents, rawAnimationComponents, player);
+    public FloorData getCurrentFloorData(Component[][][] rawTerrainComponents, ArrayList<Component[]>[][] rawObjectComponents) {
+        return new FloorData(currentFloor, rawTerrainComponents, rawObjectComponents, player);
     }
 
     private Position getPlayerPosition() {
@@ -149,17 +145,13 @@ public class GameEngine {
      */
 
     private void initCollections() {
-        this.terrain = new Sprite[mapWidth][mapHeight];
-        this.objects = new ArrayList<>();
+        this.terrainSprites = new Sprite[mapWidth][mapHeight];
+        this.objectSprites = new ArrayList<>();
         this.animations = new ArrayList<>();
 
         this.terrainEntities = new long[mapWidth][mapHeight];
         this.aiEntities = new ArrayList<>();
         this.objectEntities = Array2DHelper.create2dLongStack(mapWidth, mapHeight);
-
-        rawTerrainComponents = null;
-        rawObjectComponents = Array2DHelper.createComponentGrid(mapWidth, mapHeight);
-        rawAnimationComponents = Array2DHelper.createComponentGrid(mapWidth, mapHeight);
 
         componentManager.clear();
         initPriorityQueue();
@@ -179,18 +171,18 @@ public class GameEngine {
         playerEntity = player[0].id;
         gameState.setPlayer(player);
 
-        FloorData floor = generateNewFloor(this.currentFloor);
-        gameState.addFloor(floor);
+        generateNewFloor(this.currentFloor);
+        saveCurrentFloor();
         gameInterface.saveState(gameState);
         advanceFrame();
     }
 
     /**
-     * Generates terrain/objects/enemies/etc for a new floor and instantiates a new GameState object
+     * Generates terrainSprites/objectSprites/enemies/etc for a new floor and instantiates a new GameState object
      * to hold components + any other data required for gameplay.
      */
 
-    public FloorData generateNewFloor(int floorIndex) {
+    public void generateNewFloor(int floorIndex) {
         // Retrieve player equipment from component manager and remove components from previous floor.
         ArrayList<Component> playerEquipment = getPlayerEquipment();
 
@@ -199,10 +191,13 @@ public class GameEngine {
         // Generate data for new floor
         ProceduralGenerator generator = new ProceduralGenerator(mapWidth, mapHeight, gameInterface.getAssets());
         generator.setFloor(floorIndex);
-        generator.generate(ProceduralGenerator.MANSION);
+        generator.generate(ProceduralGenerator.EXTERIOR);
 
+        // Generated data has already been sorted into ComponentManager instance, so we just have to
+        // grab the arrays of terrainSprites/object entities
         MapData mapData = generator.getMapData();
-        rawTerrainComponents = generator.getMapGrid();
+        terrainEntities = mapData.getTerrainEntities();
+        objectEntities = mapData.getObjectEntities();
 
         // Now we need to either create new player entity (if this was the first floor) or
         // sort the existing components and move player to new start position
@@ -216,21 +211,8 @@ public class GameEngine {
             componentManager.sortComponent(item);
         }
 
-        populateUsingNewData(mapData);
-        sortComponentsAndStoreEntities();
         addPlayer(entrance);
         prebuildSprites();
-
-        FloorData floor = getCurrentFloorData();
-        floor.setEntrance(entrance);
-        floor.setExit(mapData.getExitPosition());
-
-        // Now that generated data has been sorted and prepared for gameplay, we can nullify raw components
-        rawTerrainComponents = null;
-        rawObjectComponents = null;
-        rawAnimationComponents = null;
-
-        return floor;
     }
 
     private void addPlayer(Vector startPosition) {
@@ -311,8 +293,8 @@ public class GameEngine {
         }
 
         else {
-            FloorData floor = generateNewFloor(floorIndex);
-            gameState.addFloor(floor);
+            generateNewFloor(floorIndex);
+            saveCurrentFloor();
         }
 
         gameInterface.saveState(gameState);
@@ -323,9 +305,11 @@ public class GameEngine {
 
     private void saveCurrentFloor() {
         // Reinitialize raw component arrays.
-        rawTerrainComponents = new Component[mapWidth][mapHeight][ProceduralGenerator.MAX_COMPONENTS];
-        rawObjectComponents = Array2DHelper.createComponentGrid(mapWidth, mapHeight);
-        rawAnimationComponents = Array2DHelper.createComponentGrid(mapWidth, mapHeight);
+        Component[][][] rawTerrainComponents = new Component[mapWidth][mapHeight][ProceduralGenerator.MAX_COMPONENTS];
+        ArrayList<Component[]>[][] rawObjectComponents = Array2DHelper.createComponentGrid(mapWidth, mapHeight);
+
+        // Todo: should we pause/resume animations? Probably not
+        // ArrayList<Component[]>[][] rawAnimationComponents = Array2DHelper.createComponentGrid(mapWidth, mapHeight);
 
         // Reverse the process of sorting components
         for (int y = 0; y < mapHeight; y++) {
@@ -342,14 +326,21 @@ public class GameEngine {
         }
 
         // Now we can update floor data
-        FloorData newFloor = getCurrentFloorData();
+        FloorData floor = getCurrentFloorData(rawTerrainComponents, rawObjectComponents);
 
-        // Todo: for now, we have to manually copy the entrance/exit positions. This sucks
         FloorData existingFloor = gameState.getCurrentFloor();
-        newFloor.setEntrance(existingFloor.entrancePosition);
-        newFloor.setExit(existingFloor.exitPosition);
 
-        gameState.updateFloor(currentFloor, newFloor);
+        if (existingFloor != null) {
+            // Update existing floor
+            floor.setEntrance(existingFloor.entrancePosition);
+            floor.setExit(existingFloor.exitPosition);
+
+            gameState.updateFloor(currentFloor, floor);
+        }
+        else {
+            // Add new floor
+            gameState.addFloor(floor);
+        }
     }
 
     /**
@@ -382,9 +373,21 @@ public class GameEngine {
         }
 
         // Get raw components from floor data
-        this.rawTerrainComponents = floor.getTerrain();
-        this.rawObjectComponents = floor.getObjects();
-        this.rawAnimationComponents = floor.getAnimations();
+        Component[][][] rawTerrainComponents = floor.getTerrain();
+        ArrayList<Component[]>[][] rawObjectComponents = floor.getObjects();
+
+        int width = rawTerrainComponents.length;
+        int height = rawTerrainComponents[0].length;
+
+        for (int x = 0; x < width; x++) {
+            for (int y = 0; y < height; y++) {
+                sortComponentsAndStoreEntities(rawTerrainComponents[x][y]);
+
+                for (Component[] object : rawObjectComponents[x][y]) {
+                    sortComponentsAndStoreEntities(object);
+                }
+            }
+        }
 
         Vector startPos;
 
@@ -400,7 +403,6 @@ public class GameEngine {
         addPlayer(new Vector(startPos.x, startPos.y));
 
         // Sort raw components by type and filter sprite components for renderer
-        sortComponentsAndStoreEntities();
         prebuildSprites();
 
         // Enemy components have already been sorted, but we should keep a reference to their entities
@@ -409,11 +411,6 @@ public class GameEngine {
         for (int i = 0; i < enemies.size(); i++) {
             this.aiEntities.add(enemies.get(i).id);
         }
-
-        // We don't need to keep references to these any more
-        this.rawTerrainComponents = null;
-        this.rawObjectComponents = null;
-        this.rawAnimationComponents = null;
     }
 
     public int[] getMapSize() {
@@ -428,33 +425,18 @@ public class GameEngine {
         this.pathDestination = dest;
     }
 
-    private void populateUsingNewData(MapData mapData) {
-        for (Component[] object : mapData.getObjects()) {
-            Position pos = ComponentFinder.getPositionComponent(object);
-            addObjectToStack(pos.x, pos.y, object);
-        }
-
-        for (Component[] door : mapData.getDoors()) {
-            Position pos = ComponentFinder.getPositionComponent(door);
-            addObjectToStack(pos.x, pos.y, door);
-        }
-
-        for (Component[] enemy : mapData.getEnemies()) {
-            Position pos = ComponentFinder.getPositionComponent(enemy);
-            addObjectToStack(pos.x, pos.y, enemy);
-            aiEntities.add(pos.id);
-        }
-    }
+    /**
+     * Caches 2d arrays of sprite components to be passed to renderer.
+     */
 
     private void prebuildSprites() {
-        this.terrain = new Sprite[mapWidth][mapHeight];
-        this.objects.clear();
+        this.terrainSprites = new Sprite[mapWidth][mapHeight];
+        this.objectSprites.clear();
         this.animations.clear();
 
         for (int y = 0; y < mapHeight; y++) {
             for (int x = 0; x < mapWidth; x++) {
-                Component[] t = rawTerrainComponents[x][y];
-                terrain[x][y] = ComponentFinder.getSpriteComponent(t);
+                terrainSprites[x][y] = (Sprite) componentManager.getEntityComponent(terrainEntities[x][y], Sprite.class.getSimpleName());
 
                 ArrayList<Long> entities = objectEntities[x][y];
 
@@ -466,7 +448,7 @@ public class GameEngine {
                     }
                     sprite.x = x;
                     sprite.y = y;
-                    objects.add(sprite);
+                    objectSprites.add(sprite);
                 }
             }
         }
@@ -618,41 +600,11 @@ public class GameEngine {
     ---------------------------------------------
     */
 
-    /**
-     *  The ProceduralGenerator class generates unsorted arrays of components. To make this more usable,
-     *  we should sort the components by class into hashmaps associated with their entity, and use
-     *  2D arrays to simplify component lookups when calculating AI turns/collisions/FOV/etc
-     */
-
-    private void sortComponentsAndStoreEntities() {
-        for (int y = 0; y < mapHeight; y++) {
-            for (int x = 0; x < mapWidth; x++) {
-                Component[] terrain = rawTerrainComponents[x][y];
-
-                terrainEntities[x][y] = terrain[0].id;
-                componentManager.sortComponentArray(terrain);
-
-                ArrayList<Component[]> objects = rawObjectComponents[x][y];
-
-                for (Component[] object : objects) {
-                    if (object != null) {
-                        objectEntities[x][y].add(object[0].id);
-                        componentManager.sortComponentArray(object);
-                    }
-                }
-            }
-        }
-    }
-
     private void sortComponentsAndStoreEntities(Component[] components) {
         long entity = components[0].id;
         componentManager.sortComponentArray(components);
         Position position = (Position) componentManager.getEntityComponent(entity, Position.class.getSimpleName());
         objectEntities[position.x][position.y].add(entity);
-    }
-
-    private void addObjectToStack(int x, int y, Component[] object) {
-        rawObjectComponents[x][y].add(object);
     }
 
     private void addEntityToStack(int x, int y, long entity) {
@@ -697,8 +649,17 @@ public class GameEngine {
 
         Position playerPosition = getPlayerPosition();
         AI ai = (AI) componentManager.getEntityComponent(playerEntity, AI.class.getSimpleName());
+        int dijkstra;
 
-        desireGrid[playerPosition.x][playerPosition.y] = ai.dijkstra;
+        if (ai == null) {
+            Log.w(LOG_TAG, "No AI component for entity: " + playerEntity);
+            dijkstra = 20;
+        }
+        else {
+            dijkstra = ai.dijkstra;
+        }
+
+        desireGrid[playerPosition.x][playerPosition.y] = dijkstra;
         desireLocations.add(new Vector(playerPosition.x, playerPosition.y));
 
         playerDesireMap = populateDijkstraGrid(Directions.All.values(), desireGrid, desireLocations, tilesToCheck, false);
@@ -1245,7 +1206,7 @@ public class GameEngine {
                     physicsComponent.isTraversable = true;
 
                     Sprite spriteComponent = (Sprite) componentManager.getEntityComponent(entity, Sprite.class.getSimpleName());
-                    spriteComponent.path = MansionTileset.DOUBLE_DOORS_OPEN;
+                    spriteComponent.path = BuildingTileset.DOUBLE_DOORS_OPEN;
                     spriteComponent.spriteIndex = -1;
                 }
                 break;
@@ -1447,8 +1408,8 @@ public class GameEngine {
         switch (code) {
             case Actions.GO_TO_NEXT_FLOOR:
                 // Tell renderer to fade out content and display loading screen, generate
-                // terrain for new floor and fade in with new content
-                gameInterface.initFloorChange();
+                // terrainSprites for new floor and fade in with new content
+                gameInterface.startFloorChange();
                 changeFloor(currentFloor + 1, Directions.DOWN);
                 advanceFrame();
                 gameInterface.transitionToNewContent();
@@ -1456,7 +1417,7 @@ public class GameEngine {
 
             case Actions.GO_TO_PREV_FLOOR:
                 if (currentFloor > 1) {
-                    gameInterface.initFloorChange();
+                    gameInterface.startFloorChange();
                     changeFloor(currentFloor - 1, Directions.UP);
                     advanceFrame();
                     gameInterface.transitionToNewContent();
@@ -1490,7 +1451,7 @@ public class GameEngine {
                 Sprite sprite = (Sprite) componentManager.getEntityComponent(entity, Sprite.class.getSimpleName());
                 sprite.x = position.x;
                 sprite.y = position.y;
-                objects.add(sprite);
+                objectSprites.add(sprite);
             }
 
             else {
@@ -1790,6 +1751,11 @@ public class GameEngine {
 
         // Walls and borders will always prevent movement.
         if (stationary != null && (stationary.type == Stationary.WALL || stationary.type == Stationary.BORDER)) {
+            return true;
+        }
+
+        Physics terrainPhysics = (Physics) componentManager.getEntityComponent(entity, Physics.class.getSimpleName());
+        if (terrainPhysics != null && !terrainPhysics.isTraversable) {
             return true;
         }
 

@@ -21,6 +21,9 @@ import java.util.Set;
 /**
  * Generates a maze using provided parameters. The generate() method returns a boolean[][] telling us
  * which tiles to carve. getJunctions() returns an ArrayList of Vectors to aid in door placement.
+ * To connect regions that have already been generated elsewhere, we can use carveChunkFromMaze()
+ * or excludeChunkFromMaze (for regions that have already been carved) to define a new region
+ * that will be connected to during maze generation.
  */
 
 public class MazeGenerator {
@@ -66,14 +69,16 @@ public class MazeGenerator {
         }
 
         if (!AxisAlignedBoxTester.test(chunkToCarve, chunk)) {
-            Log.w(LOG_TAG, "Chunk to carve not contained in bounds of original chunk");
+            // Log.d(LOG_TAG, "Chunk to carve not contained in bounds of original chunk");
         }
 
         else {
             for (int x = chunkToCarve.x; x < chunkToCarve.x + chunkToCarve.width; x++) {
                 for (int y = chunkToCarve.y; y < chunkToCarve.y + chunkToCarve.height; y++) {
                     Vector cell = new Vector(x - chunk.x, y - chunk.y);
-                    carve(cell);
+                    if (inBounds(cell)) {
+                        carve(cell);
+                    }
                 }
             }
         }
@@ -88,7 +93,7 @@ public class MazeGenerator {
         }
 
         if (!AxisAlignedBoxTester.test(chunkToCarve, chunk)) {
-            Log.w(LOG_TAG, "Chunk to carve not contained in bounds of original chunk");
+            // Log.d(LOG_TAG, "Chunk to carve not contained in bounds of original chunk");
         }
 
         else {
@@ -102,6 +107,14 @@ public class MazeGenerator {
 
     public ArrayList<Vector> getJunctions() {
         return junctions;
+    }
+
+    public int getCurrentRegion() {
+        return currentRegion;
+    }
+
+    public int[][] getMapRegions() {
+        return mapRegions;
     }
 
     public boolean[][] generate() {

@@ -4,8 +4,8 @@ package com.sonicmax.bloodrogue.tilesets;
  *  Contains image paths for various types of tile associated with the mansion theme
  */
 
-public class MansionTileset extends GenericTileset {
-    public final static String KEY = "MansionTileset";
+public class BuildingTileset extends GenericTileset {
+    public final static String KEY = "BuildingTileset";
 
     public final static String[] STATUES = {"sprites/statue_1.png", "sprites/statue_2.png"};
     public final static String[] PAINTINGS = {"sprites/painting_1.png", "sprites/painting_2.png", "sprites/painting_3.png", "sprites/painting_4.png"};
@@ -24,6 +24,7 @@ public class MansionTileset extends GenericTileset {
     public final static String WALLPAPER_3 = "sprites/mansion_wallpaper_3.png";
     public final static String FLOOR = "sprites/floor.png";
     public final static String BRICK_WALL = "sprites/mansion_bricks.png";
+    public final static String WINDOW = "sprites/mansion_bricks_window.png";
     public final static String WOOD_WALL = "sprites/mansion_wood_wall.png";
     public final static String WOOD_FLOOR_1 = "sprites/mansion_wood_floor.png";
     public final static String WOOD_FLOOR_2 = "sprites/mansion_wood_floor_2.png";

@@ -41,7 +41,7 @@ public class TerrainRenderer {
     private final int FLOAT_SIZE = 4;
     private final int stride;
 
-    private final short[] mIndices = {
+    private final short[] INDICES = {
             0, 1, 2, // top-left, bottom-left, bottom right
             0, 2, 3  // top-left, bottom-right, top-right
     };
@@ -136,7 +136,8 @@ public class TerrainRenderer {
             // Creating the triangle information
             float[] uv = new float[8];
 
-            // 0.001f = texture bleeding hack/fix
+            // float textureBleedingFix = 0.001f;
+
             uv[0] = u;
             uv[1] = v;
             uv[2] = u;
@@ -274,21 +275,59 @@ public class TerrainRenderer {
     }
 
     public void prepareIndices(int width, int height) {
-        indices = new short[(width * height) * mIndices.length];
+        indexCount = 0;
+        indices = new short[(width * height) * INDICES.length];
 
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 // Translate the indices to align with the location in our array of vertices
                 short base = (short) (vecCount / 3);
 
-                for (int j = 0; j < mIndices.length; j++) {
-                    indices[indexCount] = (short) (base + mIndices[j]);
+                for (int j = 0; j < INDICES.length; j++) {
+                    indices[indexCount] = (short) (base + INDICES[j]);
                     indexCount++;
                 }
 
                 vecCount += POSITIONS_SIZE;
             }
         }
+    }
+
+    private int offset;
+
+    public int calculateOffset(int x, int y) {
+        offset = (y * gridWidth) + x;
+        return offset;
+    }
+
+    public void prepareIndices(int startX, int startY, int endX, int endY) {
+        int width = endX - startX;
+        int height = endY - startY;
+
+        indices = new short[(width * height) * INDICES.length];
+
+        indexCount = 0;
+        vecCount = calculateOffset(startX, startY) * POSITIONS_SIZE;
+        int carriage = (gridWidth - width);
+
+        for (int y = startY; y < endY; y++) {
+            for (int x = startX; x < endX; x++) {
+                // Translate the indices to align with the location in our array of vertices
+                short base = (short) (vecCount / 3);
+
+                for (int j = 0; j < INDICES.length; j++) {
+                    indices[indexCount] = (short) (base + INDICES[j]);
+                    indexCount++;
+                }
+
+                vecCount += POSITIONS_SIZE;
+            }
+
+            // Make sure next row of indices are in correct position
+            vecCount += carriage * POSITIONS_SIZE;
+        }
+
+        indicesBuffer.bindAndCopy(indices);
     }
 
     public void setupVBOs() {
@@ -317,8 +356,6 @@ public class TerrainRenderer {
 
     public void renderSprites(float[] matrix) {
         GLES20.glUseProgram(mBasicShaderHandle);
-        // Terrain tiles don't need transparency
-        GLES20.glDisable(GLES20.GL_BLEND);
 
         packedBuffer.bind();
         GLES20.glEnableVertexAttribArray(Shader.POSITION);
@@ -373,8 +410,5 @@ public class TerrainRenderer {
         // Unbind VBOs once we've finished using them
         packedBuffer.unbind();
         indicesBuffer.unbind();
-
-        // Re-enable GL_BLEND for other renderers
-        GLES20.glEnable(GLES20.GL_BLEND);
     }
 }

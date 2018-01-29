@@ -59,11 +59,15 @@ public class GameState implements Serializable {
     }
 
     /**
-     *  Returns FloorData object for current floor.
+     *  Returns FloorData object for current floor. Make sure to handle null response after calling
      */
 
     public FloorData getCurrentFloor() {
-        return this.floors.get(currentFloor - 1);
+        if (this.floors.size() >= currentFloor) {
+            return this.floors.get(currentFloor - 1);
+        } else {
+            return null;
+        }
     }
 
     public void setPlayer(Component[] player) {
