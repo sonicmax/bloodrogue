@@ -372,131 +372,151 @@ public class ProceduralGenerator {
 */
 
     public void generateExterior() {
-        Chunk map = new Chunk(1, 1, mapWidth - 2, mapHeight - 2);
-        floorEntrance = new Vector(1, 1);
-        floorExit = new Vector(3, 3);
+        this.rooms = new ArrayList<>();
+        setThemeAsMansion();
+        this.tiler = new Tiler(themeKey);
+        this.blockedTiles = new boolean[mapWidth][mapHeight];
+
+        Chunk map = new Chunk(0, 0, mapWidth, mapHeight);
+        Chunk mapWithoutBorders = new Chunk(1, 1, mapWidth - 2, mapHeight - 2);
 
         startRegion();
 
-        boolean[][] occupied = new boolean[mapWidth][mapHeight];
-
         // First, generate all the organic terrain - trees, flowers, lakes, etc
+        placeRandomTreesInChunk(mapWithoutBorders);
 
+        growLakes(mapWithoutBorders);
+
+        addForestRegions(mapWithoutBorders);
+
+        addFloralRegions(mapWithoutBorders);
+
+        // Now we can start to add man made terrain - roads, buildings, etc
+
+        ArrayList<Chunk> buildings = new ArrayList<>();
+        ArrayList<Chunk> streetBlocks = getStreetBlocks(map);
+
+        Log.v(LOG_TAG, "street block count: " + streetBlocks.size());
+
+        for (Chunk block : streetBlocks) {
+            // Add pavement to border of block
+            addBorderToChunk(block, FLOOR, ExteriorTileset.SIDEWALK_BORDER);
+            clearObjectsFromBorder(block);
+
+            // Place buildings in each block
+            buildings.addAll(addBuildingsToChunk(block));
+        }
+
+        removeHiddenWalls();
+        checkForBrokenDoors();
+
+        Log.v(LOG_TAG, "street block with bs: " + chunkswithbs);
+
+        // Now use maze generator to add paths to map?
+        /*mazeGenerator.setChunk(mapWithoutBorders);
+
+        for (Chunk building : buildings) {
+            mazeGenerator.excludeChunkFromMaze(building);
+        }
+
+        mazeGenerator.setWindingPercent(90);
+        boolean[][] carvedPath = mazeGenerator.generate();
+
+        for (int x = 0; x < mapWithoutBorders.width; x++) {
+            for (int y = 0; y < mapWithoutBorders.height; y++) {
+                if (carvedPath[x][y]) {
+                    Vector cell = new Vector(x, y);
+                    if (lakes[x][y]) {
+                        setTerrain(cell, FLOOR, ExteriorTileset.BRIDGE_1);
+                    }
+                    else {
+                        // The DIRT_PATH array contains slightly different textures to give organic effect
+                        String texture = ExteriorTileset.DIRT_PATH[rng.getRandomInt(0, ExteriorTileset.DIRT_PATH.length - 1)];
+                        setTerrain(cell, FLOOR, texture);
+                    }
+
+                    clearObjects(x, y);
+                }
+            }
+        }*/
+    }
+
+    private void placeRandomTreesInChunk(Chunk chunk) {
         PoissonDiskSampler sampler = new PoissonDiskSampler();
         int minDistance = 3;
         int pointCount = 5;
-        ArrayList<Vector> treePositions = sampler.generatePoisson(map.width, map.height, minDistance, pointCount);
+        ArrayList<Vector> treePositions = sampler.generatePoisson(chunk.width, chunk.height, minDistance, pointCount);
         for (Vector cell : treePositions) {
-            objects.add(DecalFactory.createDecoration(cell.x, cell.y, ExteriorTileset.TREES[rng.getRandomInt(0, ExteriorTileset.TREES.length - 1)]));
-            occupied[cell.x][cell.y] = true;
+            Component[] tree = DecalFactory.createDecal(cell.x, cell.y, ExteriorTileset.TREES[rng.getRandomInt(0, ExteriorTileset.TREES.length - 1)]);
+            objectEntities[cell.x][cell.y].add(tree[0].id);
+            componentManager.sortComponentArray(tree);
         }
+    }
 
-        CellularAutomata automata = new CellularAutomata();
-
+    private boolean[][] growLakes(Chunk chunk) {
         automata.setParams(4, 3, 3, 0.3f);
-        boolean[][] lakes = automata.generate(map);
+        boolean[][] lakes = automata.generate(chunk);
 
-        String texture = ExteriorTileset.WATER[rng.getRandomInt(0, ExteriorTileset.WATER.length - 1)];
+        int waterTextureIndex = 0;
 
         for (int x = 0; x < lakes.length; x++) {
             for (int y = 0; y < lakes[0].length; y++) {
-                if (lakes[x][y] && !occupied[x][y]) {
-                    objects.add(DecalFactory.createLiquid(x, y, texture));
-                    setTile(new Vector(x, y), GenericTileset.DEFAULT_BORDER);
-                    occupied[x][y] = true;
+                if (lakes[x][y] && !detectCollisions(new Vector(x, y))) {
+                    String texture = ExteriorTileset.WATER[waterTextureIndex];
+
+                    setTerrain(new Vector(x, y), BACKGROUND, ExteriorTileset.DIRT_PATH_1);
+
+                    // Water texture array is designed to be iterated over in this order to align the tiles
+                    // in a certain way (to try and create a semi random water texture)
+
+                    waterTextureIndex++;
+
+                    if (waterTextureIndex > ExteriorTileset.WATER.length - 1) {
+                        waterTextureIndex = 0;
+                    }
+
+                    Component[] water = DecalFactory.createLiquid(x, y, texture);
+                    objectEntities[x][y].add(water[0].id);
+                    componentManager.sortComponentArray(water);
+
+
                 }
             }
         }
 
+        return lakes;
+    }
+
+    private void addForestRegions(Chunk chunk) {
         automata.setParams(4, 3, 2, 0.3f);
-        boolean[][] forest = automata.generate(map);
+        boolean[][] forest = automata.generate(chunk);
 
         for (int x = 0; x < forest.length; x++) {
             for (int y = 0; y < forest[0].length; y++) {
-                if (forest[x][y] && !occupied[x][y]) {
-                    objects.add(DecalFactory.createDecoration(x, y, ExteriorTileset.TREES[rng.getRandomInt(0, ExteriorTileset.TREES.length - 1)]));
-                    occupied[x][y] = true;
+                if (forest[x][y] && !detectCollisions(new Vector(x, y))) {
+
+                    Component[] tree = DecalFactory.createFovBlockingDecal(x, y, ExteriorTileset.TREES[rng.getRandomInt(0, ExteriorTileset.TREES.length - 1)]);
+                    objectEntities[x][y].add(tree[0].id);
+                    componentManager.sortComponentArray(tree);
                 }
             }
         }
+    }
 
-        boolean[][] flowers = automata.generate(map);
+    private void addFloralRegions(Chunk chunk) {
+        boolean[][] flowers = automata.generate(chunk);
 
         for (int x = 0; x < flowers.length; x++) {
             for (int y = 0; y < flowers[0].length; y++) {
-                if (flowers[x][y] && !occupied[x][y]) {
-                    String flower = ExteriorTileset.DECALS[rng.getRandomInt(0, ExteriorTileset.DECALS.length - 1)];
-                    objects.add(DecalFactory.createTraversableDecoration(x, y, flower));
+                if (flowers[x][y] && !detectCollisions(new Vector(x, y))) {
+                    String texture = ExteriorTileset.DECALS[rng.getRandomInt(0, ExteriorTileset.DECALS.length - 1)];
+                    Component[] flower = DecalFactory.createTraversableDecoration(x, y, texture);
+                    objectEntities[x][y].add(flower[0].id);
+                    componentManager.sortComponentArray(flower);
                 }
             }
         }
-
-        // Now place some buildings
-        rooms = new ArrayList<>();
-        setThemeAsMansion();
-        tiler = new Tiler(themeKey);
-        int minWidth = 10;
-        int maxWidth = 20;
-        int minHeight = 10;
-        int maxHeight = 20;
-        Chunk building = generateRandomChunk(map, minWidth, maxWidth, minHeight, maxHeight);
-        Log.v(LOG_TAG, building.toString());
-        prepareBuilding(building);
-        ArrayList<Chunk> chunks = getHallwayChunks(building);
-        splitChunksIntoRooms(chunks);
-
-        // Use MazeGenerator to add corridors to building
-        MazeGenerator mazeGen = new MazeGenerator();
-        mazeGen.setChunk(building);
-
-        for (Room room : rooms) {
-            mazeGen.carveChunkFromMaze(room);
-        }
-
-        boolean[][] carvedTiles = mazeGen.generate();
-
-        for (int x = 0; x < building.width; x++) {
-            for (int y = 0; y < building.height; y++) {
-                if (carvedTiles[x][y]) {
-                    Vector translatedCell = new Vector(building.x + x, building.y + y);
-                    carve(translatedCell, MansionTileset.WOOD_FLOOR_1);
-                }
-            }
-        }
-
-        for (Vector cell : mazeGen.getJunctions()) {
-            addJunction(new Vector(building.x + cell.x, building.y + cell.y));
-        }
-
-        carveRooms();
-        checkForBrokenDoors();
-        calculateGoals();
-
-        // Now use maze generator to add paths to map?
-        mazeGen.setChunk(map);
-        mazeGen.excludeChunkFromMaze(building);
-        mazeGen.setWindingPercent(5);
-        boolean[][] carvedPath = mazeGen.generate();
-
-        for (int x = 0; x < map.width; x++) {
-            for (int y = 0; y < map.height; y++) {
-                if (carvedPath[x][y]) {
-                    Vector cell = new Vector(x, y);
-                    carve(cell, ExteriorTileset.DIRT_1);
-                    objectGrid[x][y].clear();
-                }
-            }
-        }
-
-        decorator = new MansionDecorator(mapWidth, mapHeight, theme, themeKey, assetManager);
-        decorator.setGeneratorData(mapGrid, objects, objectGrid, enemies);
-        decorator.decorateRooms(rooms);
-        objects = decorator.getObjects();
-        objectGrid = decorator.getObjectGrid();
-        enemies = decorator.getEnemies();
-        Log.v("log", "initial enemies size: " + enemies.size());
     }
-
 /*
     ------------------------------------------------------------------------------------------
     Mansion generation
