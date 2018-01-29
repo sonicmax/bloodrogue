@@ -51,6 +51,7 @@ public class GameInterface {
 
         // Initialise game components.
         this.gameEngine = new GameEngine(this);
+        this.audioPlayer = new AudioPlayer(context);
         this.gameRenderer = new GameRenderer(context, this);
         this.narrationManager = new NarrationManager();
         this.gameRenderer.setMapSize(gameEngine.getMapSize());
