@@ -7,6 +7,7 @@ import android.opengl.GLU;
 import android.opengl.Matrix;
 import android.util.Log;
 import android.view.ScaleGestureDetector;
+import android.view.WindowManager;
 
 import com.sonicmax.bloodrogue.GameInterface;
 import com.sonicmax.bloodrogue.engine.Component;
@@ -24,6 +25,7 @@ import com.sonicmax.bloodrogue.renderer.ui.Animation;
 import com.sonicmax.bloodrogue.renderer.ui.InventoryCard;
 import com.sonicmax.bloodrogue.renderer.ui.UserInterfaceBuilder;
 import com.sonicmax.bloodrogue.renderer.text.TextColours;
+import com.sonicmax.bloodrogue.utils.Array2DHelper;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 import com.sonicmax.bloodrogue.renderer.text.Status;
 import com.sonicmax.bloodrogue.renderer.text.TextObject;
@@ -41,9 +43,13 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     private final String LOG_TAG = this.getClass().getSimpleName();
     private final int SPRITE_SIZE = 64;
-    private final int NONE = 0;
-    private final int SPLASH = 1;
-    private final int GAME = 2;
+
+    public static final int NONE = 0; // Rendering nothing
+    public static final int TITLE = 1; // Rendering title screen
+    public static final int MENU = 2; // Rendering main menu
+    public static final int SPLASH = 3; // Rendering splash screen, waiting for operation to finish
+    public static final int GAME = 4; // Rendering game content
+
     private final long FRAME_TIME = 16L;
 
     private Context context;
@@ -54,8 +60,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private Frame currentFloorData;
     private Frame updatedFloorData;
     private ArrayList<Vector> currentPathSelection;
-    private int scrollOffsetX;
-    private int scrollOffsetY;
     private double[][] fieldOfVision;
     private boolean[][] visitedTiles;
     private ArrayList<Sprite> movingSprites;
@@ -103,6 +107,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private int mapGridHeight;
     private int visibleGridWidth;
     private int visibleGridHeight;
+    private float refreshRate;
     private float targetUiWidth = 448f;
     private float targetWidth = 640f; // This should be multiple of 64
 
@@ -122,6 +127,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private float uiGridSize;
     private int uiGridWidth;
     private int uiGridHeight;
+
+    private float[] upperWorldBounds;
 
     // Scrolling
     private float touchScrollDx = 0f;
@@ -147,15 +154,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private Experience experience;
 
     // Inventory data
-    private float inventoryLeft;
-    private float inventoryRight;
     private boolean inventorySelection;
     private InventoryCard inventoryCard;
-    private String itemDetailName;
-    private String itemDetailDescription;
-    private String itemDetailAttribs;
-    private String itemDetailWeight;
-    private ArrayList<String> itemDescriptionLines;
 
     // State handlers
     private boolean hasResources;
@@ -185,7 +185,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         narrations = new ArrayList<>();
         statuses = new ArrayList<>();
-        itemDescriptionLines = new ArrayList<>();
         queuedNarrations = new ArrayList<>();
         queuedStatuses = new ArrayList<>();
         movingSprites = new ArrayList<>();
@@ -199,14 +198,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         halfSecPassed = false;
 
         INSTANCE = this;
-    }
 
-    public static GameRenderer getInstance() {
-        if (INSTANCE == null) {
-            Log.w(GameRenderer.class.getSimpleName(), "No instance of GameRenderer to return");
-        }
-
-        return INSTANCE;
+        refreshRate = ((WindowManager) context.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay().getRefreshRate();
+        Log.v(LOG_TAG, "refresh rate = " + refreshRate);
     }
 
     @Override
@@ -219,45 +213,52 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         imageLoader = new ImageLoader();
         prepareGLSurface();
 
-        // Todo: display splash screen
-
-        renderState = SPLASH;
-
+        renderState = TITLE;
         prepareResources();
-
-        renderState = GAME;
     }
 
     @Override
     public void onDrawFrame(GL10 unused) {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
 
-        if (renderState == NONE) {
-            renderTransition();
-        }
+        switch (renderState) {
+            case NONE:
+                addSplashText("Render state = NONE");
+                break;
 
-        else if (renderState == SPLASH) {
-            renderTransition();
-        }
+            case TITLE:
+                addSplashText("Loading textures...");
+                break;
 
-        else if (hasResources && renderState == GAME) {
-            endTime = System.currentTimeMillis();
+            case MENU:
+                addSplashText("Touch to start");
+                break;
 
-            long dt = endTime - startTime;
+            case SPLASH:
+                renderTransition();
+                addSplashText("Generating terrain...");
+                break;
 
-            // Lazy fix for first call of onDrawFrame (where startTime == 0)
-            if (dt > 100000) {
-                dt = FRAME_TIME;
-            }
+            case GAME:
+                if (hasResources) {
+                    endTime = System.currentTimeMillis();
 
-            startTime = endTime;
+                    long dt = endTime - startTime;
 
-            checkElapsedTime(dt);
-            renderVisibleTiles(dt);
+                    // Lazy fix for first call of onDrawFrame (where startTime == 0)
+                    if (dt > 100000) {
+                        dt = FRAME_TIME;
+                    }
+
+                    startTime = endTime;
+
+                    checkElapsedTime(dt);
+                    renderVisibleTiles(dt);
+                }
+
+                break;
         }
     }
-
-    private int viewPort;
 
     @Override
     public void onSurfaceChanged(GL10 unused, int width, int height) {
@@ -271,15 +272,60 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         setupMatrixes();
         calculateUiGrid();
         calculateContentGrid();
+        setUpperWorldBounds();
         setGridChunkToRender();
     }
 
     /*
-    ---------------------------------------------
-      Resource loading and preparation
-    ---------------------------------------------
+    ------------------------------------------------------------------------------------------
+    Getters and setters
+    ------------------------------------------------------------------------------------------
     */
 
+    public static GameRenderer getInstance() {
+        if (INSTANCE == null) {
+            Log.w(GameRenderer.class.getSimpleName(), "No instance of GameRenderer to return");
+        }
+
+        return INSTANCE;
+    }
+
+    public void setFrame(Frame floorData) {
+        if (currentFloorData == null) {
+            currentFloorData = floorData;
+        }
+        else {
+            updatedFloorData = floorData;
+        }
+    }
+
+    public void setHasGameData() {
+        hasResources = true;
+        renderState = GAME;
+    }
+
+    public void setCurrentPathSelection(ArrayList<Vector> path) {
+        this.currentPathSelection = path;
+    }
+
+    public void setMapSize(int[] size) {
+        mapGridWidth = size[0];
+        mapGridHeight = size[1];
+    }
+
+    public void setRenderState(int state) {
+        renderState = state;
+    }
+
+    public int getRenderState() {
+        return renderState;
+    }
+
+    /*
+    ------------------------------------------------------------------------------------------
+    Resource loading and renderer preparation
+    ------------------------------------------------------------------------------------------
+    */
 
     private void prepareResources() {
         imageLoader.loadImagesFromDisk(gameInterface.getAssets());
@@ -291,6 +337,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         setupMatrixes();
         calculateUiGrid();
         calculateContentGrid();
+        setUpperWorldBounds();
         setGridChunkToRender();
 
         uiBuilder = new UserInterfaceBuilder(spriteIndexes, uiGridWidth, uiGridHeight);
@@ -312,36 +359,39 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         GLES20.glEnable(GLES20.GL_BLEND);
         GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA);
 
+        // Todo: I guess we don't need depth testing but this doesn't seem to make any difference?
+        GLES20.glDisable(GLES20.GL_DEPTH_TEST);
+
         // We can cull the back faces
         GLES20.glEnable(GL10.GL_CULL_FACE);
         GLES20.glCullFace(GL10.GL_BACK);
 
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
-        // GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
-        // GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST);
+
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST);
     }
 
+    private SpriteRenderer backgroundLayer;
+
     private void prepareSpriteRenderer() {
+        backgroundLayer = new SpriteRenderer();
+        backgroundLayer.initShader(spriteShaderProgram);
+        backgroundLayer.setSpriteSheet(textureHandles.get("sprite_sheets/sheet.png"));
+        backgroundLayer.setUniformScale(scaleFactor);
+        backgroundLayer.precalculatePositions(mapGridWidth, mapGridHeight);
+        backgroundLayer.precalculateUv(spriteIndexes.size());
+
         spriteRenderer = new SpriteRenderer();
         spriteRenderer.initShader(spriteShaderProgram);
-        spriteRenderer.setSpriteSheetHandle(textureHandles.get("sprite_sheets/sheet.png"));
+        spriteRenderer.setSpriteSheet(textureHandles.get("sprite_sheets/sheet.png"));
         spriteRenderer.setUniformScale(scaleFactor);
         spriteRenderer.precalculatePositions(mapGridWidth, mapGridHeight);
         spriteRenderer.precalculateUv(spriteIndexes.size());
     }
 
-    private WaveEffectSpriteRenderer baseLiquidLayer;
-
     private void prepareWaveRenderers() {
-        baseLiquidLayer = new WaveEffectSpriteRenderer();
-        baseLiquidLayer.setWaveShader(waveShaderProgram);
-        baseLiquidLayer.setShaderVariableLocations();
-        baseLiquidLayer.setSpriteSheetHandle(textureHandles.get("sprite_sheets/sheet.png"));
-        baseLiquidLayer.setUniformScale(scaleFactor);
-        baseLiquidLayer.precalculatePositions(mapGridWidth, mapGridHeight);
-        baseLiquidLayer.precalculateUv(spriteIndexes.size());
-
         waveRenderer = new WaveEffectSpriteRenderer();
         waveRenderer.setWaveShader(waveShaderProgram);
         waveRenderer.setShaderVariableLocations();
@@ -354,7 +404,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private void prepareTextRenderer() {
         // Create our text manager
         textRenderer = new TextRenderer();
-        textRenderer.setShaderProgramHandle(spriteShaderProgram);
+        textRenderer.initShader(spriteShaderProgram);
         textRenderer.setTextureHandle(textureHandles.get("fonts/ccra_font.png"));
         textRenderer.setUniformscale(uiScaleFactor);
         textRenderer.precalculateUv();
@@ -376,7 +426,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private void prepareUiRenderer() {
         uiRenderer = new SpriteRenderer();
         uiRenderer.initShader(spriteShaderProgram);
-        uiRenderer.setSpriteSheetHandle(textureHandles.get("sprite_sheets/sheet.png"));
+        uiRenderer.setSpriteSheet(textureHandles.get("sprite_sheets/sheet.png"));
         uiRenderer.setUniformScale(uiScaleFactor);
         uiRenderer.precalculatePositions(uiGridWidth, uiGridHeight);
         uiRenderer.precalculateUv(spriteIndexes.size());
@@ -385,7 +435,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private void prepareUiTextRenderer() {
         // Create our text manager
         uiTextRenderer = new TextRenderer();
-        uiTextRenderer.setShaderProgramHandle(spriteShaderProgram);
+        uiTextRenderer.initShader(spriteShaderProgram);
         uiTextRenderer.setTextureHandle(textureHandles.get("fonts/ccra_font.png"));
         uiTextRenderer.setUniformscale(uiScaleFactor);
         uiTextRenderer.setTextSize(32f);
@@ -395,9 +445,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     /*
-    ---------------------------------------------
-      Scaling and scrolling
-    ---------------------------------------------
+    ------------------------------------------------------------------------------------------
+    Scaling and scrolling
+    ------------------------------------------------------------------------------------------
     */
 
     private void setupMatrixes() {
@@ -508,52 +558,18 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         visibleGridHeight = (int) yInterval;
     }
 
-    private void calculateScrollOffset() {
-        scrollOffsetX = position.x - (visibleGridWidth / 2);
-        scrollOffsetY = position.y - (visibleGridHeight / 2);
-    }
-
-    public void setTouchScrollCoords(float dx, float dy) {
-        // Note: Y coord of touch event has opposite origin to grid
-        this.touchScrollDx += dx;
-        this.touchScrollDy -= dy;
-
-        if (this.touchScrollDx < 0) {
-            this.touchScrollDx = 0;
-        }
-        if (this.touchScrollDy < 0) {
-            this.touchScrollDy = 0;
-        }
-
-        float rightBound = (mapGridWidth / fullChunkWidth) * screenWidth;
-        float topBound = (mapGridHeight / fullChunkHeight) * screenHeight;
-
-        if (this.touchScrollDx > topBound) {
-            this.touchScrollDx = topBound;
-        }
-
-        if (this.touchScrollDy > rightBound) {
-            this.touchScrollDy = rightBound;
-        }
-    }
-
     /*
-    ---------------------------------------------
-      Rendering
-    ---------------------------------------------
+    ------------------------------------------------------------------------------------------
+      Game rendering
+    ------------------------------------------------------------------------------------------
     */
 
-    private void setPlayerComponents() {
-        Component[] player = currentFloorData.getPlayer();
-        // These array positions should be static and can be double-checked in PlayerFactory class
-        position = (Position) player[0];
-        vitality = (Vitality) player[7];
-        experience = (Experience) player[5];
-        inventory = (Container) player[12];
-        equipment = (Dexterity) player[13];
-
-        uiBuilder.setPlayerComponents(inventory, equipment);
-    }
+    /**
+     * The main rendering method for game content. Decides which portion of the grid needs to be rendered
+     * and passes data to the various renderer instances.
+     *
+     * @param dt Time since last frame in ms
+     */
 
     private void renderVisibleTiles(float dt) {
         if (!isRendering) {
@@ -565,9 +581,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 centreAtPlayerPos();
                 fieldOfVision = currentFloorData.getFov();
                 visitedTiles = currentFloorData.getVisitedTiles();
-                calculateScrollOffset();
                 translateScrollMatrix();
-                cachedTerrain = cacheTerrainSprites();
+                cacheTerrainSprites();
 
                 float left[] = getRenderCoordsForObject(new Vector(1, 0), false);
                 float right[] = getRenderCoordsForObject(new Vector(visibleGridWidth - 1, 0), false);
@@ -581,14 +596,13 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 currentFloorData = updatedFloorData;
                 fieldOfVision = currentFloorData.getFov();
                 visitedTiles = currentFloorData.getVisitedTiles();
-                calculateScrollOffset();
             }
 
             setGridChunkToRender();
             buildUiTextObjects();
             initArrays();
 
-            addSprites();
+            addSpriteDataToRenderer();
             addUiLayer();
             addUiTextLayer();
 
@@ -596,7 +610,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             // Otherwise you may see drift between layers
             translateScrollMatrix();
 
-            waveRenderer.renderWaveEffect(scrollMatrix, dt);
+            backgroundLayer.renderSprites(scrollMatrix);
+            waveRenderer.renderWaveEffect(scrollMatrix, dt, elapsedTimeSeconds);
             spriteRenderer.renderSprites(scrollMatrix);
             textRenderer.renderText(uiMatrix);
             uiRenderer.renderSprites(uiMatrix);
@@ -615,20 +630,37 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
     }
 
+    private void setGridChunkToRender() {
+        float[] origin = transformCoordsToWorld(0, 0);
+
+        float spriteSize = SPRITE_SIZE * scaleFactor;
+
+        int originX = (int) (origin[0] / spriteSize);
+        int originY = (int) (origin[1] / spriteSize);
+
+        // Use slightly larger chunk of grid than is actually visible, without exceeding bounds of map
+        chunkStartX = Math.max(originX - 1, 0);
+        chunkStartY = Math.max(originY - 1, 0);
+        chunkEndX = Math.min(originX + visibleGridWidth + 2, mapGridWidth);
+        chunkEndY = Math.min(originY + visibleGridHeight + 2, mapGridHeight);
+
+        // For some methods we need to retain the total visible chunk
+        fullChunkWidth = (originX + visibleGridWidth + 2) - (originX - 1);
+        fullChunkHeight = (originY + visibleGridHeight + 2) - (originY - 1);
+    }
+
+    /**
+     * Renderers use primitive float arrays to store data, so we need to reinitialise these on each
+     * frame to make sure we don't run out of room
+     */
+
     private void initArrays() {
-        // Get total sprite count and pass to renderer so we can init arrays used to store rendering data
+        backgroundLayer.resetInternalCount();
         spriteRenderer.resetInternalCount();
         waveRenderer.resetInternalCount();
         textRenderer.initArrays(countTextObjects() * 2);
         uiRenderer.resetInternalCount();
         uiTextRenderer.initArrays(countTextObjects());
-    }
-
-    private void translateScrollMatrix() {
-        Matrix.translateM(
-                scrollMatrix, 0,
-                mvpMatrix, 0,
-                -touchScrollDx, -touchScrollDy, 0f);
     }
 
     public void fadeOutAndDisplaySplash() {
@@ -685,7 +717,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
      */
 
     public void startNewFloor() {
-        // Todo: this is... not great...
         while (currentTransitionAlpha < 1f) {
             // Wait for transition to finish.
             try {
@@ -707,63 +738,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         if (updatedFloorData != null) {
             currentFloorData = updatedFloorData;
             fieldOfVision = currentFloorData.getFov();
-            calculateScrollOffset();
         }
 
         // Switch renderState so renderVisibleTiles() is called next frame
         renderState = GAME;
-    }
-
-    /**
-     *  Counts number of spriteHandles used to render UI and returns total as int.
-     */
-
-    private int countUiSprites() {
-        int windowSize = visibleGridWidth * visibleGridHeight;
-        int inventoryCount = ((Container) currentFloorData.getPlayer()[12]).contents.size();
-        int iconCount = 1;
-        return windowSize + inventoryCount + iconCount;
-    }
-
-    /**
-     * Counts number of characters in each TextObject and returns combined total.
-     * We count individual latters as they are rendered 1 sprite per letter
-     */
-
-    private void buildUiTextObjects() {
-        hp = "HP: " + vitality.hp;
-        xp = "XP: " + experience.xp;
-        floor = "(" + ((int) touchScrollDx) + ", " + ((int) touchScrollDy) + ")";
-        fps = fpsCount + " fps";
-
-        if (inventorySelection && inventoryCard != null) {
-            uiBuilder.processInventoryCard(inventoryCard, textRenderer);
-        }
-
-        else {
-            uiBuilder.clearInventoryCard();
-
-        }
-    }
-
-    private int countTextObjects() {
-        int narrationSize = 0;
-        int statusSize = 0;
-        int uiText = 0;
-
-        uiText += hp.length() + xp.length() + + floor.length() + fps.length();
-
-        int size = narrations.size();
-        for (int i = 0; i < size; i++) {
-            narrationSize += narrations.get(i).text.length();
-        }
-
-        size = statuses.size();
-        for (int i = 0; i < size; i++) {
-            statusSize += statuses.get(i).text.length();
-        }
-
-        return narrationSize + statusSize + uiText + uiBuilder.getDetailTextSize() * 2;
     }
 
     /**
@@ -773,109 +751,136 @@ public class GameRenderer implements GLSurfaceView.Renderer {
      * @return 2d array containing terrain sprite index for each cell
      */
 
-    private int[][] cacheTerrainSprites() {
+    private int[][] cachedBackground;
+    private int[][] cachedTerrainLiquids;
+
+    private void cacheTerrainSprites() {
         Sprite[][] mapGrid = currentFloorData.getTerrain();
 
-        int[][] cached = new int[mapGridWidth][mapGridHeight];
+        cachedTerrain = Array2DHelper.fillIntArray(mapGridWidth, mapGridHeight, -1);
+        cachedBackground = Array2DHelper.fillIntArray(mapGridWidth, mapGridHeight, -1);
+        cachedTerrainLiquids = Array2DHelper.fillIntArray(mapGridWidth, mapGridHeight, -1);
 
         for (int y = 0; y < mapGridHeight; y++) {
             for (int x = 0; x < mapGridWidth; x++) {
-                cached[x][y] = spriteIndexes.get(mapGrid[x][y].path);
+                Sprite sprite = mapGrid[x][y];
+
+                if (sprite.shader == Sprite.WAVE) {
+                    // Water, lava, etc
+                    cachedTerrainLiquids[x][y] = spriteIndexes.get(sprite.path);
+                }
+
+                else {
+                    if (sprite.layer == Sprite.BACKGROUND) {
+                        cachedBackground[x][y] = spriteIndexes.get(sprite.path);
+                    }
+
+                    else {
+                        cachedTerrain[x][y] = spriteIndexes.get(sprite.path);
+                    }
+                }
             }
         }
-
-        return cached;
     }
 
-    private void addSprites() {
-        ArrayList<Sprite> objects = currentFloorData.getObjects();
+    /**
+     * Iterates over the various different collections of sprite components and adds to appropriate
+     * renderer. Sprites added first will be rendered underneath others occupying the same grid square.
+     */
+
+    private void addSpriteDataToRenderer() {
+        ArrayList<Sprite> sprites = currentFloorData.getObjects();
         ArrayList<Animation> animations = currentFloorData.getAnimations();
 
         for (int y = chunkStartY; y < chunkEndY; y++) {
             for (int x = chunkStartX; x < chunkEndX; x++) {
-                spriteRenderer.addSpriteData(x, y, cachedTerrain[x][y], (float) getLightingForGrid(x, y));
+                float lighting = (float) getLightingForGrid(x, y);
+
+                backgroundLayer.addSpriteData(x, y, cachedBackground[x][y], lighting);
+                spriteRenderer.addSpriteData(x, y, cachedTerrain[x][y], lighting);
+                waveRenderer.addSpriteData(x, y, cachedTerrainLiquids[x][y], lighting);
             }
         }
 
-        int objectSize = objects.size();
-        for (int i = 0; i < objectSize; i++) {
-            Sprite object = objects.get(i);
+        int spriteSize = sprites.size();
+        for (int i = 0; i < spriteSize; i++) {
+            Sprite sprite = sprites.get(i);
 
-            if (object.shader == Sprite.NONE) continue;
+            if (sprite.shader == Sprite.NONE) continue;
 
-            int x = object.x;
-            int y = object.y;
+            int x = sprite.x;
+            int y = sprite.y;
 
-            if (!inVisibleBounds(x, y)) continue;
+            if (notInVisibleBounds(x, y)) continue;
 
             float lighting = (float) getLightingForGrid(x, y);
 
-            if (object.spriteIndex == -1) {
-                object.spriteIndex = spriteIndexes.get(object.path);
+            if (sprite.spriteIndex == -1) {
+                sprite.spriteIndex = spriteIndexes.get(sprite.path);
             }
 
-            if (object.overlayShader != Sprite.NONE && object.overlayIndex == -1) {
-                object.overlayIndex = spriteIndexes.get(object.overlayPath);
+            if (sprite.overlayShader != Sprite.NONE && sprite.overlayIndex == -1) {
+                sprite.overlayIndex = spriteIndexes.get(sprite.overlayPath);
             }
 
-            if (object.effectShader != Sprite.NONE && object.effectIndex == -1) {
-                object.effectIndex = spriteIndexes.get(object.effectPath);
+            if (sprite.effectShader != Sprite.NONE && sprite.effectIndex == -1) {
+                sprite.effectIndex = spriteIndexes.get(sprite.effectPath);
             }
 
-            if (object.shader == Sprite.STATIC) {
+            if (sprite.shader == Sprite.STATIC) {
 
                 spriteRenderer.addSpriteData(
                         x, y,
-                        object.spriteIndex,
+                        sprite.spriteIndex,
                         lighting);
 
-                if (object.overlayShader != Sprite.NONE) {
+                if (sprite.overlayShader != Sprite.NONE) {
 
                     spriteRenderer.addSpriteData(
                             x, y,
-                            object.overlayIndex,
+                            sprite.overlayIndex,
                             lighting);
                 }
 
-                if (object.effectShader != Sprite.NONE) {
+                if (sprite.effectShader != Sprite.NONE) {
 
                     waveRenderer.addSpriteData(
                             x, y,
-                            object.overlayIndex,
+                            sprite.overlayIndex,
                             lighting);
                 }
             }
 
             else {
 
-                if (object.lastX != -1 && object.lastY != -1) {
+                if (sprite.lastX != -1 && sprite.lastY != -1) {
                     // Wait until after we've finished iterating before adding to renderer
                     // to make sure they aren't drawn underneath other sprites.
 
                     // Also note: moving objects will break wave shader, so these objects
                     // should always be rendered using basic shader
-                    movingSprites.add(object);
+                    movingSprites.add(sprite);
                 }
 
                 else {
-                    if (object.shader == Sprite.WAVE) {
+                    if (sprite.shader == Sprite.WAVE) {
                         waveRenderer.addSpriteData(
                                 x, y,
-                                object.spriteIndex,
+                                sprite.spriteIndex,
                                 lighting);
 
-                        if (object.overlayShader != Sprite.NONE) {
+                        if (sprite.overlayShader != Sprite.NONE) {
 
                             waveRenderer.addSpriteData(
                                     x, y,
-                                    object.overlayIndex,
+                                    sprite.overlayIndex,
                                     lighting);
                         }
-                        if (object.effectShader != Sprite.NONE) {
+                        if (sprite.effectShader != Sprite.NONE) {
 
                             waveRenderer.addSpriteData(
                                     x, y,
-                                    object.overlayIndex,
+                                    sprite.overlayIndex,
                                     lighting);
                         }
 
@@ -884,22 +889,22 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                     else {
                         spriteRenderer.addSpriteData(
                                 x, y,
-                                spriteIndexes.get(object.path),
+                                spriteIndexes.get(sprite.path),
                                 lighting);
 
-                        if (object.overlayShader != Sprite.NONE) {
+                        if (sprite.overlayShader != Sprite.NONE) {
 
                             spriteRenderer.addSpriteData(
                                     x, y,
-                                    spriteIndexes.get(object.overlayPath),
+                                    spriteIndexes.get(sprite.overlayPath),
                                     lighting);
                         }
 
-                        if (object.effectShader != Sprite.NONE) {
+                        if (sprite.effectShader != Sprite.NONE) {
 
                             waveRenderer.addSpriteData(
                                     x, y,
-                                    object.effectIndex,
+                                    sprite.effectIndex,
                                     lighting);
                         }
                     }
@@ -962,10 +967,36 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         screenTransitionRenderer.renderSolidColours(mvpMatrix);
     }
 
+    private void addSplashText(String text) {
+        if (!isRendering) {
+            isRendering = true;
+
+            textRenderer.initArrays(text.length() * 10);
+
+            float x = (float) screenWidth / 2;
+            float y = (float) screenHeight / 2;
+
+            x -= textRenderer.getExpectedTextWidth(text) / 2;
+
+            textRenderer.addTextData(x, y, 0f, 1f, text, TextColours.WHITE, 0f);
+
+            textRenderer.renderText(uiMatrix);
+
+            isRendering = false;
+        }
+    }
+
+    /**
+     * Translates position of moving objects from last position to target position.
+     */
+
     private void handleMovingObjects() {
         int size = movingSprites.size();
         for (int i = 0; i < size; i++) {
             Sprite sprite = movingSprites.get(i);
+
+            if (sprite.spriteIndex == -1) continue;
+
             if (sprite.lastX < 0 || sprite.lastY < 0) continue;
             float fraction = advanceMovement(sprite);
             float offsetX = (sprite.x - sprite.lastX) * fraction * scaleFactor;
@@ -1048,6 +1079,94 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
     }
 
+    public void freeBuffers() {
+        spriteRenderer.freeBuffers();
+    }
+
+    private void setPlayerComponents() {
+        Component[] player = currentFloorData.getPlayer();
+        // These array positions should be static and can be double-checked in PlayerFactory class
+        position = (Position) player[0];
+        vitality = (Vitality) player[7];
+        experience = (Experience) player[5];
+        inventory = (Container) player[12];
+        equipment = (Dexterity) player[13];
+
+        uiBuilder.setPlayerComponents(inventory, equipment);
+    }
+
+    private double getLightingForGrid(int x, int y) {
+        double fov;
+
+        // If tile is outside of FOV, only highlight if we have visited before.
+        // Otherwise tile is blind
+
+        if (fieldOfVision[x][y] == 0) {
+
+            if (visitedTiles[x][y]) {
+                fov = 0.1;
+            }
+            else {
+                fov = 0;
+            }
+        }
+
+        else {
+            fov = fieldOfVision[x][y];
+        }
+
+        return 1;
+    }
+
+    /*
+    ------------------------------------------------------------------------------------------
+    UI rendering
+    ------------------------------------------------------------------------------------------
+    */
+
+    private int countUiSprites() {
+        int windowSize = visibleGridWidth * visibleGridHeight;
+        int inventoryCount = ((Container) currentFloorData.getPlayer()[12]).contents.size();
+        int iconCount = 1;
+        return windowSize + inventoryCount + iconCount;
+    }
+
+    private void buildUiTextObjects() {
+        hp = "HP: " + vitality.hp;
+        xp = "XP: " + experience.xp;
+        floor = "(" + ((int) touchScrollDx) + ", " + ((int) touchScrollDy) + ")";
+        fps = fpsCount + " fps";
+
+        if (inventorySelection && inventoryCard != null) {
+            uiBuilder.processInventoryCard(inventoryCard, textRenderer);
+        }
+
+        else {
+            uiBuilder.clearInventoryCard();
+
+        }
+    }
+
+    private int countTextObjects() {
+        int narrationSize = 0;
+        int statusSize = 0;
+        int uiText = 0;
+
+        uiText += hp.length() + xp.length() + + floor.length() + fps.length();
+
+        int size = narrations.size();
+        for (int i = 0; i < size; i++) {
+            narrationSize += narrations.get(i).text.length();
+        }
+
+        size = statuses.size();
+        for (int i = 0; i < size; i++) {
+            statusSize += statuses.get(i).text.length();
+        }
+
+        return narrationSize + statusSize + uiText + uiBuilder.getDetailTextSize() * 2;
+    }
+
     private void addUiLayer() {
         if (currentPathSelection != null) {
             int index = spriteIndexes.get("sprites/cursor_default.png");
@@ -1111,8 +1230,24 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     /**
-     * Splits narrations into multiple lines if they exceed screen width and
+     *  Adding new text objects while renderVisibleTiles() is executing runs the risk of causing ArrayOutOfBoundsException
+     *  because float arrays in renderer won't be big enough to accomodate new objects. So we queue them and add
+     *  once the rendering has finished.
      */
+
+    public void queueNarrationUpdate(ArrayList<TextObject> narrations) {
+        this.queuedNarrations = narrations;
+    }
+
+    public void queueNewStatus(TextObject object) {
+        this.queuedStatuses.add(object);
+    }
+
+    private void addQueuedTextUpdates() {
+        this.narrations = queuedNarrations;
+        this.statuses.addAll(queuedStatuses);
+        queuedStatuses.clear();
+    }
 
     private void addNarrationsToRenderer() {
         ArrayList<String> currentNarration = new ArrayList<>();
@@ -1151,46 +1286,29 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
     }
 
-    private double getLightingForGrid(int x, int y) {
-        double fov;
-
-        // If tile is outside of FOV, only highlight if we have visited before.
-        // Otherwise tile is blind
-
-        if (fieldOfVision[x][y] == 0) {
-
-            if (visitedTiles[x][y]) {
-                fov = 0.1;
-            }
-            else {
-                fov = 0;
-            }
-        }
-
-        else {
-            fov = fieldOfVision[x][y];
-        }
-
-        return 1;
-    }
-
     /*
-    ---------------------------------------------
-      Helper methods
-    ---------------------------------------------
+    ------------------------------------------------------------------------------------------
+    Helper methods
+    ------------------------------------------------------------------------------------------
     */
 
-    private boolean inVisibleBounds(int x, int y) {
-        return (x >= chunkStartX && x <= chunkEndX)
-                && (y >= chunkStartY && y <= chunkEndY);
+    private boolean notInVisibleBounds(int x, int y) {
+        return (x < chunkStartX || x >= chunkEndX || y < chunkStartY && y >= chunkEndY);
     }
 
     private boolean inBounds(int x, int y) {
         return (x >= 0 && x < mapGridWidth && y >= 0 && y < mapGridHeight);
     }
 
+    private float elapsedTimeSeconds = 0f;
+    private float elapsedTimeMs = 0f;
+
     public void checkElapsedTime(long dt) {
         currentFrameTime += dt;
+
+        elapsedTimeSeconds += dt / 1000f;
+        elapsedTimeMs += dt;
+
         frameCount++;
 
         // We periodically want to check narrations to see if we need to remove any of them.
@@ -1214,10 +1332,17 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     /*
-    ---------------------------------------------
-      Getters and setters
-    ---------------------------------------------
+    ------------------------------------------------------------------------------------------
+    World/screen/touch coordinate transformations
+    ------------------------------------------------------------------------------------------
     */
+
+    private void translateScrollMatrix() {
+        Matrix.translateM(
+                scrollMatrix, 0,
+                mvpMatrix, 0,
+                -touchScrollDx, -touchScrollDy, 0f);
+    }
 
     public Vector getGridCellForTouchCoords(float x, float y) {
         // NOTE: Origin for touch events is top-left, so y needs to be inverted
@@ -1233,7 +1358,17 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         return new Vector((int) gridX, (int) gridY);
     }
 
-    public float[] transformCoordsToWorld(float x, float y) {
+    private void setUpperWorldBounds() {
+        float spriteSize = SPRITE_SIZE * scaleFactor;
+
+        // Get coords of uppermost corner
+        upperWorldBounds = transformWorldToCoords(mapGridWidth * spriteSize, mapGridHeight * spriteSize);
+
+        upperWorldBounds[0] -= (screenWidth + (screenWidth / 2));
+        upperWorldBounds[1] -= (screenHeight + (screenHeight / 2));
+    }
+
+    private float[] transformCoordsToWorld(float x, float y) {
         float[] coords = {0.0f, 0.0f, 0.0f, 0.0f};
 
         int[] viewPort = new int[] {0, 0, screenWidth, screenHeight};
@@ -1252,27 +1387,14 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         return coords;
     }
 
-    private void setGridChunkToRender() {
-        float[] origin = transformCoordsToWorld(0, 0);
+    private float[] transformWorldToCoords(float x, float y) {
+        float[] coords = {0.0f, 0.0f, 0.0f, 0.0f};
 
-        float spriteSize = SPRITE_SIZE * scaleFactor;
+        int[] viewPort = new int[] {0, 0, screenWidth, screenHeight};
 
-        int originX = (int) (origin[0] / spriteSize);
-        int originY = (int) (origin[1] / spriteSize);
+        GLU.gluProject(x, y, -1.0f, modelViewMatrix, 0, projMatrix, 0, viewPort, 0, coords, 0);
 
-        // Use slightly larger chunk of grid than is actually visible, without exceeding bounds of map
-        chunkStartX = Math.max(originX - 1, 0);
-        chunkStartY = Math.max(originY - 1, 0);
-        chunkEndX = Math.min(originX + visibleGridWidth + 2, mapGridWidth);
-        chunkEndY = Math.min(originY + visibleGridHeight + 2, mapGridHeight);
-
-        // For some methods we need to retain the total visible chunk
-        fullChunkWidth = (originX + visibleGridWidth + 2) - (originX - 1);
-        fullChunkHeight = (originY + visibleGridHeight + 2) - (originY - 1);
-    }
-
-    public int[] getChunkSize() {
-        return new int[] {chunkStartX, chunkStartY, chunkEndX, chunkEndY};
+        return coords;
     }
 
     public float[] getRenderCoordsForObject(Vector objectPos, boolean withScroll) {
@@ -1295,58 +1417,34 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         return new float[] {x, y};
     }
 
-    public void setFrame(Frame floorData) {
-        if (currentFloorData == null) {
-            currentFloorData = floorData;
+    /*
+    ------------------------------------------------------------------------------------------
+    User input
+
+        Occasionally we need to pass user input to the renderer to either directly modify state
+        (eg. after scroll or scale gesture) or to get grid position of touch event.
+    ------------------------------------------------------------------------------------------
+    */
+
+    public void setTouchScrollCoords(float dx, float dy) {
+        // Note: Y coord of touch event has opposite origin to grid
+        this.touchScrollDx += dx;
+        this.touchScrollDy -= dy;
+
+        if (this.touchScrollDx < 0) {
+            this.touchScrollDx = 0;
         }
-        else {
-            updatedFloorData = floorData;
+        if (this.touchScrollDy < 0) {
+            this.touchScrollDy = 0;
         }
-    }
 
-    public void startZoom(ScaleGestureDetector detector) {}
+        if (this.touchScrollDx > upperWorldBounds[0]) {
+            // this.touchScrollDx = upperWorldBounds[0];
+        }
 
-    public void setZoom(float zoomLevel) {
-        this.zoomLevel = zoomLevel;
-
-        setupMatrixes();
-        calculateContentGrid();
-        setGridChunkToRender();
-    }
-
-    public void endZoom() {}
-
-    public void setHasGameData() {
-        hasResources = true;
-    }
-
-    public void setCurrentPathSelection(ArrayList<Vector> path) {
-        this.currentPathSelection = path;
-    }
-
-    public void setMapSize(int[] size) {
-        mapGridWidth = size[0];
-        mapGridHeight = size[1];
-    }
-
-    /**
-     *  Adding new text objects while renderVisibleTiles() is executing runs the risk of causing ArrayOutOfBoundsException
-     *  because float arrays in renderer won't be big enough to accomodate new objects. So we queue them and add
-     *  once the rendering has finished.
-     */
-
-    public void queueNarrationUpdate(ArrayList<TextObject> narrations) {
-        this.queuedNarrations = narrations;
-    }
-
-    public void queueNewStatus(TextObject object) {
-        this.queuedStatuses.add(object);
-    }
-
-    private void addQueuedTextUpdates() {
-        this.narrations = queuedNarrations;
-        this.statuses.addAll(queuedStatuses);
-        queuedStatuses.clear();
+        if (this.touchScrollDy > upperWorldBounds[1]) {
+            // this.touchScrollDy = upperWorldBounds[1];
+        }
     }
 
     public boolean checkUiTouch(float x, float y) {
@@ -1420,4 +1518,17 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         return false;
     }
+
+    public void startZoom(ScaleGestureDetector detector) {}
+
+    public void setZoom(float zoomLevel) {
+        this.zoomLevel = zoomLevel;
+
+        setupMatrixes();
+        calculateContentGrid();
+        setUpperWorldBounds();
+        setGridChunkToRender();
+    }
+
+    public void endZoom() {}
 }

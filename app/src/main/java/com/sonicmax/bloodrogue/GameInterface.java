@@ -3,10 +3,13 @@ package com.sonicmax.bloodrogue;
 import android.content.Context;
 import android.content.res.AssetManager;
 import android.os.AsyncTask;
+import android.os.Handler;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 
+import com.sonicmax.bloodrogue.audio.MusicFilePaths;
+import com.sonicmax.bloodrogue.audio.AudioPlayer;
 import com.sonicmax.bloodrogue.engine.GameEngine;
 import com.sonicmax.bloodrogue.engine.GameState;
 import com.sonicmax.bloodrogue.engine.components.Position;
@@ -32,6 +35,7 @@ import java.util.ArrayList;
 public class GameInterface {
     private final String LOG_TAG = this.getClass().getSimpleName();
     private Context context;
+    private AudioPlayer audioPlayer;
     private GameRenderer gameRenderer;
     private GameEngine gameEngine;
     private NarrationManager narrationManager;
@@ -43,6 +47,12 @@ public class GameInterface {
     private float lastTouchY;
     private float scaleFactor;
     private boolean pathSelection;
+
+    // Game state
+    private boolean waitingForMenuInput;
+    private boolean inGame;
+
+    private Handler handler;
 
     private boolean startFresh = true; // This is just for debugging lol
 
@@ -62,31 +72,63 @@ public class GameInterface {
         this.pathSelection = false;
         this.lastMapTouch = null;
         this.scaleFactor = 1f;
+
+        this.waitingForMenuInput = false;
+        this.inGame = false;
+
+        this.handler = new Handler();
     }
 
-    public GameRenderer getRenderer() {
-        return this.gameRenderer;
+    public void showTitle() {
+        audioPlayer.startMusicLoop(MusicFilePaths.TRACK_02);
+
+        gameRenderer.setRenderState(GameRenderer.TITLE);
+
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                openMainMenu();
+            }
+        }, 2000);
+    }
+
+    public void openMainMenu() {
+        gameRenderer.setRenderState(GameRenderer.MENU);
+
+        waitingForMenuInput = true;
+    }
+
+    public void handleMenuInput() {
+        gameRenderer.setRenderState(GameRenderer.SPLASH);
+
+        // Note: startGame() is an expensive method call and should be executed in background thread
+
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                startGame();
+                audioPlayer.startNewMusicLoop(MusicFilePaths.TRACK_01);
+                passDataToRenderer();
+                transitionToNewContent();
+                inGame = true;
+            }
+        });
     }
 
     public AssetManager getAssets() {
         return context.getAssets();
     }
 
-    /**
-     * Initialises game state and passes result to renderer.
-     */
-
-    public void initState() {
+    public void startGame() {
         GameState state = loadState();
+
         if (state == null || startFresh) {
             Log.v(LOG_TAG, "Load failed or no save state exists");
             gameEngine.startNewGame();
-            passDataToRenderer();
         }
         else {
             Log.v(LOG_TAG, "Load successful");
             gameEngine.restoreGameState(state);
-            passDataToRenderer();
         }
     }
 
@@ -204,7 +246,7 @@ public class GameInterface {
                 break;
 
             case MotionEvent.ACTION_UP:
-                if (inputLock) break; // TODO: does this break anything?
+                if (inputLock) break;
                 handleTouchUp(x, y, eventDuration);
                 break;
         }
@@ -221,15 +263,20 @@ public class GameInterface {
      */
 
     private void handleTouchDown(float x, float y) {
-        Vector mapTouch = gameRenderer.getGridCellForTouchCoords(x, y);
+        if (inGame) {
+            Vector mapTouch = gameRenderer.getGridCellForTouchCoords(x, y);
 
-        lastTouchX = x;
-        lastTouchY = y;
+            lastTouchX = x;
+            lastTouchY = y;
 
-        if (!inputLock && mapTouch.equals(gameEngine.getPlayerVector())) {
-            // Start path selection
-            lastMapTouch = mapTouch;
-            pathSelection = true;
+            if (!inputLock && mapTouch.equals(gameEngine.getPlayerVector())) {
+                // Start path selection
+                lastMapTouch = mapTouch;
+                pathSelection = true;
+            }
+        }
+        else {
+
         }
     }
 
@@ -242,31 +289,37 @@ public class GameInterface {
      */
 
     private void handleTouchMove(float x, float y, long duration) {
-        final long SCROLL_THRESHOLD = 100L;  // Number of milliseconds to wait before scrolling
+        if (inGame) {
+            final long SCROLL_THRESHOLD = 100L;  // Number of milliseconds to wait before scrolling
 
-        // If player is currently selecting a path, we should update the path destination with current position
-        if (!inputLock && pathSelection) {
-            Vector mapTouch = gameRenderer.getGridCellForTouchCoords(x, y);
+            // If player is currently selecting a path, we should update the path destination with current position
+            if (!inputLock && pathSelection) {
+                Vector mapTouch = gameRenderer.getGridCellForTouchCoords(x, y);
 
-            if (!mapTouch.equals(lastMapTouch)) {
-                gameEngine.setPathDestination(mapTouch);
-                ArrayList<Vector> path = gameEngine.onTouchPathComplete();
-                path.add(mapTouch);
-                gameRenderer.setCurrentPathSelection(path);
+                if (!mapTouch.equals(lastMapTouch)) {
+                    gameEngine.setPathDestination(mapTouch);
+                    ArrayList<Vector> path = gameEngine.onTouchPathComplete();
+                    path.add(mapTouch);
+                    gameRenderer.setCurrentPathSelection(path);
+                }
+            }
+
+            // If player isn't selecting a path, we should wait for at least 50ms before scrolling (otherwise
+            // you get jerky screen movement when tapping squares to move player/attack enemies/etc)
+            else if (duration > SCROLL_THRESHOLD) {
+                float dx = lastTouchX - x;
+                float dy = lastTouchY - y;
+
+                gameRenderer.setTouchScrollCoords(dx, dy);
+
+                lastTouchX = x;
+                lastTouchY = y;
+                lastMapTouch = null;
             }
         }
 
-        // If player isn't selecting a path, we should wait for at least 50ms before scrolling (otherwise
-        // you get jerky screen movement when tapping squares to move player/attack enemies/etc)
-        else if (duration > SCROLL_THRESHOLD) {
-            float dx = lastTouchX - x;
-            float dy = lastTouchY - y;
+        else {
 
-            gameRenderer.setTouchScrollCoords(dx, dy);
-
-            lastTouchX = x;
-            lastTouchY = y;
-            lastMapTouch = null;
         }
     }
 
@@ -281,31 +334,30 @@ public class GameInterface {
      */
 
     private void handleTouchUp(float x, float y, long eventDuration) {
-        final long PATH_THRESHOLD = 500L; // Amount of time before we start displaying path selection nodes
-        final Vector mapTouch = gameRenderer.getGridCellForTouchCoords(x, y);
+        if (inGame) {
+            final long PATH_THRESHOLD = 500L; // Amount of time before we start displaying path selection nodes
+            final Vector mapTouch = gameRenderer.getGridCellForTouchCoords(x, y);
 
-        // Reset path selection and scrolling.
-        gameRenderer.setCurrentPathSelection(null);
-        pathSelection = false;
+            // Reset path selection and scrolling.
+            gameRenderer.setCurrentPathSelection(null);
+            pathSelection = false;
 
-        if (eventDuration < PATH_THRESHOLD) {
-            // First, check whether player touched a UI element.
-            boolean touchCaptured = gameRenderer.checkUiTouch(x, y);
+            if (eventDuration < PATH_THRESHOLD) {
+                // First, check whether player touched a UI element.
+                boolean touchCaptured = gameRenderer.checkUiTouch(x, y);
 
-            // If touch event wasn't consumed by renderer, pass to engine
-            if (!touchCaptured) {
-                AsyncTask.execute(new Runnable() {
-                    @Override
-                    public void run() {
-                        gameEngine.checkUserInput(mapTouch);
-                    }
-                });
-            }
-        }
-
-        else {
-            final ArrayList<Vector> path = gameEngine.onTouchPathComplete();
-            // Todo: if square is adjacent then we should just move to it
+                // If touch event wasn't consumed by renderer, pass to engine
+                if (!touchCaptured) {
+                    AsyncTask.execute(new Runnable() {
+                        @Override
+                        public void run() {
+                            gameEngine.checkUserInput(mapTouch);
+                        }
+                    });
+                }
+            } else {
+                final ArrayList<Vector> path = gameEngine.onTouchPathComplete();
+                // Todo: if square is adjacent then we should just move to it
                     /*if (path.size() > 0) {
                         path.add(mapTouch);
 
@@ -317,6 +369,13 @@ public class GameInterface {
                             }
                         });
                     }*/
+            }
+        }
+
+        else {
+            if (waitingForMenuInput) {
+                handleMenuInput();
+            }
         }
     }
 
@@ -391,12 +450,16 @@ public class GameInterface {
         gameRenderer.queueNewStatus(status);
     }
 
-    public void initFloorChange() {
+    public void startFloorChange() {
         gameRenderer.fadeOutAndDisplaySplash();
         narrationManager.clearAll();
     }
 
     public void transitionToNewContent() {
         gameRenderer.startNewFloor();
+    }
+
+    public void freeResources() {
+        gameRenderer.freeBuffers();
     }
 }
