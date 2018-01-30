@@ -10,14 +10,13 @@ import android.util.Log;
 import android.util.SparseBooleanArray;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 
 /**
  * Class which handles audio loading and playback. SoundPool is used to load and play sound effects.
- * MediaPlayer is used for background music due to the file size limit of SoundPool. loadSounds() will
- * automatically skip any files > 1MB.
+ * MediaPlayer instances (via LoopingMusicPlayer) are used for background music due to the
+ * file size limit of SoundPool.
  */
 
 public class AudioPlayer {
@@ -26,8 +25,6 @@ public class AudioPlayer {
     private final int SOUNDPOOL_LIMIT = 1000000;
     private final int PLAY_ONCE = 0;
     private final int LOOP_FOREVER = -1;
-    private final String FX_PATH = "fx/";
-    private final String MUSIC_PATH = "music/";
 
     private SoundPool soundPool;
     private LoopingMusicPlayer loopingMediaPlayer;
@@ -41,16 +38,10 @@ public class AudioPlayer {
     private long loadStartTime;
     private boolean finishedLoading;
 
-    // Variables for MediaPlayer
-    private String currentlyPlaying;
-    private ArrayList<String> mediaPlayerQueue;
-    private boolean shouldLoop;
-
     public AudioPlayer(Context context) {
         this.context = context;
         this.soundPoolResources = new HashMap<>();
         this.resourceLoadStatus = new SparseBooleanArray();
-        this.mediaPlayerQueue = new ArrayList<>();
 
         createSoundPool();
 
@@ -59,9 +50,7 @@ public class AudioPlayer {
     }
 
     private void createSoundPool() {
-        Log.v(LOG_TAG, "why " + Build.VERSION.SDK_INT);
         if (Build.VERSION.SDK_INT >= 21) {
-            Log.v(LOG_TAG, "why are we in here " + Build.VERSION.SDK_INT);
             soundPool = new SoundPool.Builder().build();
         }
         else {
@@ -101,31 +90,31 @@ public class AudioPlayer {
     }
 
     private void loadSounds() {
+        final String FX_PATH = "fx/";
+
         loadStartTime = System.nanoTime();
 
         AssetManager assetManager = context.getAssets();
         try {
-            String[] audioFiles = assetManager.list("ogg");
+            String[] audioFiles = assetManager.list("fx");
 
             for (String file : audioFiles) {
-                Log.d(LOG_TAG, "Loading " + file);
                 pendingLoads++;
                 AssetFileDescriptor afd = assetManager.openFd(FX_PATH + file);
 
-                // Todo: maybe it would be better to have separate folder for sound effects.
-
                 if (afd.getLength() < SOUNDPOOL_LIMIT) {
-                    Log.v(LOG_TAG, "Using SoundPool");
                     int handle = soundPool.load(afd, 1);
                     soundPoolResources.put(file, handle);
                     resourceLoadStatus.put(handle, false);
                 }
+
                 else {
-                    Log.e(LOG_TAG, "skipping " + file + ": too big (" + afd.getLength() + " bytes)");
+                    Log.w(LOG_TAG, "Skipping \"" + file + "\": too big (" + afd.getLength() + " bytes)");
                 }
 
                 afd.close();
             }
+
         } catch (IOException e) {
             Log.e(LOG_TAG, "Error loading audio", e);
         }
