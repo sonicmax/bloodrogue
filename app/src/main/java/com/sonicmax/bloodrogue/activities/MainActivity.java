@@ -3,6 +3,8 @@ package com.sonicmax.bloodrogue.activities;
 import android.media.AudioManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.telephony.PhoneStateListener;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
@@ -30,6 +32,13 @@ public class MainActivity extends AppCompatActivity {
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
+        // Listen for phone state changes
+        /*TelephonyManager mgr = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
+
+        if (mgr != null) {
+            mgr.listen(phoneStateListener, PhoneStateListener.LISTEN_CALL_STATE);
+        }*/
+
         // GameInterface initialises all the required components. Once we've set the content view
         // we can generate game data (or load from disk) and start accepting player input.
 
@@ -56,17 +65,14 @@ public class MainActivity extends AppCompatActivity {
         super.onPause();
         gameSurfaceView.onPause();
         gameInterface.saveState();
+        gameInterface.haltAudio();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        Log.v(LOG_TAG, "onDestroy");
+        gameInterface.haltAudio();
         gameInterface.freeResources();
-    }
-
-    private void initInputSurfaces() {
-        scaleDetector = new ScaleGestureDetector(this, new ScaleListener());
     }
 
     @Override
@@ -78,6 +84,20 @@ public class MainActivity extends AppCompatActivity {
         else {
             return gameInterface.handleTouchEvent(e);
         }
+    }
+
+    @Override
+    public boolean onKeyDown(int keycode, KeyEvent e) {
+        switch(keycode) {
+            case KeyEvent.KEYCODE_MENU:
+                return true;
+        }
+
+        return super.onKeyDown(keycode, e);
+    }
+
+    private void initInputSurfaces() {
+        scaleDetector = new ScaleGestureDetector(this, new ScaleListener());
     }
 
     private class ScaleListener
@@ -99,15 +119,24 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    @Override
-    public boolean onKeyDown(int keycode, KeyEvent e) {
-        switch(keycode) {
-            case KeyEvent.KEYCODE_MENU:
-                return true;
-        }
 
-        return super.onKeyDown(keycode, e);
-    }
+    private PhoneStateListener phoneStateListener = new PhoneStateListener() {
+        @Override
+        public void onCallStateChanged(int state, String incomingNumber) {
+            switch (state) {
+                case TelephonyManager.CALL_STATE_RINGING:
+                    break;
+
+                case TelephonyManager.CALL_STATE_OFFHOOK:
+                    break;
+
+                case TelephonyManager.CALL_STATE_IDLE:
+                    break;
+            }
+
+            super.onCallStateChanged(state, incomingNumber);
+        }
+    };
 
     private Thread.UncaughtExceptionHandler mCaughtExceptionHandler = new Thread.UncaughtExceptionHandler() {
         @Override

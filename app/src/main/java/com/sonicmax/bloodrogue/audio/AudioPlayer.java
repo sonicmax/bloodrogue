@@ -49,6 +49,11 @@ public class AudioPlayer {
         loadSounds();
     }
 
+    /**
+     * Instantiates a new SoundPool, sets volume level and adds an OnLoadCompleteListener so
+     * we can keep track of resource load status.
+     */
+
     private void createSoundPool() {
         if (Build.VERSION.SDK_INT >= 21) {
             soundPool = new SoundPool.Builder().build();
@@ -60,9 +65,10 @@ public class AudioPlayer {
 
         // Make sure that SoundPool uses correct volume level
         AudioManager mAudioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-        int streamVolume = mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
-        int maxVolume = mAudioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+        float streamVolume = (float) mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+        float maxVolume = (float) mAudioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
 
+        // Volume needs to be expressed as value from 0 - 1
         volume = streamVolume / maxVolume;
 
         soundPool.setOnLoadCompleteListener(new SoundPool.OnLoadCompleteListener() {
@@ -88,6 +94,11 @@ public class AudioPlayer {
 
         });
     }
+
+    /**
+     * Loads sound effects from assets/fx/ folder. The files need to be smaller than 1MB to work
+     * correctly in SoundPool (preferably much smaller)
+     */
 
     private void loadSounds() {
         final String FX_PATH = "fx/";
@@ -141,6 +152,11 @@ public class AudioPlayer {
     }
 
     public void startNewMusicLoop(String next) {
+        if (loopingMediaPlayer == null) {
+            startMusicLoop(next);
+            return;
+        }
+
         loopingMediaPlayer.queueAndStart(next);
     }
 

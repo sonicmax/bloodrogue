@@ -8,6 +8,7 @@ import android.util.Log;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 
+import com.sonicmax.bloodrogue.audio.FxFilePaths;
 import com.sonicmax.bloodrogue.audio.MusicFilePaths;
 import com.sonicmax.bloodrogue.audio.AudioPlayer;
 import com.sonicmax.bloodrogue.engine.GameEngine;
@@ -80,8 +81,6 @@ public class GameInterface {
     }
 
     public void showTitle() {
-        audioPlayer.startMusicLoop(MusicFilePaths.TRACK_02);
-
         gameRenderer.setRenderState(GameRenderer.TITLE);
 
         handler.postDelayed(new Runnable() {
@@ -461,5 +460,13 @@ public class GameInterface {
 
     public void freeResources() {
         gameRenderer.freeBuffers();
+    }
+
+    public void haltAudio() {
+        audioPlayer.stopAndReleaseResources();
+    }
+
+    public void triggerSoundEffect(String fx) {
+        audioPlayer.playSound(fx);
     }
 }

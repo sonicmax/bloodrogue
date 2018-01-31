@@ -20,6 +20,8 @@ import java.util.TimerTask;
 public class LoopingMusicPlayer {
     private final String LOG_TAG = this.getClass().getSimpleName();
 
+    private final static int MAX_VOLUME = 100;
+
     private Context context;
     private MediaPlayer currentPlayer;
     private MediaPlayer nextPlayer;
@@ -37,14 +39,22 @@ public class LoopingMusicPlayer {
 
         this.currentPlayer = new MediaPlayer();
         this.currentPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
+        float volume = getVolume(80);
+        this.currentPlayer.setVolume(volume, volume);
         loadMusic(currentPlayer);
 
         createNextMediaPlayer();
     }
 
+    private float getVolume(int volume) {
+        return (float) (1 - (Math.log(MAX_VOLUME - volume) / Math.log(MAX_VOLUME)));
+    }
+
     private void createNextMediaPlayer() {
         nextPlayer = new MediaPlayer();
         nextPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
+        float volume = getVolume(80);
+        nextPlayer.setVolume(volume, volume);
 
         loadMusic(nextPlayer);
 
@@ -104,10 +114,15 @@ public class LoopingMusicPlayer {
     }
 
     public void release() {
-        currentPlayer.release();
-        nextPlayer.release();
-        currentPlayer = null;
-        nextPlayer = null;
+        if (currentPlayer != null) {
+            currentPlayer.release();
+            currentPlayer = null;
+        }
+
+        if (nextPlayer != null) {
+            nextPlayer.release();
+            nextPlayer = null;
+        }
     }
 
     public void reset() {

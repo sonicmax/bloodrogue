@@ -3,6 +3,7 @@ package com.sonicmax.bloodrogue.engine;
 import android.util.Log;
 
 import com.sonicmax.bloodrogue.GameInterface;
+import com.sonicmax.bloodrogue.audio.FxFilePaths;
 import com.sonicmax.bloodrogue.engine.ai.AffinityManager;
 import com.sonicmax.bloodrogue.engine.ai.EnemyState;
 import com.sonicmax.bloodrogue.engine.collisions.FieldOfVisionCalculator;
@@ -978,6 +979,8 @@ public class GameEngine {
     ---------------------------------------------
     */
 
+    private boolean footstepAlternator = true;
+
     private void takeQueuedTurns() {
         updatePreTurnData();
 
@@ -1002,6 +1005,13 @@ public class GameEngine {
                         actor.y = destination.y;
 
                         handleMovementInteractions(entity, destination);
+
+                        if (entity == playerEntity) {
+                            String fx = (footstepAlternator) ? FxFilePaths.FOOTSTEP_1 : FxFilePaths.FOOTSTEP_2;
+                            gameInterface.triggerSoundEffect(fx);
+                            footstepAlternator = !footstepAlternator;
+                        }
+
                     } else {
                         checkForCollisions(entity, destination);
                     }
@@ -1208,6 +1218,8 @@ public class GameEngine {
                     Sprite spriteComponent = (Sprite) componentManager.getEntityComponent(entity, Sprite.class.getSimpleName());
                     spriteComponent.path = BuildingTileset.DOUBLE_DOORS_OPEN;
                     spriteComponent.spriteIndex = -1;
+
+                    gameInterface.triggerSoundEffect(FxFilePaths.DOOR_OPEN_1);
                 }
                 break;
 
@@ -1282,6 +1294,7 @@ public class GameEngine {
 
         if (inventoryPickupGroup.size() > 0) {
             addItemPickupNarration();
+            gameInterface.triggerSoundEffect(FxFilePaths.ITEM_PICKUP);
         }
     }
 
@@ -1512,6 +1525,8 @@ public class GameEngine {
         if (splat != null) {
             objectQueue.add(splat);
         }
+
+        gameInterface.triggerSoundEffect(FxFilePaths.SMALL_HIT_1);
 
         // Update combat log and display hit rawAnimationComponents
         if (defenderAi != null && defenderAi.computerControlled) {
