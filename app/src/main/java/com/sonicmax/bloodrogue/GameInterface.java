@@ -98,6 +98,7 @@ public class GameInterface {
     }
 
     public void handleMenuInput() {
+        waitingForMenuInput = false;
         gameRenderer.setRenderState(GameRenderer.SPLASH);
 
         // Note: startGame() is an expensive method call and should be executed in background thread
