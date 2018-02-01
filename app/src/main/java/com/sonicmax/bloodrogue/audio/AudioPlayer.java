@@ -3,6 +3,7 @@ package com.sonicmax.bloodrogue.audio;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
+import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.SoundPool;
 import android.os.Build;
@@ -22,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 public class AudioPlayer {
     private final String LOG_TAG = this.getClass().getSimpleName();
 
+    private final float SOUNDPOOL_MAX_VOL = 1f;
     private final int SOUNDPOOL_LIMIT = 1000000;
     private final int PLAY_ONCE = 0;
     private final int LOOP_FOREVER = -1;
@@ -56,35 +58,49 @@ public class AudioPlayer {
 
     private void createSoundPool() {
         if (Build.VERSION.SDK_INT >= 21) {
-            soundPool = new SoundPool.Builder().build();
+            AudioAttributes attributes = new AudioAttributes.Builder()
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .setFlags(AudioAttributes.FLAG_AUDIBILITY_ENFORCED)
+                    .setUsage(AudioAttributes.USAGE_GAME)
+                    .build();
+
+            soundPool = new SoundPool.Builder()
+                    .setMaxStreams(10)
+                    .setAudioAttributes(attributes)
+                    .build();
         }
         else {
-            // SoundPool.Builder doesn't work with API < 21, so we have to use deprecated SoundPool constructor
+            // We have to use deprecated constructor
             soundPool = new SoundPool(10, AudioManager.STREAM_MUSIC, 0);
         }
 
         // Make sure that SoundPool uses correct volume level
-        AudioManager mAudioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-        float streamVolume = (float) mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
-        float maxVolume = (float) mAudioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+        AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
 
-        // Volume needs to be expressed as value from 0 - 1
-        volume = streamVolume / maxVolume;
+        if (audioManager != null) {
+            float streamVolume = (float) audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+            float maxVolume = (float) audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+
+            // Volume needs to be expressed as value from 0 - 1.
+            volume = streamVolume / maxVolume;
+        }
+
+        else {
+            volume = SOUNDPOOL_MAX_VOL;
+        }
+
 
         soundPool.setOnLoadCompleteListener(new SoundPool.OnLoadCompleteListener() {
 
             @Override
             public void onLoadComplete(SoundPool soundPool, int sampleId, int status) {
-                Log.v(LOG_TAG, "load complete " + sampleId + ", " + status);
                 if (status == 0) {
                     resourceLoadStatus.put(sampleId, true);
                     pendingLoads--;
-                    Log.v(LOG_TAG, "Loaded audio file. pending: " + pendingLoads);
 
                     if (pendingLoads == 0) {
                         finishedLoading = true;
-                        long stopTime = System.nanoTime();
-                        Log.v(LOG_TAG, "Loaded audio in " + TimeUnit.MILLISECONDS.convert(stopTime - loadStartTime, TimeUnit.NANOSECONDS) + " ms");
+                        Log.d(LOG_TAG, "Loaded audio in " + TimeUnit.MILLISECONDS.convert(System.nanoTime() - loadStartTime, TimeUnit.NANOSECONDS) + " ms");
                     }
                 }
                 else {
