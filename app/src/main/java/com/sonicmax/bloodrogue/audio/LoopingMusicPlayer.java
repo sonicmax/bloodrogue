@@ -69,6 +69,8 @@ public class LoopingMusicPlayer {
     private final MediaPlayer.OnCompletionListener onCompletionListener = new MediaPlayer.OnCompletionListener() {
         @Override
         public void onCompletion(MediaPlayer mediaPlayer) {
+            mediaPlayer.stop();
+            mediaPlayer.reset();
             mediaPlayer.release();
             currentPlayer = nextPlayer;
             createNextMediaPlayer();
@@ -115,11 +117,19 @@ public class LoopingMusicPlayer {
 
     public void release() {
         if (currentPlayer != null) {
+            if (currentPlayer.isPlaying()) {
+                currentPlayer.stop();
+            }
+            currentPlayer.reset();
             currentPlayer.release();
             currentPlayer = null;
         }
 
         if (nextPlayer != null) {
+            if (nextPlayer.isPlaying()) {
+                nextPlayer.stop();
+            }
+            nextPlayer.reset();
             nextPlayer.release();
             nextPlayer = null;
         }
