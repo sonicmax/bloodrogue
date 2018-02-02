@@ -717,14 +717,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
      */
 
     public void startNewFloor() {
-        while (currentTransitionAlpha < 1f) {
-            // Wait for transition to finish.
-            try {
-                Thread.sleep(200);
-            } catch (InterruptedException e) {
-                Log.e(LOG_TAG, "Thread interrupted while waiting for screen transition to end", e);
-            }
-        }
+        // Todo: figure out way to wait for transition out to finish
 
         // Switch transition flags so renderer will transition into new content
         transitionIn = true;
