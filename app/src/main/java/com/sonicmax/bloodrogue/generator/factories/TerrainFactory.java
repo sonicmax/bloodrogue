@@ -5,7 +5,7 @@ import com.sonicmax.bloodrogue.engine.Component;
 import com.sonicmax.bloodrogue.engine.components.Physics;
 import com.sonicmax.bloodrogue.engine.components.Position;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
-import com.sonicmax.bloodrogue.engine.components.Stationary;
+import com.sonicmax.bloodrogue.engine.components.Terrain;
 
 public class TerrainFactory {
     public static Component[] createFloor(int x, int y, String tile) {
@@ -20,7 +20,7 @@ public class TerrainFactory {
         Sprite sprite = new Sprite(entity.id);
         sprite.path = tile;
 
-        Stationary s = new Stationary(Stationary.FLOOR, entity.id);
+        Terrain s = new Terrain(Terrain.FLOOR, entity.id);
 
         Physics physics = new Physics(entity.id);
         physics.isBlocking = false;
@@ -47,7 +47,7 @@ public class TerrainFactory {
         Sprite sprite = new Sprite(entity.id);
         sprite.path = tile;
 
-        Stationary s = new Stationary(Stationary.WALL, entity.id);
+        Terrain s = new Terrain(Terrain.WALL, entity.id);
 
         Physics physics = new Physics(entity.id);
         physics.isBlocking = true;
@@ -74,7 +74,7 @@ public class TerrainFactory {
         Sprite sprite = new Sprite(entity.id);
         sprite.path = tile;
 
-        Stationary s = new Stationary(Stationary.DOORWAY, entity.id);
+        Terrain s = new Terrain(Terrain.DOORWAY, entity.id);
 
         Physics physics = new Physics(entity.id);
         physics.isBlocking = false;
@@ -102,7 +102,7 @@ public class TerrainFactory {
         sprite.path = tile;
         sprite.layer = Sprite.BACKGROUND;
 
-        Stationary s = new Stationary(Stationary.FLOOR, entity.id);
+        Terrain s = new Terrain(Terrain.FLOOR, entity.id);
 
         Physics physics = new Physics(entity.id);
         physics.isBlocking = false;
@@ -130,7 +130,7 @@ public class TerrainFactory {
         Sprite sprite = new Sprite(entity.id);
         sprite.path = tile;
 
-        Stationary s = new Stationary(Stationary.BORDER, entity.id);
+        Terrain s = new Terrain(Terrain.BORDER, entity.id);
 
         Physics physics = new Physics(entity.id);
         physics.isBlocking = true;

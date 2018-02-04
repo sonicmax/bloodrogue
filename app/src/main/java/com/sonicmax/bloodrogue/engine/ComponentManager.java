@@ -21,7 +21,7 @@ import com.sonicmax.bloodrogue.engine.components.Portal;
 import com.sonicmax.bloodrogue.engine.components.Position;
 import com.sonicmax.bloodrogue.engine.components.SelfReplicate;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
-import com.sonicmax.bloodrogue.engine.components.Stationary;
+import com.sonicmax.bloodrogue.engine.components.Terrain;
 import com.sonicmax.bloodrogue.engine.components.Trap;
 import com.sonicmax.bloodrogue.engine.components.Usable;
 import com.sonicmax.bloodrogue.engine.components.Vitality;
@@ -66,7 +66,7 @@ public class ComponentManager {
     private HashMap<Long, Position> positionComponents;
     private HashMap<Long, SelfReplicate> selfreplicateComponents;
     private HashMap<Long, Sprite> spriteComponents;
-    private HashMap<Long, Stationary> staticComponents;
+    private HashMap<Long, Terrain> staticComponents;
     private HashMap<Long, Trap> trapComponents;
     private HashMap<Long, Usable> usableComponents;
     private HashMap<Long, Vitality> vitalityComponents;
@@ -236,8 +236,8 @@ public class ComponentManager {
                 spriteComponents.put(component.id, (Sprite) component);
                 break;
 
-            case "Stationary":
-                staticComponents.put(component.id, (Stationary) component);
+            case "Terrain":
+                staticComponents.put(component.id, (Terrain) component);
                 break;
 
             case "Trap":
@@ -327,7 +327,7 @@ public class ComponentManager {
             case "Sprite":
                 return new ArrayList<>(spriteComponents.values());
 
-            case "Stationary":
+            case "Terrain":
                 return new ArrayList<>(staticComponents.values());
 
             case "Trap":
@@ -460,7 +460,7 @@ public class ComponentManager {
             case "Sprite":
                 return spriteComponents.get(entity);
 
-            case "Stationary":
+            case "Terrain":
                 return staticComponents.get(entity);
 
             case "Trap":
@@ -566,7 +566,7 @@ public class ComponentManager {
                 spriteComponents.remove(entity);
                 break;
 
-            case "Stationary":
+            case "Terrain":
                 staticComponents.remove(entity);
                 break;
 

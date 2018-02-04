@@ -3,7 +3,8 @@ package com.sonicmax.bloodrogue.engine.components;
 import com.sonicmax.bloodrogue.engine.Component;
 
 /**
- *  Dynamic component is the counterpart to Stationary - these objects have the ability to move.
+ *  Dynamic component indicates that entity state is likely to change (eg. via opening, moving, etc)
+ *  Todo: do we even need this?
  */
 
 public class Dynamic extends Component {

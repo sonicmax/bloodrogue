@@ -23,7 +23,7 @@ import com.sonicmax.bloodrogue.engine.components.Physics;
 import com.sonicmax.bloodrogue.engine.components.Portal;
 import com.sonicmax.bloodrogue.engine.components.Position;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
-import com.sonicmax.bloodrogue.engine.components.Stationary;
+import com.sonicmax.bloodrogue.engine.components.Terrain;
 import com.sonicmax.bloodrogue.engine.components.Trap;
 import com.sonicmax.bloodrogue.engine.components.Usable;
 import com.sonicmax.bloodrogue.engine.components.Vitality;
@@ -644,7 +644,7 @@ public class GameEngine {
     */
 
     private void generatePlayerDesireMap() {
-        int[] tilesToCheck = {Stationary.WALL, Stationary.FLOOR};
+        int[] tilesToCheck = {Terrain.WALL, Terrain.FLOOR};
         int[][] desireGrid = Array2DHelper.fillIntArray(mapWidth, mapHeight, DIJKSTRA_MAX);
         ArrayList<Vector> desireLocations = new ArrayList<>();
 
@@ -686,7 +686,7 @@ public class GameEngine {
                     if (fieldOfVision[neighbour.x()][neighbour.y()] == 0) continue;
 
                     long terrainEntity = terrainEntities[neighbour.x][neighbour.y];
-                    Stationary stat = (Stationary) componentManager.getEntityComponent(terrainEntity, Stationary.class.getSimpleName());
+                    Terrain stat = (Terrain) componentManager.getEntityComponent(terrainEntity, Terrain.class.getSimpleName());
 
                     int value = desireGrid[neighbour.x()][neighbour.y()];
 
@@ -1760,12 +1760,12 @@ public class GameEngine {
         int x = position.x();
         int y = position.y();
 
-        // Check stationary component for blocking types
+        // Check terrain component for blocking types
         long entity = terrainEntities[x][y];
-        Stationary stationary = (Stationary) componentManager.getEntityComponent(entity, Stationary.class.getSimpleName());
+        Terrain terrain = (Terrain) componentManager.getEntityComponent(entity, Terrain.class.getSimpleName());
 
         // Walls and borders will always prevent movement.
-        if (stationary != null && (stationary.type == Stationary.WALL || stationary.type == Stationary.BORDER)) {
+        if (terrain != null && (terrain.type == Terrain.WALL || terrain.type == Terrain.BORDER)) {
             return true;
         }
 
@@ -1789,7 +1789,7 @@ public class GameEngine {
         return false;
     }
 
-    private boolean entityTypeInArray(Stationary stat, int[] typesToCheck) {
+    private boolean entityTypeInArray(Terrain stat, int[] typesToCheck) {
         for (int i = 0; i < typesToCheck.length; i++) {
             if (typesToCheck[i] == stat.type) {
                 return true;

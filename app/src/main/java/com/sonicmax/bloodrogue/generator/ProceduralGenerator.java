@@ -13,7 +13,7 @@ import com.sonicmax.bloodrogue.engine.components.Physics;
 import com.sonicmax.bloodrogue.engine.components.Portal;
 import com.sonicmax.bloodrogue.engine.components.Position;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
-import com.sonicmax.bloodrogue.engine.components.Stationary;
+import com.sonicmax.bloodrogue.engine.components.Terrain;
 import com.sonicmax.bloodrogue.generator.factories.DecalFactory;
 import com.sonicmax.bloodrogue.generator.factories.TerrainFactory;
 import com.sonicmax.bloodrogue.engine.systems.ComponentFinder;
@@ -1471,9 +1471,9 @@ public class ProceduralGenerator {
             Vector position = new Vector(pComp.x, pComp.y);
 
             long entity = terrainEntities[position.x][position.y];
-            Stationary stat = (Stationary) componentManager.getEntityComponent(entity, Stationary.class.getSimpleName());
+            Terrain stat = (Terrain) componentManager.getEntityComponent(entity, Terrain.class.getSimpleName());
 
-            if (stat.type == Stationary.WALL) {
+            if (stat.type == Terrain.WALL) {
                 it.remove();
             }
         }
@@ -1833,11 +1833,11 @@ public class ProceduralGenerator {
 
                 if (!checked.containsKey(cell.toString())) {
                     long entity = terrainEntities[cell.x][cell.y];
-                    Stationary stat = (Stationary) componentManager.getEntityComponent(entity, Stationary.class.getSimpleName());
+                    Terrain stat = (Terrain) componentManager.getEntityComponent(entity, Terrain.class.getSimpleName());
 
                     if (stat == null) continue;
 
-                    if (stat.type == Stationary.FLOOR && cellIsInaccessible(cell)) {
+                    if (stat.type == Terrain.FLOOR && cellIsInaccessible(cell)) {
                         setTerrain(cell, WALL, BuildingTileset.WALL);
                         checked.put(cell.toString(), true);
                         HashMap<String, Vector> adjacentCells = getAdjacentCells(cell, 1, true);
@@ -1865,11 +1865,11 @@ public class ProceduralGenerator {
                 if (!checked.contains(cell.toString())) {
 
                     long entity = terrainEntities[cell.x][cell.y];
-                    Stationary stat = (Stationary) componentManager.getEntityComponent(entity, Stationary.class.getSimpleName());
+                    Terrain stat = (Terrain) componentManager.getEntityComponent(entity, Terrain.class.getSimpleName());
 
                     if (stat == null) continue;
 
-                    if (stat.type == Stationary.WALL && cellIsInaccessible(cell)) {
+                    if (stat.type == Terrain.WALL && cellIsInaccessible(cell)) {
                         setTerrain(cell, BORDER, GenericTileset.TRANSPARENT);
                         checked.add(cell.toString());
                     }
@@ -1941,26 +1941,26 @@ public class ProceduralGenerator {
     private void copyTerrain(Vector from, Vector to) {
         long targetEntity = terrainEntities[from.x][from.y];
         Sprite target = (Sprite) componentManager.getEntityComponent(targetEntity, Sprite.class.getSimpleName());
-        Stationary targetType = (Stationary) componentManager.getEntityComponent(targetEntity, Stationary.class.getSimpleName());
+        Terrain targetType = (Terrain) componentManager.getEntityComponent(targetEntity, Terrain.class.getSimpleName());
         
         switch (targetType.type) {
-            case Stationary.FLOOR:
+            case Terrain.FLOOR:
                 setTerrain(to, FLOOR, target.path);
                 break;
                 
-            case Stationary.WALL:
+            case Terrain.WALL:
                 setTerrain(to, WALL, target.path);
                 break;
                 
-            case Stationary.BORDER:
+            case Terrain.BORDER:
                 setTerrain(to, BORDER, target.path);
                 break;
                 
-            case Stationary.DOORWAY:
+            case Terrain.DOORWAY:
                 setTerrain(to, DOORWAY, target.path);
                 break;
                 
-            case Stationary.DEFAULT:
+            case Terrain.DEFAULT:
                 setTerrain(to, FLOOR, target.path);
                 break;
         }
@@ -2108,7 +2108,7 @@ public class ProceduralGenerator {
     }
 
     /**
-     * Adjacent cell is "carvable" if all adjacent cells are wall tiles (shader == Stationary.WALL)
+     * Adjacent cell is "carvable" if all adjacent cells are wall tiles (shader == Terrain.WALL)
      */
 
     private boolean adjacentCellsAreCarvable(Vector cell) {
@@ -2127,9 +2127,9 @@ public class ProceduralGenerator {
 
             if (inBounds(adjacent)) {
                 long entity = terrainEntities[adjacent.x][adjacent.y];
-                Stationary stat = (Stationary) componentManager.getEntityComponent(entity, Stationary.class.getSimpleName());
+                Terrain stat = (Terrain) componentManager.getEntityComponent(entity, Terrain.class.getSimpleName());
 
-                if (stat.type != Stationary.WALL) {
+                if (stat.type != Terrain.WALL) {
                     return false;
                 }
             }
@@ -2151,9 +2151,9 @@ public class ProceduralGenerator {
             }
 
             long entity = terrainEntities[direction.x][direction.y];
-            Stationary stat = (Stationary) componentManager.getEntityComponent(entity, Stationary.class.getSimpleName());
+            Terrain stat = (Terrain) componentManager.getEntityComponent(entity, Terrain.class.getSimpleName());
 
-            if (stat.type != Stationary.WALL && stat.type != Stationary.BORDER) {
+            if (stat.type != Terrain.WALL && stat.type != Terrain.BORDER) {
                 return false;
             }
         }

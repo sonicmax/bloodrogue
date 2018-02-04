@@ -1,11 +1,8 @@
 package com.sonicmax.bloodrogue.engine.systems;
 
 import com.sonicmax.bloodrogue.engine.Component;
-import com.sonicmax.bloodrogue.engine.components.Physics;
 import com.sonicmax.bloodrogue.engine.components.Portal;
 import com.sonicmax.bloodrogue.engine.components.Position;
-import com.sonicmax.bloodrogue.engine.components.Sprite;
-import com.sonicmax.bloodrogue.engine.components.Stationary;
 
 /**
  *  Really bad method of retrieving components. Do not use lol

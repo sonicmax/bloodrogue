@@ -3,7 +3,7 @@ package com.sonicmax.bloodrogue.engine.collisions;
 import com.sonicmax.bloodrogue.engine.ComponentManager;
 import com.sonicmax.bloodrogue.engine.Directions;
 import com.sonicmax.bloodrogue.engine.components.Physics;
-import com.sonicmax.bloodrogue.engine.components.Stationary;
+import com.sonicmax.bloodrogue.engine.components.Terrain;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 
 import java.util.ArrayList;
@@ -146,10 +146,10 @@ public class FieldOfVisionCalculator {
         int y = position.y();
 
         long terrainEntity = mapGrid[x][y];
-        Stationary stat = (Stationary) componentManager.getEntityComponent(terrainEntity, Stationary.class.getSimpleName());
+        Terrain stat = (Terrain) componentManager.getEntityComponent(terrainEntity, Terrain.class.getSimpleName());
 
         if (stat != null) {
-            if (stat.type == Stationary.WALL || stat.type == Stationary.BORDER) {
+            if (stat.type == Terrain.WALL || stat.type == Terrain.BORDER) {
                 return true;
             }
         }

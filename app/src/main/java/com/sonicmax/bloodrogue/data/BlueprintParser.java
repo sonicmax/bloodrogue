@@ -22,7 +22,7 @@ import com.sonicmax.bloodrogue.engine.components.Portal;
 import com.sonicmax.bloodrogue.engine.components.Position;
 import com.sonicmax.bloodrogue.engine.components.SelfReplicate;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
-import com.sonicmax.bloodrogue.engine.components.Stationary;
+import com.sonicmax.bloodrogue.engine.components.Terrain;
 import com.sonicmax.bloodrogue.engine.components.Usable;
 import com.sonicmax.bloodrogue.engine.components.Vitality;
 import com.sonicmax.bloodrogue.engine.components.Wieldable;
@@ -292,10 +292,10 @@ public class BlueprintParser {
                     switch (object.getString("type")) {
                         case "default":
                         default:
-                            return new Stationary(Stationary.DEFAULT, entity);
+                            return new Terrain(Terrain.DEFAULT, entity);
                     }
 
-                return new Stationary(Stationary.DEFAULT, entity);
+                return new Terrain(Terrain.DEFAULT, entity);
 
             case "usable":
                 Usable usable = new Usable(entity);

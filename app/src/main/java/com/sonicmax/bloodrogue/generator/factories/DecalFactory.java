@@ -9,7 +9,7 @@ import com.sonicmax.bloodrogue.engine.Component;
 import com.sonicmax.bloodrogue.engine.components.Physics;
 import com.sonicmax.bloodrogue.engine.components.Position;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
-import com.sonicmax.bloodrogue.engine.components.Stationary;
+import com.sonicmax.bloodrogue.engine.components.Terrain;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 import com.sonicmax.bloodrogue.tilesets.GenericTileset;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
@@ -29,7 +29,7 @@ public class DecalFactory {
 
         Animation animation = new Animation(entity.id);
 
-        Stationary s = new Stationary(Stationary.DEFAULT, entity.id);
+        Terrain s = new Terrain(Terrain.DEFAULT, entity.id);
 
         Physics physics = new Physics(entity.id);
         physics.isBlocking = false;
@@ -55,7 +55,7 @@ public class DecalFactory {
         Sprite sprite = new Sprite(entity.id);
         sprite.shader = Sprite.DYNAMIC;
 
-        Stationary s = new Stationary(Stationary.DEFAULT, entity.id);
+        Terrain s = new Terrain(Terrain.DEFAULT, entity.id);
 
         Physics physics = new Physics(entity.id);
         physics.isBlocking = false;
@@ -124,9 +124,9 @@ public class DecalFactory {
         int bloodIndex = rng.getRandomInt(0, bloodSprites.length - 1);
 
         long terrain = mapGrid[x][y];
-        Stationary stat = (Stationary) ComponentManager.getInstance().getEntityComponent(terrain, Stationary.class.getSimpleName());
+        Terrain stat = (Terrain) ComponentManager.getInstance().getEntityComponent(terrain, Terrain.class.getSimpleName());
 
-        if (stat.type != Stationary.WALL && stat.type != Stationary.BORDER) {
+        if (stat.type != Terrain.WALL && stat.type != Terrain.BORDER) {
             return createTraversableDecoration(x, y, bloodSprites[bloodIndex]);
         }
 
@@ -198,7 +198,7 @@ public class DecalFactory {
         sprite.shader = Sprite.STATIC;
         sprite.path = tile;
 
-        Stationary s = new Stationary(Stationary.DEFAULT, entity.id);
+        Terrain s = new Terrain(Terrain.DEFAULT, entity.id);
 
         Physics physics = new Physics(entity.id);
         physics.isBlocking = false;
@@ -225,7 +225,7 @@ public class DecalFactory {
         sprite.shader = Sprite.STATIC;
         sprite.path = tile;
 
-        Stationary s = new Stationary(Stationary.DEFAULT, entity.id);
+        Terrain s = new Terrain(Terrain.DEFAULT, entity.id);
 
         Physics physics = new Physics(entity.id);
         physics.isBlocking = true;
@@ -252,7 +252,7 @@ public class DecalFactory {
         sprite.shader = Sprite.WAVE;
         sprite.path = tile;
 
-        Stationary s = new Stationary(Stationary.DEFAULT, entity.id);
+        Terrain s = new Terrain(Terrain.DEFAULT, entity.id);
 
         Physics physics = new Physics(entity.id);
         physics.isBlocking = false;
@@ -280,7 +280,7 @@ public class DecalFactory {
         sprite.shader = Sprite.STATIC;
         sprite.path = tile;
 
-        Stationary s = new Stationary(Stationary.DEFAULT, entity.id);
+        Terrain s = new Terrain(Terrain.DEFAULT, entity.id);
 
         Physics physics = new Physics(entity.id);
         physics.isBlocking = false;
@@ -307,7 +307,7 @@ public class DecalFactory {
         sprite.shader = Sprite.STATIC;
         sprite.path = tile;
 
-        Stationary s = new Stationary(Stationary.DEFAULT, entity.id);
+        Terrain s = new Terrain(Terrain.DEFAULT, entity.id);
 
         Physics physics = new Physics(entity.id);
         physics.isBlocking = false;
