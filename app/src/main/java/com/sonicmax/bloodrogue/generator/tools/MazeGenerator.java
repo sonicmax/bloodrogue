@@ -293,7 +293,7 @@ public class MazeGenerator {
 
                 if (spannedRegions.size() <= 1)  {
                     // This connecter isn't needed, but connect it occasionally so that the maze isn't singly-connected.
-                    if (rng.getRandomInt(0, extraConnectorChance) == 0) {
+                    if (rng.getRandomInt(0, 100) < extraConnectorChance) {
                         carvedTiles[pos.x][pos.y] = true;
                         junctions.add(pos);
                     }
