@@ -56,7 +56,7 @@ public class ImageLoader {
             for (String sheet : sheets) {
                 InputStream is = assetManager.open(SHEET_PATH + sheet);
                 BitmapFactory.Options opts = new BitmapFactory.Options();
-                opts.inPreferredConfig = Bitmap.Config.ARGB_8888;
+                opts.inPreferredConfig = Bitmap.Config.RGB_565;
                 Bitmap bitmap = BitmapFactory.decodeStream(is, null, opts);
                 int textureHandle = loadTexture(bitmap, GLES20.GL_TEXTURE0);
                 textureHandles.put(SHEET_PATH + sheet, textureHandle);
@@ -67,7 +67,7 @@ public class ImageLoader {
             for (String path : fontPaths) {
                 InputStream is = assetManager.open(FONT_PATH + path);
                 BitmapFactory.Options opts = new BitmapFactory.Options();
-                opts.inPreferredConfig = Bitmap.Config.ARGB_8888;
+                opts.inPreferredConfig = Bitmap.Config.RGB_565;
                 Bitmap bitmap = BitmapFactory.decodeStream(is, null, opts);
                 int textureHandle = loadTexture(bitmap, GLES20.GL_TEXTURE1);
                 textureHandles.put(FONT_PATH + path, textureHandle);
@@ -75,7 +75,7 @@ public class ImageLoader {
 
             InputStream is = assetManager.open(IMG_PATH + "water_overlay.png");
             BitmapFactory.Options opts = new BitmapFactory.Options();
-            opts.inPreferredConfig = Bitmap.Config.ARGB_8888;
+            opts.inPreferredConfig = Bitmap.Config.RGB_565;
             Bitmap bitmap = BitmapFactory.decodeStream(is, null, opts);
             int textureHandle = loadTexture(bitmap, GLES20.GL_TEXTURE2);
             textureHandles.put(IMG_PATH + "water_overlay.png", textureHandle);
@@ -107,8 +107,8 @@ public class ImageLoader {
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureHandle[0]);
 
             // Set filtering
-           GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_REPEAT);
-           GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_REPEAT);
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
 
             GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
             GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST);

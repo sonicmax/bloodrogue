@@ -1,12 +1,12 @@
 package com.sonicmax.bloodrogue.renderer.sprites;
 
 import android.opengl.GLES20;
+import android.opengl.Matrix;
 import android.util.Log;
 
-import com.sonicmax.bloodrogue.renderer.Shader;
+import com.sonicmax.bloodrogue.renderer.shaders.Shader;
 import com.sonicmax.bloodrogue.utils.BufferUtils;
 
-import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -67,11 +67,11 @@ public class SpriteRenderer {
     private int vertCount;
     private int indicesCount;
 
-    private float mUniformScale;
+    private float scaleFactor;
 
     // Handles for OpenGL
     private int spriteSheetHandle;
-    private int mBasicShaderHandle;
+    private int shaderHandle;
     private int uniformMatrix;
     private int uniformTexture;
 
@@ -79,9 +79,9 @@ public class SpriteRenderer {
     private ByteBuffer bb2;
 
     public SpriteRenderer() {
-        mUniformScale = 1f;
+        scaleFactor = 1f;
 
-        // How many bytes we need to skip in VBO to find new entry for same data shader.
+        // How many bytes we need to skip in VBO to find new entry for same data renderState.
         stride = (FLOATS_PER_POSITION + FLOATS_PER_COLOUR + FLOATS_PER_UV) * FLOAT_SIZE;
 
         // Todo: this is stupid
@@ -91,14 +91,20 @@ public class SpriteRenderer {
         bb2 = null;
     }
 
-    public void setUniformScale(float uniformScale) {
-        this.mUniformScale = uniformScale;
+    public void setScaleFactor(float scaleFactor) {
+        this.scaleFactor = scaleFactor;
     }
 
     public void initShader(int handle) {
-        mBasicShaderHandle = handle;
-        uniformMatrix = GLES20.glGetUniformLocation(mBasicShaderHandle, "u_MVPMatrix");
-        uniformTexture = GLES20.glGetUniformLocation(mBasicShaderHandle, "u_Texture");
+        shaderHandle = handle;
+        uniformMatrix = GLES20.glGetUniformLocation(shaderHandle, "u_MVPMatrix");
+        uniformTexture = GLES20.glGetUniformLocation(shaderHandle, "u_Texture");
+    }
+
+    public void initDebugShader(int handle) {
+        shaderHandle = handle;
+        uniformMatrix = GLES20.glGetUniformLocation(shaderHandle, "u_MVPMatrix");
+        uniformTexture = GLES20.glGetUniformLocation(shaderHandle, "u_DepthMap");
     }
 
     public void setSpriteSheet(int handle) {
@@ -130,7 +136,7 @@ public class SpriteRenderer {
 
         float x;
         float y;
-        float yUnit = TARGET_WIDTH * mUniformScale;
+        float yUnit = TARGET_WIDTH * scaleFactor;
 
         for (int tileY = 0; tileY < height; tileY++) {
             x = 0f;
@@ -139,21 +145,81 @@ public class SpriteRenderer {
             for (int tileX = 0; tileX < width; tileX++) {
 
                 cachedVecs[tileX][tileY][0] = x;
-                cachedVecs[tileX][tileY][1] = y + (TARGET_WIDTH * mUniformScale);
+                cachedVecs[tileX][tileY][1] = y + (TARGET_WIDTH * scaleFactor);
                 cachedVecs[tileX][tileY][2] = 1f;
                 cachedVecs[tileX][tileY][3] = x;
                 cachedVecs[tileX][tileY][4] = y;
                 cachedVecs[tileX][tileY][5] = 1f;
-                cachedVecs[tileX][tileY][6] = x + (TARGET_WIDTH * mUniformScale);
+                cachedVecs[tileX][tileY][6] = x + (TARGET_WIDTH * scaleFactor);
                 cachedVecs[tileX][tileY][7] = y;
                 cachedVecs[tileX][tileY][8] = 1f;
-                cachedVecs[tileX][tileY][9] = x + (TARGET_WIDTH * mUniformScale);
-                cachedVecs[tileX][tileY][10] = y + (TARGET_WIDTH * mUniformScale);
+                cachedVecs[tileX][tileY][9] = x + (TARGET_WIDTH * scaleFactor);
+                cachedVecs[tileX][tileY][10] = y + (TARGET_WIDTH * scaleFactor);
                 cachedVecs[tileX][tileY][11] = 1f;
 
-                x += TARGET_WIDTH * mUniformScale;
+                x += TARGET_WIDTH * scaleFactor;
             }
         }
+    }
+
+    private float[] fullScreenVec = new float[12];
+    private float[] fullScreenUv = new float[8];
+    private float[] fullScreenMvpMatrix = new float[16];
+
+    public void prepareFullScreenRender(float screenWidth, float screenHeight) {
+        float x = 0f;
+        float y = 0f;
+
+        fullScreenVec[0] = x;
+        fullScreenVec[1] = y + (screenHeight);
+        fullScreenVec[2] = 1f;
+
+        fullScreenVec[3] = x;
+        fullScreenVec[4] = y;
+        fullScreenVec[5] = 1f;
+
+        fullScreenVec[6] = x + (screenWidth);
+        fullScreenVec[7] = y;
+        fullScreenVec[8] = 1f;
+
+        fullScreenVec[9] = x + (screenWidth);
+        fullScreenVec[10] = y + (screenHeight);
+        fullScreenVec[11] = 1f;
+
+        fullScreenUv[0] = 0f;
+        fullScreenUv[1] = 1f;
+
+        fullScreenUv[2] = 0f;
+        fullScreenUv[3] = 0f;
+
+        fullScreenUv[4] = 1f;
+        fullScreenUv[5] = 0f;
+
+        fullScreenUv[6] = 1f;
+        fullScreenUv[7] = 1f;
+
+        addDepthMapRenderData(fullScreenVec, fullScreenUv);
+
+        float[] projMatrix = new float[16];
+        float[] modelViewMatrix = new float[16];
+
+        Matrix.orthoM(projMatrix, 0,
+                (-screenWidth / 2), (screenWidth / 2),
+                (-screenHeight / 2), (screenHeight / 2),
+                -1f, 1f);
+
+        // Set the camera position
+        Matrix.setLookAtM(modelViewMatrix, 0,
+                1f, 0f, 1f,
+                1f, 0f, 0f,
+                0f, 1.0f, 0.0f);
+
+        // Calculate the projection and view transformation
+        Matrix.multiplyMM(fullScreenMvpMatrix, 0, projMatrix, 0, modelViewMatrix, 0);
+
+        // Finally, translate so that origin is in bottom-left corner
+        Matrix.translateM(fullScreenMvpMatrix, 0,
+                -screenWidth / 2, -screenHeight / 2, 0f);
     }
 
     private float[] calculateOffset(float[] vec, float offsetX, float offsetY) {
@@ -208,26 +274,59 @@ public class SpriteRenderer {
         }
     }
 
+    private float[] white = {1f, 1f, 1f};
+
+    private float[] currentTint = white;
+
+    public void setColourTint(float[] tint) {
+        currentTint = tint;
+    }
+
+    public void addSpriteData(int x, int y, int spriteIndex, float[] tint, float lighting) {
+        if (spriteIndex == -1) {
+            return;
+        }
+
+        baseColours[0] = tint[0] * lighting; // r
+        baseColours[1] = tint[1] * lighting; // g
+        baseColours[2] = tint[2] * lighting; // b
+        baseColours[3] = 1f;
+        baseColours[4] = tint[0] * lighting;
+        baseColours[5] = tint[1] * lighting;
+        baseColours[6] = tint[2] * lighting;
+        baseColours[7] = 1f;
+        baseColours[8] = tint[0] * lighting;
+        baseColours[9] = tint[1] * lighting;
+        baseColours[10] = tint[2] * lighting;
+        baseColours[11] = 1f;
+        baseColours[12] = tint[0] * lighting;
+        baseColours[13] = tint[1] * lighting;
+        baseColours[14] = tint[2] * lighting;
+        baseColours[15] = 1f;
+
+        addRenderInformation(cachedVecs[x][y], baseColours, cachedUvs[spriteIndex]);
+    }
+
     public void addSpriteData(int x, int y, int spriteIndex, float lighting) {
         if (spriteIndex == -1) {
             return;
         }
 
-        baseColours[0] = lighting; // r
-        baseColours[1] = lighting; // g
-        baseColours[2] = lighting; // b
+        baseColours[0] = currentTint[0]; // r
+        baseColours[1] = currentTint[1]; // g
+        baseColours[2] = currentTint[2]; // b
         baseColours[3] = 1f;
-        baseColours[4] = lighting;
-        baseColours[5] = lighting;
-        baseColours[6] = lighting;
+        baseColours[4] = currentTint[0];
+        baseColours[5] = currentTint[1];
+        baseColours[6] = currentTint[2];
         baseColours[7] = 1f;
-        baseColours[8] = lighting;
-        baseColours[9] = lighting;
-        baseColours[10] = lighting;
+        baseColours[8] = currentTint[0];
+        baseColours[9] = currentTint[1];
+        baseColours[10] = currentTint[2];
         baseColours[11] = 1f;
-        baseColours[12] = lighting;
-        baseColours[13] = lighting;
-        baseColours[14] = lighting;
+        baseColours[12] = currentTint[0];
+        baseColours[13] = currentTint[1];
+        baseColours[14] = currentTint[2];
         baseColours[15] = 1f;
 
         addRenderInformation(cachedVecs[x][y], baseColours, cachedUvs[spriteIndex]);
@@ -254,26 +353,32 @@ public class SpriteRenderer {
         addRenderInformation(cachedVecs[x][y], baseColours, cachedUvs[spriteIndex]);
     }
 
+    private final float[] DEFAULT_COLOUR = new float[] {1f, 1f, 1f};
+
     public void addSpriteData(int x, int y, int spriteIndex, float lighting, float offsetX, float offsetY) {
-        if (spriteIndex == -1) {
+        addSpriteData(x, y, spriteIndex, DEFAULT_COLOUR, lighting, offsetX, offsetY);
+    }
+
+    public void addSpriteData(int x, int y, int spriteIndex, float[] tint, float lighting, float offsetX, float offsetY) {
+        if (spriteIndex == -1 || x < 0 || y < 0) {
             return;
         }
 
-        baseColours[0] = lighting; // r
-        baseColours[1] = lighting; // g
-        baseColours[2] = lighting; // b
+        baseColours[0] = tint[0] * lighting; // r
+        baseColours[1] = tint[1] * lighting; // g
+        baseColours[2] = tint[2] * lighting; // b
         baseColours[3] = 1f;
-        baseColours[4] = lighting;
-        baseColours[5] = lighting;
-        baseColours[6] = lighting;
+        baseColours[4] = tint[0] * lighting;
+        baseColours[5] = tint[1] * lighting;
+        baseColours[6] = tint[2] * lighting;
         baseColours[7] = 1f;
-        baseColours[8] = lighting;
-        baseColours[9] = lighting;
-        baseColours[10] = lighting;
+        baseColours[8] = tint[0] * lighting;
+        baseColours[9] = tint[1] * lighting;
+        baseColours[10] = tint[2] * lighting;
         baseColours[11] = 1f;
-        baseColours[12] = lighting;
-        baseColours[13] = lighting;
-        baseColours[14] = lighting;
+        baseColours[12] = tint[0] * lighting;
+        baseColours[13] = tint[1] * lighting;
+        baseColours[14] = tint[2] * lighting;
         baseColours[15] = 1f;
 
         addRenderInformation(calculateOffset(cachedVecs[x][y], offsetX, offsetY), baseColours, cachedUvs[spriteIndex]);
@@ -379,6 +484,85 @@ public class SpriteRenderer {
         }
 
         // Todo: is there anyway to include indices in packed array?
+        // You can use drawArrays() instead of drawElements() but this may have negative performance implications
+
+        for (int j = 0; j < INDICES.length; j++) {
+            indices[indicesCount] = (short) (base + INDICES[j]);
+            indicesCount++;
+        }
+    }
+
+    private void addDepthMapRenderData(float[] vec, float[] uv) {
+        // Translate the indices to align with the location in our array of vertices
+        short base = (short) (vertCount / 3);
+
+        // Add floats for each vertex into packed array.
+        // Position vertices, colour floats and UV coords are packed in this format: x, y, z, r, g, b, a, x, y
+
+        /*
+            First vertex
+         */
+
+        for (int i = 0; i < 3; i++) {
+            packedFloats[packedCount] = vec[i];
+            packedCount++;
+            vertCount++; // Note: we keep a separate count for vertices so we can translate indices
+        }
+
+        for (int i = 0; i < 2; i++) {
+            packedFloats[packedCount] = uv[i];
+            packedCount++;
+        }
+
+
+        /*
+            Second vertex
+         */
+
+        for (int i = 3; i < 6; i++) {
+            packedFloats[packedCount] = vec[i];
+            packedCount++;
+            vertCount++;
+        }
+
+        for (int i = 2; i < 4; i++) {
+            packedFloats[packedCount] = uv[i];
+            packedCount++;
+        }
+
+
+        /*
+            Third vertex
+         */
+
+        for (int i = 6; i < 9; i++) {
+            packedFloats[packedCount] = vec[i];
+            packedCount++;
+            vertCount++;
+        }
+
+        for (int i = 4; i < 6; i++) {
+            packedFloats[packedCount] = uv[i];
+            packedCount++;
+        }
+
+
+        /*
+            Fourth vertex
+         */
+
+        for (int i = 9; i < 12; i++) {
+            packedFloats[packedCount] = vec[i];
+            packedCount++;
+            vertCount++;
+        }
+
+        for (int i = 6; i < 8; i++) {
+            packedFloats[packedCount] = uv[i];
+            packedCount++;
+        }
+
+        // Todo: is there anyway to include indices in packed array?
 
         for (int j = 0; j < INDICES.length; j++) {
             indices[indicesCount] = (short) (base + INDICES[j]);
@@ -393,7 +577,7 @@ public class SpriteRenderer {
      */
 
     public void renderSprites(float[] matrix) {
-        GLES20.glUseProgram(mBasicShaderHandle);
+        GLES20.glUseProgram(shaderHandle);
 
         if (packedCount == 0) {
             return;
@@ -410,7 +594,7 @@ public class SpriteRenderer {
 
         // Add pointers to buffer for each attribute.
 
-        // GLES20.glVertexAttribPointer() doesn't have offset parameter, so we have to
+        // GLES20.glVertexAttribPointer() doesn't have offset parameter for buffers, so we have to
         // add the offset manually using Buffer.position()
 
         GLES20.glEnableVertexAttribArray(Shader.POSITION);
@@ -440,13 +624,66 @@ public class SpriteRenderer {
                 stride,
                 floatBuffer.position(FLOATS_PER_POSITION + FLOATS_PER_COLOUR));
 
-        // Pass MVP matrix to shader
+        // Pass MVP matrix to renderState
         GLES20.glUniformMatrix4fv(uniformMatrix, 1, false, matrix, 0);
         GLES20.glUniform1i(uniformTexture, 0);
 
         GLES20.glDrawElements(GLES20.GL_TRIANGLES, indicesCount, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);
     }
 
+    public void renderDepthMap(float near, float far) {
+        GLES20.glUseProgram(shaderHandle);
+
+        int depthMapNearHandle = GLES20.glGetUniformLocation(shaderHandle, "u_Near");
+        int depthMapFarHandle = GLES20.glGetUniformLocation(shaderHandle, "u_Far");
+
+        GLES20.glUniform1f(depthMapNearHandle, near);
+        GLES20.glUniform1f(depthMapFarHandle, far);
+
+        if (packedCount == 0) {
+            return;
+        }
+
+        checkBufferCapacity();
+
+        int stride = (FLOATS_PER_POSITION + FLOATS_PER_UV) * FLOAT_SIZE;
+
+        // Copy modified portion of packed float array to buffer.
+        FloatBuffer floatBuffer = bb1.asFloatBuffer();
+        BufferUtils.copy(packedFloats, floatBuffer, packedCount, 0);
+
+        ShortBuffer drawListBuffer = bb2.asShortBuffer();
+        BufferUtils.copy(indices, 0, drawListBuffer, indicesCount);
+
+        // Add pointers to buffer for each attribute.
+
+        // GLES20.glVertexAttribPointer() doesn't have offset parameter, so we have to
+        // add the offset manually using Buffer.position()
+
+        GLES20.glEnableVertexAttribArray(Shader.POSITION);
+        GLES20.glVertexAttribPointer(
+                Shader.POSITION,
+                FLOATS_PER_POSITION,
+                GLES20.GL_FLOAT,
+                false,
+                stride,
+                floatBuffer);
+
+        GLES20.glEnableVertexAttribArray(Shader.TEXCOORD);
+        GLES20.glVertexAttribPointer(
+                Shader.TEXCOORD,
+                FLOATS_PER_UV,
+                GLES20.GL_FLOAT,
+                false,
+                stride,
+                floatBuffer.position(FLOATS_PER_POSITION));
+
+        // Pass MVP matrix to renderState
+        GLES20.glUniformMatrix4fv(uniformMatrix, 1, false, fullScreenMvpMatrix, 0);
+        GLES20.glUniform1i(uniformTexture, 3);
+
+        GLES20.glDrawElements(GLES20.GL_TRIANGLES, indicesCount, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);
+    }
 
     /**
      * Makes sure that we have enough capacity in our buffers for our packed floats and shorts.

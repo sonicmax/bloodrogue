@@ -1,9 +1,9 @@
-package com.sonicmax.bloodrogue.renderer.sprites;
+package com.sonicmax.bloodrogue.renderer.effects;
 
 import android.opengl.GLES20;
 import android.util.Log;
 
-import com.sonicmax.bloodrogue.renderer.Shader;
+import com.sonicmax.bloodrogue.renderer.shaders.Shader;
 import com.sonicmax.bloodrogue.utils.BufferUtils;
 
 import java.nio.ByteBuffer;
@@ -15,7 +15,7 @@ import java.nio.ShortBuffer;
  *  Renders sprites using wave effect (provided by vertex shader)
  */
 
-public class WaveEffectSpriteRenderer {
+public class RippleEffectRenderer {
     private final String LOG_TAG = this.getClass().getSimpleName();
 
     /**
@@ -84,7 +84,7 @@ public class WaveEffectSpriteRenderer {
     private float angleWave = 0.0f;
     private float angleWaveSpeed = 0.025f;
 
-    public WaveEffectSpriteRenderer() {
+    public RippleEffectRenderer() {
         mUniformScale = 1f;
 
         // How many bytes we need to skip in VBO to find new entry for same data shader.
@@ -209,26 +209,26 @@ public class WaveEffectSpriteRenderer {
         }
     }
 
-    public void addSpriteData(int x, int y, int spriteIndex, float lighting) {
+    public void addSpriteData(int x, int y, int spriteIndex, float[] tint, float lighting) {
         if (spriteIndex == -1) {
             return;
         }
 
-        baseColours[0] = lighting; // r
-        baseColours[1] = lighting; // g
-        baseColours[2] = lighting; // b
-        // (skip a)
-        baseColours[4] = lighting;
-        baseColours[5] = lighting;
-        baseColours[6] = lighting;
+        baseColours[0] = tint[0] * lighting; // r
+        baseColours[1] = tint[1] * lighting; // g
+        baseColours[2] = tint[2] * lighting; // b
+                                             // (skip a - handled in shader)
+        baseColours[4] = tint[0] * lighting;
+        baseColours[5] = tint[1] * lighting;
+        baseColours[6] = tint[2] * lighting;
 
-        baseColours[8] = lighting;
-        baseColours[9] = lighting;
-        baseColours[10] = lighting;
+        baseColours[8] = tint[0] * lighting;
+        baseColours[9] = tint[1] * lighting;
+        baseColours[10] = tint[2] * lighting;
 
-        baseColours[12] = lighting;
-        baseColours[13] = lighting;
-        baseColours[14] = lighting;
+        baseColours[12] = tint[0] * lighting;
+        baseColours[13] = tint[1] * lighting;
+        baseColours[14] = tint[2] * lighting;
 
         addRenderInformation(cachedVecs[x][y], baseColours, cachedUvs[spriteIndex]);
     }

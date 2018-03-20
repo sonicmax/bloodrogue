@@ -1,12 +1,15 @@
 package com.sonicmax.bloodrogue.renderer.ui;
 
+import android.opengl.GLES20;
+import android.opengl.Matrix;
 import android.util.Log;
 
 import com.sonicmax.bloodrogue.engine.components.Container;
 import com.sonicmax.bloodrogue.engine.components.Dexterity;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
 import com.sonicmax.bloodrogue.generator.factories.AnimationFactory;
-import com.sonicmax.bloodrogue.renderer.GameRenderer;
+import com.sonicmax.bloodrogue.renderer.Animation;
+import com.sonicmax.bloodrogue.renderer.ScreenSizeGetter;
 import com.sonicmax.bloodrogue.renderer.sprites.SpriteRenderer;
 import com.sonicmax.bloodrogue.renderer.text.TextColours;
 import com.sonicmax.bloodrogue.renderer.text.TextRenderer;
@@ -16,7 +19,9 @@ import com.sonicmax.bloodrogue.utils.maths.Vector;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-public class UserInterfaceBuilder {
+import javax.microedition.khronos.opengles.GL10;
+
+public class UserInterfaceRenderer {
     public static final int INVENTORY_OPEN = 0;
     public static final int INVENTORY_CLOSED = 1;
 
@@ -25,6 +30,8 @@ public class UserInterfaceBuilder {
     private final float DEFAULT_OFFSET_X = 0f;
     private final float DEFAULT_OFFSET_Y = 0f;
     private final float DEFAULT_LIGHTING = 1f;
+
+    private final float SPRITE_SIZE = 64f;
 
     private int bottomLeft;
     private int bottom;
@@ -69,6 +76,8 @@ public class UserInterfaceBuilder {
     private String itemDetailAttribs;
     private String itemDetailWeight;
 
+    private float screenWidth;
+    private float screenHeight;
     private float windowLeft;
     private float windowRight;
     private float scaleFactor;
@@ -80,31 +89,96 @@ public class UserInterfaceBuilder {
     public boolean itemDetailTransitionComplete;
     public boolean inventoryTransitionComplete;
 
-    public UserInterfaceBuilder(HashMap<String, Integer> spriteIndexes, int width, int height) {
+    private float[] projMatrix;
+    private float[] modelViewMatrix;
+    private float[] mvpMatrix;
+
+    private SpriteRenderer uiRenderer;
+    private TextRenderer uiTextRenderer;
+
+    public UserInterfaceRenderer(HashMap<String, Integer> spriteIndexes, int gridWidth, int gridHeight) {
         this.spriteIndexes = spriteIndexes;
+        this.gridWidth = gridWidth;
+        this.gridHeight = gridHeight;
 
-        this.gridWidth = width;
-        this.gridHeight = height;
-
-        this.inventoryWindowWidth = this.gridWidth - 2;
-        this.inventoryWindowHeight = this.gridHeight - 2;
+        inventoryWindowWidth = gridWidth - 2;
+        inventoryWindowHeight = gridHeight - 2;
 
         getSpriteIndexesForUi(spriteIndexes);
         setDefaultIconState();
 
         // Create sprite components for UI buttons so we can use transition methods
-        this.okButton = new Sprite(-1);
-        this.okButton.spriteIndex = inventoryOk;
+        okButton = new Sprite(-1);
+        okButton.spriteIndex = inventoryOk;
 
-        this.cancelButton = new Sprite(-1);
-        this.cancelButton.spriteIndex = inventoryCancel;
+        cancelButton = new Sprite(-1);
+        cancelButton.spriteIndex = inventoryCancel;
 
-        this.itemDescriptionLines = new ArrayList<>();
+        itemDescriptionLines = new ArrayList<>();
 
-        this.itemDetailName = "";
-        this.itemDetailDescription = "";
-        this.itemDetailAttribs = "";
-        this.itemDetailWeight = "";
+        itemDetailName = "";
+        itemDetailDescription = "";
+        itemDetailAttribs = "";
+        itemDetailWeight = "";
+
+        screenWidth = ScreenSizeGetter.getWidth();
+        screenHeight = ScreenSizeGetter.getHeight();
+
+        projMatrix = new float[16];
+        modelViewMatrix = new float[16];
+        mvpMatrix = new float[16];
+
+        createMatrices();
+        scaleUi();
+    }
+
+    private void createMatrices() {
+        Matrix.orthoM(projMatrix, 0,
+                (-screenWidth / 2), (screenWidth / 2),
+                (-screenHeight / 2), (screenHeight / 2),
+                -1f, 1f);
+
+        // Set the camera position
+        Matrix.setLookAtM(modelViewMatrix, 0,
+                1f, 0f, 1f,
+                1f, 0f, 0f,
+                0f, 1.0f, 0.0f);
+
+        // Calculate the projection and view transformation
+        Matrix.multiplyMM(mvpMatrix, 0, projMatrix, 0, modelViewMatrix, 0);
+
+        // Finally, translate so that origin is in bottom-left corner
+        Matrix.translateM(mvpMatrix, 0,
+                -screenWidth / 2, -screenHeight / 2, 0f);
+    }
+
+    public void initArrays(int textObjectCount) {
+        uiRenderer.resetInternalCount();
+        uiTextRenderer.initArrays(textObjectCount);
+    }
+
+    private final float TARGET_UI_WIDTH = 448f;
+    private float gridSize;
+
+    public void prepareUiRenderer(int spriteShaderProgram, int textureHandle) {
+        uiRenderer = new SpriteRenderer();
+        uiRenderer.initShader(spriteShaderProgram);
+        uiRenderer.setSpriteSheet(textureHandle);
+        uiRenderer.setScaleFactor(scaleFactor);
+        uiRenderer.precalculatePositions(gridWidth, gridHeight);
+        uiRenderer.precalculateUv(spriteIndexes.size());
+    }
+
+    public void prepareUiTextRenderer(int spriteShaderProgram, int textureHandle) {
+        // Create our text manager
+        uiTextRenderer = new TextRenderer();
+        uiTextRenderer.initShader(spriteShaderProgram);
+        uiTextRenderer.setTextureHandle(textureHandle);
+        uiTextRenderer.setUniformscale(scaleFactor);
+        uiTextRenderer.setTextSize(32f);
+        uiTextRenderer.precalculateUv();
+        uiTextRenderer.precalculateOffsets();
+        uiTextRenderer.precalculateRows(ScreenSizeGetter.getHeight());
     }
 
     private void setDefaultIconState() {
@@ -114,12 +188,45 @@ public class UserInterfaceBuilder {
         inventoryOpenAnim = false;
     }
 
-    /**
-     *  Caches relevant sprite indexes to this instance so we don't have to look them up each render
-     */
+    public void prepareGlSurface() {
+        GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        GLES20.glEnable(GL10.GL_TEXTURE_2D);
 
-    public void addUiIcons(SpriteRenderer renderer) {
-        addIcons(renderer);
+        GLES20.glDisable(GLES20.GL_DITHER);
+
+        // Enable alpha blending
+        GLES20.glEnable(GLES20.GL_BLEND);
+        GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+
+        GLES20.glDisable(GLES20.GL_DEPTH_TEST);
+
+        // We can cull the back faces
+        GLES20.glEnable(GL10.GL_CULL_FACE);
+        GLES20.glCullFace(GL10.GL_BACK);
+
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
+
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST);
+    }
+
+    public void renderSplashText(String text) {
+        uiTextRenderer.initArrays(text.length() * 10);
+
+        float x = (float) screenWidth / 2;
+        float y = (float) screenHeight / 2;
+
+        x -= uiTextRenderer.getExpectedTextWidth(text) / 2;
+
+        uiTextRenderer.addTextData(x, y, 0f, 1f, text, TextColours.WHITE, 0f);
+
+        uiTextRenderer.renderText(mvpMatrix);
+    }
+
+    public void render() {
+        uiRenderer.renderSprites(mvpMatrix);
+        uiTextRenderer.renderText(mvpMatrix);
     }
 
     private void getSpriteIndexesForUi(HashMap<String, Integer> spriteIndexes) {
@@ -139,9 +246,9 @@ public class UserInterfaceBuilder {
         inventoryOk = spriteIndexes.get("sprites/inventory_ok.png");
     }
 
-    public void addIcons(SpriteRenderer uiRenderer) {
+    public void addIcons(float dt) {
         if (inventoryOpenAnim) {
-            int frame = processAnimation(inventoryAnimation);
+            int frame = processAnimation(inventoryAnimation, dt);
 
             if (inventoryAnimation.isFinished()) {
                 inventoryOpen = true;
@@ -154,7 +261,7 @@ public class UserInterfaceBuilder {
         }
 
         else if (inventoryCloseAnim) {
-            int frame = processAnimation(inventoryAnimation);
+            int frame = processAnimation(inventoryAnimation, dt);
 
             if (inventoryAnimation.isFinished()) {
                 inventoryClosed = true;
@@ -193,7 +300,7 @@ public class UserInterfaceBuilder {
         }
     }
 
-    private int processAnimation(Animation animation) {
+    private int processAnimation(Animation animation, float dt) {
         final int TRANSPARENT = 164;
 
         try {
@@ -206,15 +313,18 @@ public class UserInterfaceBuilder {
             return TRANSPARENT;
         }
 
-        return spriteIndexes.get(animation.getNextFrame());
+        return spriteIndexes.get(animation.getNextFrame(dt));
     }
 
+    public int getTextRowHeight(int screenHeight) {
+        return uiTextRenderer.precalculateRows(screenHeight);
+    }
 
     /**
      *   Adds empty window to screen.
      */
 
-    public void addWindow(SpriteRenderer uiRenderer) {
+    public void addWindow() {
         int x = 0;
         int y = 1;
 
@@ -263,8 +373,24 @@ public class UserInterfaceBuilder {
         uiRenderer.addSpriteData(x, y, topRight, DEFAULT_LIGHTING);
     }
 
-    public void populateInventory(SpriteRenderer uiRenderer) {
-        populateInventory(uiRenderer, 1f);
+    public void populateInventory() {
+        populateInventory(1f);
+    }
+
+    public void addTextData(float x, float y, float offsetY, float scale, String text, float[] colour, float alpha) {
+        uiTextRenderer.addTextData(x, y, offsetY, scale, text, colour, alpha);
+    }
+
+    public void addTextRowData(int row, String text, float[] colour, float alpha) {
+        uiTextRenderer.addTextRowData(row, text, colour, alpha);
+    }
+
+    public void addTextRowData(int row, float offset, String text, float[] colour, float alpha) {
+        uiTextRenderer.addTextRowData(row, offset, text, colour, alpha);
+    }
+
+    public float getExpectedTextWidth(String string) {
+        return uiTextRenderer.getExpectedTextWidth(string);
     }
 
     public void setPlayerComponents(Container container, Dexterity dexterity) {
@@ -272,7 +398,7 @@ public class UserInterfaceBuilder {
         this.equipment = dexterity;
     }
 
-    public void populateInventory(SpriteRenderer uiRenderer, float alpha) {
+    public void populateInventory(float alpha) {
         ArrayList<Sprite> items = inventory.contents;
         int itemSize = items.size();
         int itemIndex = 0;
@@ -321,7 +447,7 @@ public class UserInterfaceBuilder {
         }
     }
 
-    public void animateItemDetailTransition(GameRenderer renderer, SpriteRenderer uiRenderer, TextRenderer uiTextRenderer, Sprite sprite) {
+    public void animateItemDetailTransition(Sprite sprite) {
         selectedItem = sprite.id;
         sprite.x = gridWidth - (INVENTORY_WINDOW_BORDER * 2);
         sprite.y = gridHeight - (INVENTORY_WINDOW_BORDER * 2);
@@ -336,7 +462,7 @@ public class UserInterfaceBuilder {
             uiRenderer.addSpriteData(sprite.x, sprite.y, sprite.spriteIndex, lighting);
             uiRenderer.addSpriteData(gridWidth - 3, 2, inventoryOk, 1f);
             uiRenderer.addSpriteData(gridWidth - 2, 2, inventoryCancel, 1f);
-            renderDetailText(renderer, uiTextRenderer);
+            renderDetailText();
 
             itemDetailTransitionComplete = true;
 
@@ -344,12 +470,12 @@ public class UserInterfaceBuilder {
             uiRenderer.addSpriteData(sprite.lastX, sprite.lastY, sprite.spriteIndex, lighting, offsetX, offsetY);
             uiRenderer.addSpriteData(gridWidth - 3, 2, inventoryOk, 1f, fraction);
             uiRenderer.addSpriteData(gridWidth - 2, 2, inventoryCancel, 1f, fraction);
-            populateInventory(uiRenderer, 1f - fraction);
-            renderDetailText(renderer, uiTextRenderer, 1f - fraction);
+            populateInventory(1f - fraction);
+            renderDetailText(1f - fraction);
         }
     }
 
-    public void processInventoryCard(InventoryCard card, TextRenderer textRenderer) {
+    public void processInventoryCard(InventoryCard card) {
         this.inventoryCard = card;
         this.itemDetailName = inventoryCard.name;
         this.itemDetailDescription = inventoryCard.desc;
@@ -362,7 +488,7 @@ public class UserInterfaceBuilder {
         if (itemDetailDescription != null && !itemDetailDescription.equals("")
                 && itemDescriptionLines.size() == 0) {
 
-            splitDescription(textRenderer);
+            splitDescription();
         }
     }
 
@@ -384,7 +510,7 @@ public class UserInterfaceBuilder {
      *  for displaying in inventory detail view
      */
 
-    private void splitDescription(TextRenderer textRenderer) {
+    private void splitDescription() {
         final float SPRITE_SIZE = 64;
         String[] split = itemDetailDescription.split(" ");
 
@@ -395,7 +521,7 @@ public class UserInterfaceBuilder {
         for (int i = 0; i < split.length; i++) {
             String word = split[i] + " ";
 
-            if (textRenderer.getExpectedTextWidth(stringBuilder.toString() + word) <= inventoryWidth + SPRITE_SIZE) {
+            if (uiTextRenderer.getExpectedTextWidth(stringBuilder.toString() + word) <= inventoryWidth - SPRITE_SIZE) {
                 stringBuilder.append(word);
             } else {
                 // Add new line to array, empty StringBuilder and start next line with current word
@@ -406,6 +532,28 @@ public class UserInterfaceBuilder {
         }
 
         itemDescriptionLines.add(stringBuilder.toString());
+    }
+
+    private void scaleUi() {
+        screenWidth = ScreenSizeGetter.getWidth();
+        screenHeight = ScreenSizeGetter.getHeight();
+
+        /*if (targetWidth > screenWidth) {
+            targetWidth = screenWidth;
+        }*/
+
+        float resX = (float) screenWidth / TARGET_UI_WIDTH;
+        float resY = (float) screenHeight / TARGET_UI_WIDTH;
+
+        if (resX > resY) {
+            scaleFactor = resY;
+        }
+
+        else {
+            scaleFactor = resX;
+        }
+
+        gridSize = SPRITE_SIZE * scaleFactor;
     }
 
     public void setBoundsAndScale(float left, float right, float scaleFactor) {
@@ -427,42 +575,55 @@ public class UserInterfaceBuilder {
         return (fraction * fraction);
     }
 
-    public void showItemDetailView(SpriteRenderer uiRenderer, InventoryCard details) {
-        // Todo: move text stuff from GameRenderer to here. oioioi
+    public void showItemDetailView(InventoryCard details) {
         uiRenderer.addSpriteData(details.sprite.x, details.sprite.y, details.sprite.spriteIndex, 1f);
         uiRenderer.addSpriteData(gridWidth - 3, 2, inventoryOk, 1f);
         uiRenderer.addSpriteData(gridWidth - 2, 2, inventoryCancel, 1f);
     }
 
-    public void renderDetailText(GameRenderer renderer, TextRenderer uiTextRenderer) {
-        renderDetailText(renderer, uiTextRenderer, 0f);
+    public float[] getRenderCoordsForObject(Vector objectPos, boolean withScroll) {
+        float x = objectPos.x();
+        float y = objectPos.y();
+        float spriteSize = SPRITE_SIZE * scaleFactor;
+
+        x *= spriteSize;
+        y *= spriteSize;
+
+        x += 30;
+        y += spriteSize * 1.1;
+
+        return new float[] {x, y};
     }
 
-    public void renderDetailText(GameRenderer renderer, TextRenderer uiTextRenderer, float alphaModifier) {
+    public void renderDetailText() {
+        renderDetailText(0f);
+    }
+
+    public void renderDetailText(float alphaModifier) {
         float[] offset;
 
-        offset = renderer.getRenderCoordsForObject(new Vector(1, gridHeight - 3), false);
+        offset = getRenderCoordsForObject(new Vector(1, gridHeight - 3), false);
         uiTextRenderer.addTextData(offset[0], offset[1], DEFAULT_OFFSET_Y, 1f, itemDetailName, TextColours.WHITE, alphaModifier);
 
 
-        offset = renderer.getRenderCoordsForObject(new Vector(1, gridHeight - 6), false);
+        offset = getRenderCoordsForObject(new Vector(1, gridHeight - 6), false);
 
         for (int i = 0; i < itemDescriptionLines.size(); i++) {
             uiTextRenderer.addTextRowData(itemDescriptionLines.size() - i, offset[0], offset[1],  itemDescriptionLines.get(i), TextColours.YELLOW, alphaModifier);
         }
 
-        offset = renderer.getRenderCoordsForObject(new Vector(1, gridHeight - 7), false);
+        offset = getRenderCoordsForObject(new Vector(1, gridHeight - 7), false);
 
         if (selectedItem == equipment.weaponEntity || selectedItem == equipment.armourEntity) {
             uiTextRenderer.addTextRowData(0, offset[0], offset[1], "(equipped)", TextColours.ROYAL_BLUE, alphaModifier);
         }
 
-        offset = renderer.getRenderCoordsForObject(new Vector(1, 2), false);
+        offset = getRenderCoordsForObject(new Vector(1, 2), false);
         uiTextRenderer.addTextRowData(1, offset[0], offset[1],  itemDetailAttribs, TextColours.ROYAL_BLUE, alphaModifier);
         uiTextRenderer.addTextRowData(0, offset[0], offset[1],  itemDetailWeight, TextColours.WHITE, alphaModifier);
     }
 
-    public void animateInventoryTransition(GameRenderer renderer, SpriteRenderer uiRenderer, TextRenderer uiTextRenderer, Sprite sprite) {
+    public void animateInventoryTransition(Sprite sprite) {
         selectedItem = sprite.id;
         sprite.x = gridWidth - (INVENTORY_WINDOW_BORDER * 2);
         sprite.y = gridHeight - (INVENTORY_WINDOW_BORDER * 2);
@@ -474,15 +635,15 @@ public class UserInterfaceBuilder {
 
         if (fraction == 1) {
             sprite.movementStep = 0;
-            populateInventory(uiRenderer, fraction);
+            populateInventory(fraction);
             inventoryTransitionComplete = true;
 
         } else {
             uiRenderer.addSpriteData(sprite.x, sprite.y, sprite.spriteIndex, lighting, offsetX, offsetY);
             uiRenderer.addSpriteData(gridWidth - 3, 2, inventoryOk, 1f, 1f - fraction);
             uiRenderer.addSpriteData(gridWidth - 2, 2, inventoryCancel, 1f, 1f - fraction);
-            populateInventory(uiRenderer, fraction);
-            renderDetailText(renderer, uiTextRenderer, fraction);
+            populateInventory(fraction);
+            renderDetailText(fraction);
         }
     }
 }

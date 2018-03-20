@@ -32,6 +32,12 @@ public class GLShaderLoader {
     private final String CUBE_VERT_PATH = "shaders/cube.vert";
     private final String CUBE_FRAG_PATH = "shaders/cube.frag";
 
+    private final String DEPTH_MAP_VERT_PATH = "shaders/depth_map.vert";
+    private final String DEPTH_MAP_FRAG_PATH = "shaders/depth_map.frag";
+
+    private final String DEBUG_DEPTH_VERT_PATH = "shaders/debug_depth.vert";
+    private final String DEBUG_DEPTH_FRAG_PATH = "shaders/debug_depth.frag";
+
     private Context context;
 
     public GLShaderLoader(Context context) {
@@ -85,6 +91,64 @@ public class GLShaderLoader {
             GLES20.glLinkProgram(spriteShaderHandle);
 
             return spriteShaderHandle;
+
+
+        } catch (IOException e) {
+            // Todo: static string fallback?
+            return 0;
+        }
+    }
+
+    public int compileDebugDepthMapShader() {
+        try {
+            InputStream inputStream = context.getAssets().open(DEBUG_DEPTH_VERT_PATH);
+            String vertCode = readStringFromStream(inputStream);
+            inputStream = context.getAssets().open(DEBUG_DEPTH_FRAG_PATH);
+            String fragCode = readStringFromStream(inputStream);
+            inputStream.close();
+
+            int vertexShader = loadShader(GLES20.GL_VERTEX_SHADER, vertCode);
+            int fragmentShader = loadShader(GLES20.GL_FRAGMENT_SHADER, fragCode);
+
+            int shaderHandle = GLES20.glCreateProgram();
+            GLES20.glAttachShader(shaderHandle, vertexShader);
+            GLES20.glAttachShader(shaderHandle, fragmentShader);
+
+            GLES20.glBindAttribLocation(shaderHandle, Shader.POSITION, "a_Position");
+            GLES20.glBindAttribLocation(shaderHandle, Shader.TEXCOORD, "a_texCoord");
+
+            GLES20.glLinkProgram(shaderHandle);
+
+            return shaderHandle;
+
+
+        } catch (IOException e) {
+            // Todo: static string fallback?
+            return 0;
+        }
+    }
+
+    public int compileDepthMapShader() {
+        try {
+            InputStream inputStream = context.getAssets().open(DEPTH_MAP_VERT_PATH);
+            String vertCode = readStringFromStream(inputStream);
+            inputStream = context.getAssets().open(DEPTH_MAP_FRAG_PATH);
+            String fragCode = readStringFromStream(inputStream);
+            inputStream.close();
+
+            int vertexShader = loadShader(GLES20.GL_VERTEX_SHADER, vertCode);
+            int fragmentShader = loadShader(GLES20.GL_FRAGMENT_SHADER, fragCode);
+
+            int shaderHandle = GLES20.glCreateProgram();
+            GLES20.glAttachShader(shaderHandle, vertexShader);
+            GLES20.glAttachShader(shaderHandle, fragmentShader);
+
+            GLES20.glBindAttribLocation(shaderHandle, Shader.SHADOW_POSITION, "a_ShadowPosition");
+            GLES20.glBindAttribLocation(shaderHandle, Shader.TEXCOORD, "a_texCoord");
+
+            GLES20.glLinkProgram(shaderHandle);
+
+            return shaderHandle;
 
 
         } catch (IOException e) {
