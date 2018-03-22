@@ -99,11 +99,11 @@ public class GLShaderLoader {
             GLES20.glAttachShader(shaderHandle, fragmentShader);
 
             // These attributes are not used in all shaders - be careful to double check when binding vertex arrays/etc
-            GLES20.glBindAttribLocation(shaderHandle, Shader.POSITION, "a_Position");
-            GLES20.glBindAttribLocation(shaderHandle, Shader.SHADOW_POSITION, "a_ShadowPosition");
-            GLES20.glBindAttribLocation(shaderHandle, Shader.COLOUR, "a_Color");
-            GLES20.glBindAttribLocation(shaderHandle, Shader.TEXCOORD, "a_texCoord");
-            GLES20.glBindAttribLocation(shaderHandle, Shader.NORMAL, "a_Normal");
+            GLES20.glBindAttribLocation(shaderHandle, ShaderAttributes.POSITION, "a_Position");
+            GLES20.glBindAttribLocation(shaderHandle, ShaderAttributes.SHADOW_POSITION, "a_ShadowPosition");
+            GLES20.glBindAttribLocation(shaderHandle, ShaderAttributes.COLOUR, "a_Color");
+            GLES20.glBindAttribLocation(shaderHandle, ShaderAttributes.TEXCOORD, "a_texCoord");
+            GLES20.glBindAttribLocation(shaderHandle, ShaderAttributes.NORMAL, "a_Normal");
 
             GLES20.glLinkProgram(shaderHandle);
 

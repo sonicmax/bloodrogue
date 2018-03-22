@@ -28,6 +28,12 @@ public class CorpseTileset {
             case "Spirit":
                 return "sprites/ogre_spirit_corpse.png";
 
+            case "Goat":
+                return "sprites/bad_goat_corpse.png";
+
+            case "Giant Toad":
+                return "sprites/giant_toad_corpse.png";
+
             default:
                 return "sprites/transparent.png";
         }

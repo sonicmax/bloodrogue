@@ -3,7 +3,6 @@ package com.sonicmax.bloodrogue.generator.factories;
 import com.sonicmax.bloodrogue.engine.ComponentManager;
 import com.sonicmax.bloodrogue.engine.Directions;
 import com.sonicmax.bloodrogue.engine.Entity;
-import com.sonicmax.bloodrogue.engine.components.Animation;
 import com.sonicmax.bloodrogue.engine.components.Blood;
 import com.sonicmax.bloodrogue.engine.Component;
 import com.sonicmax.bloodrogue.engine.components.Physics;
@@ -18,31 +17,6 @@ import java.util.ArrayList;
 
 public class DecalFactory {
 
-    public static Component[] getEmptyAnimation(int x, int y) {
-        Entity entity = new Entity();
-
-        Component[] array = new Component[4];
-
-        Position position = new Position(entity.id);
-        position.x = x;
-        position.y = y;
-
-        Animation animation = new Animation(entity.id);
-
-        Terrain s = new Terrain(Terrain.DEFAULT, entity.id);
-
-        Physics physics = new Physics(entity.id);
-        physics.isBlocking = false;
-        physics.isTraversable = true;
-
-        array[0] = position;
-        array[1] = animation;
-        array[2] = s;
-        array[3] = physics;
-
-        return array;
-    }
-
     public static Component[] getCorpse(int x, int y, String type) {
         Entity entity = new Entity();
 
@@ -53,7 +27,8 @@ public class DecalFactory {
         position.y = y;
 
         Sprite sprite = new Sprite(entity.id);
-        sprite.shader = Sprite.DYNAMIC;
+        sprite.renderState = Sprite.DYNAMIC;
+        sprite.wrapToCube = false;
 
         Terrain s = new Terrain(Terrain.DEFAULT, entity.id);
 
@@ -115,6 +90,8 @@ public class DecalFactory {
         Vector location = new Vector(position.x, position.y).add(direction);
         int x = location.x();
         int y = location.y();
+
+        if (x < 0 || x >= mapGrid.length && y < 0 || y >= mapGrid[0].length) return null;
 
         // BLOOD_DROPS and BLOOD_DROPS_WALL have same length
         RandomNumberGenerator rng = new RandomNumberGenerator();
@@ -195,14 +172,43 @@ public class DecalFactory {
         position.y = y;
 
         Sprite sprite = new Sprite(entity.id);
-        sprite.shader = Sprite.STATIC;
+        sprite.renderState = Sprite.STATIC;
         sprite.path = tile;
+        sprite.wrapToCube = false;
 
         Terrain s = new Terrain(Terrain.DEFAULT, entity.id);
 
         Physics physics = new Physics(entity.id);
         physics.isBlocking = false;
         physics.isTraversable = false;
+
+        array[0] = position;
+        array[1] = sprite;
+        array[2] = s;
+        array[3] = physics;
+
+        return array;
+    }
+
+    public static Component[] createCubeDecal(int x, int y, String tile, boolean isBlocking, boolean isTraversable) {
+        Entity entity = new Entity();
+
+        Component[] array = new Component[4];
+
+        Position position = new Position(entity.id);
+        position.x = x;
+        position.y = y;
+
+        Sprite sprite = new Sprite(entity.id);
+        sprite.renderState = Sprite.STATIC;
+        sprite.path = tile;
+        sprite.wrapToCube = true;
+
+        Terrain s = new Terrain(Terrain.DEFAULT, entity.id);
+
+        Physics physics = new Physics(entity.id);
+        physics.isBlocking = isBlocking;
+        physics.isTraversable = isTraversable;
 
         array[0] = position;
         array[1] = sprite;
@@ -222,8 +228,9 @@ public class DecalFactory {
         position.y = y;
 
         Sprite sprite = new Sprite(entity.id);
-        sprite.shader = Sprite.STATIC;
+        sprite.renderState = Sprite.STATIC;
         sprite.path = tile;
+        sprite.wrapToCube = false;
 
         Terrain s = new Terrain(Terrain.DEFAULT, entity.id);
 
@@ -249,8 +256,9 @@ public class DecalFactory {
         position.y = y;
 
         Sprite sprite = new Sprite(entity.id);
-        sprite.shader = Sprite.WAVE;
+        sprite.renderState = Sprite.WAVE;
         sprite.path = tile;
+        sprite.zLayer = 0;
 
         Terrain s = new Terrain(Terrain.DEFAULT, entity.id);
 
@@ -277,8 +285,9 @@ public class DecalFactory {
         position.y = y;
 
         Sprite sprite = new Sprite(entity.id);
-        sprite.shader = Sprite.STATIC;
+        sprite.renderState = Sprite.STATIC;
         sprite.path = tile;
+        sprite.wrapToCube = false;
 
         Terrain s = new Terrain(Terrain.DEFAULT, entity.id);
 
@@ -304,8 +313,9 @@ public class DecalFactory {
         position.y = y;
 
         Sprite sprite = new Sprite(entity.id);
-        sprite.shader = Sprite.STATIC;
+        sprite.renderState = Sprite.STATIC;
         sprite.path = tile;
+        sprite.wrapToCube = false;
 
         Terrain s = new Terrain(Terrain.DEFAULT, entity.id);
 

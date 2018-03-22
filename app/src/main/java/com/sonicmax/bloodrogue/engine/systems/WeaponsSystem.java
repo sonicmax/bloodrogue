@@ -4,12 +4,8 @@ import android.util.Log;
 
 import com.sonicmax.bloodrogue.engine.ComponentManager;
 import com.sonicmax.bloodrogue.engine.components.Dexterity;
-import com.sonicmax.bloodrogue.engine.components.Input;
-import com.sonicmax.bloodrogue.engine.components.Physics;
-import com.sonicmax.bloodrogue.engine.components.Position;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
 import com.sonicmax.bloodrogue.engine.components.Wieldable;
-import com.sonicmax.bloodrogue.renderer.Shader;
 import com.sonicmax.bloodrogue.tilesets.WeaponTileset;
 
 /**
@@ -79,7 +75,7 @@ public class WeaponsSystem {
             sprite.overlayPath = WeaponTileset.getWieldableSpriteForWeapon(weaponSprite.path);
             sprite.overlayIndex = -1;
             if (sprite.overlayPath != null) {
-                sprite.overlayShader = Sprite.DYNAMIC;
+                sprite.overlayRenderState = Sprite.DYNAMIC;
             }
 
             switch (wieldable.hands) {
@@ -99,10 +95,10 @@ public class WeaponsSystem {
 
             sprite.effectPath = WeaponTileset.getEffectForWeapon(sprite.overlayPath);
             if (sprite.effectPath != null) {
-                sprite.effectShader = Sprite.WAVE;
+                sprite.effectRenderState = Sprite.WAVE;
             }
 
-            weaponSprite.shader = Sprite.NONE;
+            weaponSprite.renderState = Sprite.NONE;
         }
     }
 
@@ -114,11 +110,11 @@ public class WeaponsSystem {
 
             sprite.overlayIndex = -1;
             sprite.overlayPath = null;
-            sprite.overlayShader = Sprite.NONE;
+            sprite.overlayRenderState = Sprite.NONE;
 
             sprite.effectPath = null;
             sprite.effectIndex = -1;
-            sprite.effectShader = Sprite.NONE;
+            sprite.effectRenderState = Sprite.NONE;
 
             dex.weaponEntity = -1;
         }

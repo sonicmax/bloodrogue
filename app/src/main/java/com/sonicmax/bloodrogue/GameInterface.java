@@ -8,13 +8,15 @@ import android.util.Log;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 
-import com.sonicmax.bloodrogue.audio.FxFilePaths;
 import com.sonicmax.bloodrogue.audio.MusicFilePaths;
 import com.sonicmax.bloodrogue.audio.AudioPlayer;
+import com.sonicmax.bloodrogue.engine.environment.TimeManager;
 import com.sonicmax.bloodrogue.engine.GameEngine;
 import com.sonicmax.bloodrogue.engine.GameState;
+import com.sonicmax.bloodrogue.engine.environment.WeatherManager;
 import com.sonicmax.bloodrogue.engine.components.Position;
-import com.sonicmax.bloodrogue.renderer.GameRenderer;
+import com.sonicmax.bloodrogue.generator.Chunk;
+import com.sonicmax.bloodrogue.renderer.GameRenderer3D;
 import com.sonicmax.bloodrogue.renderer.text.NarrationManager;
 import com.sonicmax.bloodrogue.renderer.text.Status;
 import com.sonicmax.bloodrogue.renderer.ui.InventoryCard;
@@ -38,8 +40,11 @@ public class GameInterface {
     private Context context;
     private AudioPlayer audioPlayer;
     private GameRenderer gameRenderer;
+    private GameRenderer3D gameRenderer3D;
     private GameEngine gameEngine;
     private NarrationManager narrationManager;
+    private TimeManager timeManager;
+    private WeatherManager weatherManager;
 
     // User input
     private Vector lastMapTouch;
@@ -55,17 +60,29 @@ public class GameInterface {
 
     private Handler handler;
 
+    private float mPreviousX;
+    private float mPreviousY;
+    private float density;
+
     private boolean startFresh = true; // This is just for debugging lol
 
-    public GameInterface(Context context) {
+    public GameInterface(Context context, GameRenderer3D renderer) {
         this.context = context;
 
-        // Initialise game components.
+        // Initialise game components. (note: order is important)
+        this.narrationManager = new NarrationManager();
+        this.timeManager = new TimeManager();
+        this.weatherManager = new WeatherManager();
+
         this.gameEngine = new GameEngine(this);
         this.audioPlayer = new AudioPlayer(context);
-        this.gameRenderer = new GameRenderer(context, this);
-        this.narrationManager = new NarrationManager();
-        this.gameRenderer.setMapSize(gameEngine.getMapSize());
+        // this.gameRenderer = new GameRenderer(context, this);
+
+        gameRenderer3D = renderer;
+        gameRenderer3D.setGameInterface(this);
+        gameRenderer3D.setMapSize(gameEngine.getMapSize());
+
+        // this.gameRenderer.setMapSize(gameEngine.getMapSize());
 
         // Set some variables required for UI interactions
         this.lastTouchX = 0f;
@@ -81,7 +98,8 @@ public class GameInterface {
     }
 
     public void showTitle() {
-        gameRenderer.setRenderState(GameRenderer.TITLE);
+        // gameRenderer.setRenderState(GameRenderer.TITLE);
+        gameRenderer3D.setRenderState(GameRenderer3D.TITLE);
 
         handler.postDelayed(new Runnable() {
             @Override
@@ -92,25 +110,31 @@ public class GameInterface {
     }
 
     public void openMainMenu() {
-        gameRenderer.setRenderState(GameRenderer.MENU);
+        // gameRenderer.setRenderState(GameRenderer.MENU);
+        gameRenderer3D.setRenderState(GameRenderer3D.MENU);
 
         waitingForMenuInput = true;
     }
 
     public void handleMenuInput() {
         waitingForMenuInput = false;
-        gameRenderer.setRenderState(GameRenderer.SPLASH);
+        // gameRenderer.setRenderState(GameRenderer.SPLASH);
+        gameRenderer3D.setRenderState(GameRenderer3D.SPLASH);
 
         // Note: startGame() is an expensive method call and should be executed in background thread
 
         AsyncTask.execute(new Runnable() {
             @Override
             public void run() {
+                Log.v(LOG_TAG, "starting game");
                 startGame();
-                audioPlayer.startNewMusicLoop(MusicFilePaths.TRACK_01);
-                passDataToRenderer();
+                Log.v(LOG_TAG, "starting music");
+                audioPlayer.startNewMusicLoop(MusicFilePaths.TRACK_03);
+                Log.v(LOG_TAG, "transitioning to new content");
                 transitionToNewContent();
+                Log.v(LOG_TAG, "pre in game: " + inGame);
                 inGame = true;
+                Log.v(LOG_TAG, "post in game: " + inGame);
             }
         });
     }
@@ -230,10 +254,14 @@ public class GameInterface {
      * @return true if event is consumed
      */
 
+    long lastClickTime = 0;
+    static final int MAX_DURATION = 200;
+
     public boolean handleTouchEvent(MotionEvent e) {
         float x = e.getX();
         float y = e.getY();
 
+        long eventTime = e.getEventTime();
         long eventDuration = e.getEventTime() - e.getDownTime();
 
         switch(e.getAction()) {
@@ -248,6 +276,13 @@ public class GameInterface {
             case MotionEvent.ACTION_UP:
                 if (inputLock) break;
                 handleTouchUp(x, y, eventDuration);
+
+                if ((eventTime - lastClickTime) <= MAX_DURATION && inGame) {
+                    gameRenderer3D.switchRenderMode();
+                }
+
+                lastClickTime = eventTime;
+
                 break;
         }
 
@@ -264,6 +299,12 @@ public class GameInterface {
 
     private void handleTouchDown(float x, float y) {
         if (inGame) {
+            if (true) {
+                mPreviousX = x;
+                mPreviousY = y;
+                return;
+            }
+
             Vector mapTouch = gameRenderer.getGridCellForTouchCoords(x, y);
 
             lastTouchX = x;
@@ -280,6 +321,10 @@ public class GameInterface {
         }
     }
 
+    public void setDensity(float density) {
+        this.density = density;
+    }
+
     /**
      * ACTION_MOVE events are used to scroll the game window and update current grid selection.
      *
@@ -290,6 +335,22 @@ public class GameInterface {
 
     private void handleTouchMove(float x, float y, long duration) {
         if (inGame) {
+
+            // TODO: lol
+            if (true) {
+                if (gameRenderer3D != null) {
+                    float deltaX = (x - mPreviousX) / density / 2f;
+                    float deltaY = (y - mPreviousY) / density / 2f;
+
+                    gameRenderer3D.setCameraRotationX(deltaX);
+                    gameRenderer3D.setCameraRotationY(deltaY);
+                }
+
+                mPreviousX = x;
+                mPreviousY = y;
+                return;
+            }
+
             final long SCROLL_THRESHOLD = 100L;  // Number of milliseconds to wait before scrolling
 
             // If player is currently selecting a path, we should update the path destination with current position
@@ -335,6 +396,12 @@ public class GameInterface {
 
     private void handleTouchUp(float x, float y, long eventDuration) {
         if (inGame) {
+            if (true) {
+                mPreviousX = x;
+                mPreviousY = y;
+
+                return;
+            }
             final long PATH_THRESHOLD = 500L; // Amount of time before we start displaying path selection nodes
             final Vector mapTouch = gameRenderer.getGridCellForTouchCoords(x, y);
 
@@ -380,7 +447,7 @@ public class GameInterface {
     }
 
     public boolean handleScaleBegin(ScaleGestureDetector detector) {
-        gameRenderer.startZoom(detector);
+        // gameRenderer.startZoom(detector);
         return true;
     }
 
@@ -393,15 +460,18 @@ public class GameInterface {
 
     public boolean handleScaleChange(ScaleGestureDetector detector) {
         scaleFactor *= detector.getScaleFactor();
+        float delta = (detector.getCurrentSpan() - detector.getPreviousSpan()) / density / 2f;
+        gameRenderer3D.setScaleDelta(delta);
 
         // Don't let the object get too small or too large.
-        scaleFactor = Math.max(0.5f, Math.min(scaleFactor, 2.0f));
-        gameRenderer.setZoom(scaleFactor);
+        // scaleFactor = Math.max(0.5f, Math.min(scaleFactor, 4.0f));
+        // gameRenderer.setZoom(scaleFactor);
+        gameRenderer3D.setZoom(scaleFactor);
         return true;
     }
 
     public void handleScaleEnd(ScaleGestureDetector detector) {
-        gameRenderer.endZoom();
+        // gameRenderer.endZoom();
     }
 
     public long processInventoryClick(int index) {
@@ -422,8 +492,10 @@ public class GameInterface {
     }
 
     public void passDataToRenderer() {
-        gameRenderer.setFrame(gameEngine.getCurrentFrameData());
-        gameRenderer.setHasGameData();
+        // gameRenderer.setFrame(gameEngine.getCurrentFrameData());
+        // gameRenderer.setHasGameData();
+
+        gameRenderer3D.setFrame(gameEngine.getCurrentFrameData());
     }
 
     public void setMoveLock(boolean value) {
@@ -440,27 +512,33 @@ public class GameInterface {
 
     public void checkNarrations() {
         narrationManager.checkQueueAndRemove();
-        gameRenderer.queueNarrationUpdate(narrationManager.getTextObjects());
+        //gameRenderer.queueNarrationUpdate(narrationManager.getTextObjects());
+        gameRenderer3D.queueNarrationUpdate(narrationManager.getTextObjects());
     }
 
     public void displayStatus(Position position, String message, float[] color) {
         Vector vector = new Vector(position.x, position.y);
         float[] coords = gameRenderer.getRenderCoordsForObject(vector, true);
         Status status = new Status(message, coords[0], coords[1], color);
-        gameRenderer.queueNewStatus(status);
+        // gameRenderer.queueNewStatus(status);
+        gameRenderer3D.queueNewStatus(status);
     }
 
     public void startFloorChange() {
-        gameRenderer.fadeOutAndDisplaySplash();
+        // gameRenderer.fadeOutAndDisplaySplash();
         narrationManager.clearAll();
     }
 
+    public Chunk getVisibleChunk() {
+        return gameRenderer.getVisibleChunk();
+    }
+
     public void transitionToNewContent() {
-        gameRenderer.startNewFloor();
+        // gameRenderer.startNewFloor();
     }
 
     public void freeResources() {
-        gameRenderer.freeBuffers();
+        // gameRenderer.freeBuffers();
     }
 
     public void haltAudio() {
@@ -469,5 +547,13 @@ public class GameInterface {
 
     public void triggerSoundEffect(String fx) {
         audioPlayer.playSound(fx);
+    }
+
+    public TimeManager getTimeManager() {
+        return timeManager;
+    }
+
+    public WeatherManager getWeatherManager() {
+        return weatherManager;
     }
 }

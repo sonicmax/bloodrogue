@@ -14,5 +14,7 @@ void main() {
 
 	vec2 uv = v_texCoord.xy / resolution.xy + (cPos / cLength) * cos(cLength * 12.0 - u_Time * 4.0) * 0.03;
 
-	gl_FragColor = vec4(texture2D(u_Texture, uv).xyz, v_Color.a);
+	gl_FragColor = texture2D(u_Texture, uv) * v_Color;	
+	gl_FragColor.rgb *= v_Color.a;
+	gl_FragColor.a = 0.5;
 }

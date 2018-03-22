@@ -23,17 +23,16 @@ import com.sonicmax.bloodrogue.engine.environment.WeatherManager;
 import com.sonicmax.bloodrogue.renderer.cubes.CubeBatch;
 import com.sonicmax.bloodrogue.renderer.cubes.ShapeBuilder;
 import com.sonicmax.bloodrogue.renderer.shaders.GLShaderLoader;
-import com.sonicmax.bloodrogue.renderer.sprites.ImageLoader;
+import com.sonicmax.bloodrogue.renderer.textures.ImageLoader;
 import com.sonicmax.bloodrogue.renderer.sprites.SpriteBatch;
 import com.sonicmax.bloodrogue.renderer.sprites.SpriteRenderer;
 import com.sonicmax.bloodrogue.renderer.text.Status;
 import com.sonicmax.bloodrogue.renderer.text.TextObject;
+import com.sonicmax.bloodrogue.renderer.textures.UvHelper;
 import com.sonicmax.bloodrogue.ui.UserInterfaceController;
-import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 
 public class GameRenderer3D implements GLSurfaceView.Renderer {
     private final String LOG_TAG = this.getClass().getSimpleName();
-    public static final int Z_DEPTH = 1;
 
     private final int CUBE_POSITION_SIZE = 108;
     private final int CUBE_NORMAL_SIZE = 108;
@@ -54,12 +53,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     private HashMap<String, Integer> textureHandles; // Texture handles for loaded textures
     private HashMap<String, Integer> spriteIndexes; // Position on sprite sheet for particular texture
 
-    private final float[] lightPosInModelSpace = new float [] {64f, 10f, 64f, 1f};
-    private final float[] lightPosInEyeSpace = new float[4];
-
-    /** Used to hold the current position of the light in world space (after transformation via model matrix). */
-    private final float[] lightPosInWorldSpace = new float[4];
-
     private float[] modelMatrix = new float[16];
     private float[] viewMatrix = new float[16];
     private float[] projectionMatrix = new float[16];
@@ -67,15 +60,11 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     private float[] mvpMatrix = new float[16];
     private float[] normalMatrix = new float[16];
 
-    private float[] lightModelMatrix = new float[16];
     private float[] lightViewMatrix = new float[16];
     private float[] lightProjectionMatrix = new float[16];
     private float[] lightMvpMatrix = new float[16];
 
     private float[][] cachedCubeUvs;
-    private final float SPRITE_BOX_WIDTH = 0.03125f; // 1f / 32 sprites per row
-    private final float SPRITE_BOX_HEIGHT = 0.03125f; // 1f / 32 sprites per column
-    private final int SPRITES_PER_ROW = 32;
 
     private int chunkStartX;
     private int chunkStartY;
@@ -135,15 +124,11 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     private Frame currentFloorData;
     private boolean hasGameData = false;
 
-    // Eye position
-    private float x = 64f;
-    private float y = 10f;
-    private float z = 64f;
+    private float[] lightPosInModelSpace = new float[] {192f, 40f, 192f, 1f};
+    private float[] lightPosInEyeSpace = new float[4];
 
-    // Position to look at
-    private float lx = 64f;
-    private float ly = -10f;
-    private float lz = 64f;
+    private float[] cameraPosInModelSpace = new float[] {192f, 40f, 192f, 1f};
+    private float[] cameraTargetInModelSpace = new float[] {192f, -40f, 192f, 1f};
 
     // Camera rotation
     private float xAngle = 0.0f;
@@ -157,6 +142,30 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     private float elapsedTimeMs = 0f;
 
     private boolean hasDepthTextureExtension;
+
+    private int debugDepthMapProgramHandle;
+
+    private float[] actualLightPosition = new float[4];
+
+    private float near = 1.0f;
+    private float far = 1000.0f;
+
+    private int lightMvpMatrixHandle;
+    private int depthMapTextureHandle;
+    private int depthMapMVPMatrixHandle;
+    private int viewPositionHandle;
+    private int depthMapSamplerHandle;
+
+    private int cubeCount = 0;
+    private int spriteCount = 0;
+    private boolean renderUsingDepthMap = false;
+
+    private int shadowMapWidth;
+    private int shadowMapHeight;
+    private int depthMapTextureId;
+    private int depthMapFrameBufferId;
+
+    private float[][] cachedSpriteUvs;
 
     private SpriteRenderer depthMapDebugger;
 
@@ -175,16 +184,18 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
         if (extensions.contains("OES_depth_texture")) {
             hasDepthTextureExtension = true;
-            // Todo: handle cases where OES_depth_texture extension doesn't exist
-            Log.v(LOG_TAG, "Has OES_depth_texture extension");
+        }
+        else {
+            // Todo: create depth map shader for platforms without OES_depth_texture extension
+            throw new RuntimeException("Didn't have OES_depth_texture extension");
         }
 
         loadShaders();
         loadResources();
         setCameraPosition();
 
-        precalculateSpriteUvs(spriteIndexes.size());
-        precalculateCubeUvs(spriteIndexes.size());
+        cachedCubeUvs = UvHelper.precalculateCubeUvs(spriteIndexes.size());
+        cachedSpriteUvs = UvHelper.precalculateSpriteUvs(spriteIndexes.size());
 
         uiController = new UserInterfaceController(gameInterface, spriteIndexes);
         uiController.prepareUiRenderer(spriteProgramHandle, spriteSheetHandle, fontHandle);
@@ -202,7 +213,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
     @Override
     public void onSurfaceChanged(GL10 glUnused, int width, int height) {
-        Log.v(LOG_TAG, "onSurfaceChanged");
+        Log.v(LOG_TAG, "Device resolution: " + width + "x" + height);
 
         // Set the OpenGL viewport to the same size as the surface.
         GLES20.glViewport(0, 0, width, height);
@@ -213,7 +224,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         scaleContent();
         calculateContentGrid();
         setGridChunkToRender();
-        setProjection();
+        setCameraProjection();
         createDepthMapFBO(width, height);
 
         depthMapDebugger.setScaleFactor(scaleFactor);
@@ -265,7 +276,36 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         }
     }
 
-    private int debugDepthMapProgramHandle;
+    /*
+    ------------------------------------------------------------------------------------------
+    Getters and setters
+    ------------------------------------------------------------------------------------------
+    */
+
+    public void setRenderState(int state) {
+        renderState = state;
+    }
+
+    public int getRenderState() {
+        return renderState;
+    }
+
+    public void setGameInterface(GameInterface gameInterface) {
+        this.gameInterface = gameInterface;
+        weatherManager = gameInterface.getWeatherManager();
+        timeManager = gameInterface.getTimeManager();
+    }
+
+    public void setMapSize(int[] size) {
+        mapGridWidth = size[0];
+        mapGridHeight = size[1];
+    }
+
+    /*
+    ------------------------------------------------------------------------------------------
+    Resource and renderer preparation
+    ------------------------------------------------------------------------------------------
+    */
 
     private void loadShaders() {
         GLShaderLoader loader = new GLShaderLoader(context);
@@ -284,73 +324,8 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         fontHandle = textureHandles.get("fonts/ccra_font.png");
     }
 
-    private void setCameraPosition() {
-        float eyeX = x;
-        float eyeY = y;
-        float eyeZ = z;
-
-        float lookX = x + lx;
-        float lookY = y + ly;
-        float lookZ = z + lz;
-
-        float upX = 0.0f;
-        float upY = 1.0f;
-        float upZ = 0.0f;
-
-        Matrix.setLookAtM(viewMatrix, 0,
-                eyeX, eyeY, eyeZ,
-                lookX, lookY, lookZ,
-                upX, upY, upZ);
-    }
-
-    private float[] actualLightPosition = new float[4];
-
-    private void setLightViewMatrix() {
-        long rotationCounter = (long) 1 % 12000L;
-
-        float lightRotationDegree = (360.0f / 12000.0f) * ((int)rotationCounter);
-
-        float[] rotationMatrix = new float[16];
-
-        Matrix.setIdentityM(rotationMatrix, 0);
-
-        Matrix.rotateM(rotationMatrix, 0, lightRotationDegree, 1f, 0f, 0f);
-
-        Matrix.multiplyMV(actualLightPosition, 0, rotationMatrix, 0, lightPosInModelSpace, 0);
-
-        Matrix.setIdentityM(modelMatrix, 0);
-
-        //Set view matrix from light source position
-        Matrix.setLookAtM(lightViewMatrix, 0,
-                lightPosInModelSpace[0], lightPosInModelSpace[1], lightPosInModelSpace[2],
-                lightPosInModelSpace[0] * 2, 0f, lightPosInModelSpace[2],
-                0f, 1f, 0f);
-    }
-
-    private float near = 1.0f;
-    private float far = 1000.0f;
-
-    private void setProjection() {
-        // Note: to zoom, multiply near by zoom level & then divide left/right/top/bottom by near
-        final float ratio = (float) screenWidth / screenHeight;
-        final float left = -ratio;
-        final float right = ratio;
-
-        Log.v(LOG_TAG, "ratio: " + ratio);
-        final float bottom = -1.0f;
-        final float top = 1.0f;
-
-        // Matrix.frustumM(projectionMatrix, 0, left, right, bottom, top, near, far);
-        Matrix.perspectiveM(projectionMatrix, 0, 90f, ratio, near, far);
-
-        // For shadow rendering
-        Matrix.perspectiveM(lightProjectionMatrix, 0, 45f, ratio, near, far);
-    }
-
     private void prepareGlSurface() {
         GLES20.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-
-        GLES20.glEnable(GLES20.GL_TEXTURE_2D);
 
         GLES20.glEnable(GLES20.GL_BLEND);
         GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA);
@@ -360,16 +335,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         GLES20.glDepthFunc(GLES20.GL_LESS);
         GLES20.glDepthRangef(0.0f, 1.0f);
         GLES20.glDepthMask(true);
-
-        GLES20.glEnable(GL10.GL_CULL_FACE);
-        GLES20.glCullFace(GL10.GL_BACK);
     }
-
-    private int lightMvpMatrixHandle;
-    private int depthMapTextureHandle;
-    private int depthMapMVPMatrixHandle;
-    private int viewPositionHandle;
-    private int depthMapSamplerHandle;
 
     private void getGlUniforms() {
         mvpMatrixHandle = GLES20.glGetUniformLocation(cubeProgramHandle, "u_MVPMatrix");
@@ -385,22 +351,110 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         depthMapMVPMatrixHandle = GLES20.glGetUniformLocation(depthMapProgramHandle, "u_MVPMatrix");
         depthMapSamplerHandle = GLES20.glGetUniformLocation(depthMapProgramHandle, "u_Texture");
     }
+    /*
+    ------------------------------------------------------------------------------------------
+    Camera
+    ------------------------------------------------------------------------------------------
+    */
 
-    public void queueNarrationUpdate(ArrayList<TextObject> narrations) {
-        uiController.queueNarrationUpdate(narrations);
+    private void setCameraPosition() {
+        float eyeX = cameraPosInModelSpace[0];
+        float eyeY = cameraPosInModelSpace[1];
+        float eyeZ = cameraPosInModelSpace[2];
+
+        float lookX = eyeX + cameraTargetInModelSpace[0];
+        float lookY = eyeY + cameraTargetInModelSpace[1];
+        float lookZ = eyeZ + cameraTargetInModelSpace[2];
+
+        float upX = 0.0f;
+        float upY = 1.0f;
+        float upZ = 0.0f;
+
+        Matrix.setLookAtM(viewMatrix, 0,
+                eyeX, eyeY, eyeZ,
+                lookX, lookY, lookZ,
+                upX, upY, upZ);
     }
 
-    public void queueNewStatus(Status status) {
-        uiController.queueNewStatus(status);
+    private float screenRatio;
+
+    private void setCameraProjection() {
+        Matrix.setIdentityM(modelMatrix, 0);
+
+        // Note: to zoom, multiply near by zoom level & then divide left/right/top/bottom by near
+        screenRatio = (float) screenWidth / screenHeight;
+
+        Log.v(LOG_TAG, "Screen ratio: " + screenRatio);
+
+        // Matrix.frustumM(projectionMatrix, 0, left, right, bottom, top, near, far);
+        Matrix.perspectiveM(projectionMatrix, 0, 90f, screenRatio, near, far);
     }
 
-    public void setRenderState(int state) {
-        renderState = state;
+    public void setCameraRotationX(float deltaX) {
+        this.deltaX = deltaX;
+        xAngle += (deltaX * fraction);
+        calculateCameraRotation();
     }
 
-    public int getRenderState() {
-        return renderState;
+    public void setCameraRotationY(float deltaY) {
+        this.deltaY = deltaY;
+        yAngle += (deltaY * fraction);
+        calculateCameraRotation();
     }
+
+    public void setScaleDelta(float delta) {
+        // For debugging, we use the scale delta to move the camera backwards and forwards
+        cameraPosInModelSpace[0] += cameraTargetInModelSpace[0] * (-delta / 5f);
+        cameraPosInModelSpace[1] += cameraTargetInModelSpace[1] * (-delta / 5f);
+        cameraPosInModelSpace[2] += cameraTargetInModelSpace[2] * (-delta / 5f);
+
+        calculateCameraRotation();
+    }
+
+    private void calculateCameraRotation() {
+        cameraTargetInModelSpace[0] = (float) -(Math.sin(xAngle) * Math.cos(yAngle));
+        cameraTargetInModelSpace[1] = (float) -Math.sin(yAngle);
+        cameraTargetInModelSpace[2] = (float) (Math.cos(yAngle) * Math.cos(xAngle));
+    }
+
+    /*
+    ------------------------------------------------------------------------------------------
+    Light (for debugging mostly?)
+    ------------------------------------------------------------------------------------------
+    */
+
+    private void setLightViewProjMatrix() {
+        long rotationCounter = (long) 1200 % 12000L;
+
+        float lightRotationDegree = (360.0f / 12000.0f) * ((int)rotationCounter);
+
+        float[] rotationMatrix = new float[16];
+
+        Matrix.setIdentityM(rotationMatrix, 0);
+
+        Matrix.translateM(rotationMatrix, 0, lightPosInModelSpace[0], lightPosInModelSpace[1], lightPosInModelSpace[2]);
+        Matrix.rotateM(rotationMatrix, 0, lightRotationDegree, 0f, 0f, 1f);
+
+        Matrix.multiplyMV(actualLightPosition, 0, rotationMatrix, 0, lightPosInModelSpace, 0);
+
+        // Set the view matrix so the light is always looking at the centre of the game world
+
+        Matrix.setLookAtM(lightViewMatrix, 0,
+                actualLightPosition[0], actualLightPosition[1], actualLightPosition[2],
+                lightPosInModelSpace[0], 0f, lightPosInModelSpace[2],
+                0f, 1f, 0f);
+
+        // Set light projection matrix
+        // Matrix.perspectiveM(lightProjectionMatrix, 0, 90f, screenRatio, near, far);
+        Matrix.orthoM(lightProjectionMatrix, 0, -96f, 96f, -96f, 96f, near, far);
+
+    }
+
+    /*
+    ------------------------------------------------------------------------------------------
+    Main render loop
+    ------------------------------------------------------------------------------------------
+    */
 
     private void checkElapsedTime(long dt) {
         currentFrameTime += dt;
@@ -435,20 +489,11 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     private void renderGameContent(float dt) {
         setCameraPosition();
         prepareGlSurface();
-        setLightViewMatrix();
+        setLightViewProjMatrix();
 
         if (cubes != null && sprites != null) {
             renderShadowMap();
             renderScene();
-        }
-    }
-
-    private void checkGlErrors() {
-        int debugInfo = GLES20.glGetError();
-
-        if (debugInfo != GLES20.GL_NO_ERROR) {
-            String msg = "OpenGL error: " + GLU.gluErrorString(debugInfo);
-            Log.w(LOG_TAG, msg);
         }
     }
 
@@ -461,6 +506,8 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         GLES20.glClear(GLES20.GL_DEPTH_BUFFER_BIT);
 
         GLES20.glUseProgram(depthMapProgramHandle);
+
+        GLES20.glColorMask(false, false, false, false);
 
         float[] lightMvMatrix = new float[16];
 
@@ -479,28 +526,18 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         // We want sprites to be visible from both sides
         GLES20.glDisable(GLES20.GL_CULL_FACE);
         sprites.renderDepthMap();
+
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
     }
 
-    private boolean renderUsingDepthMap = false;
-
     private void renderScene() {
-        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
-
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
-
-        GLES20.glColorMask(true, true, true, true);
 
         GLES20.glUseProgram(cubeProgramHandle);
 
         GLES20.glViewport(0, 0, screenWidth, screenHeight);
 
-        float bias[] = new float [] {
-                0.5f, 0.0f, 0.0f, 0.0f,
-                0.0f, 0.5f, 0.0f, 0.0f,
-                0.0f, 0.0f, 0.5f, 0.0f,
-                0.5f, 0.5f, 0.5f, 1.0f};
-
-        float[] depthBiasMVP = new float[16];
+        GLES20.glColorMask(true, true, true, true);
 
         float[] tempResultMatrix = new float[16];
 
@@ -524,11 +561,8 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         //pass in MVP Matrix as uniform
         GLES20.glUniformMatrix4fv(mvpMatrixHandle, 1, false, mvpMatrix, 0);
 
-        Matrix.multiplyMV(lightPosInEyeSpace, 0, viewMatrix, 0, lightPosInModelSpace, 0);
+        Matrix.multiplyMV(lightPosInEyeSpace, 0, viewMatrix, 0, actualLightPosition, 0);
         GLES20.glUniform3f(lightPosHandle, lightPosInEyeSpace[0], lightPosInEyeSpace[1], lightPosInEyeSpace[2]);
-
-        // Matrix.multiplyMM(depthBiasMVP, 0, bias, 0, lightMvpMatrix, 0);
-        // System.arraycopy(depthBiasMVP, 0, lightMvpMatrix, 0, 16);
 
         //MVP matrix that was used during depth map render
         GLES20.glUniformMatrix4fv(lightMvpMatrixHandle, 1, false, lightMvpMatrix, 0);
@@ -536,9 +570,8 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         // Pass in camera position
 
         float[] cameraPosInEyeSpace = new float[16];
-        float[] actualCameraPosition = new float[] {x, y, z, 1.0f};
 
-        Matrix.multiplyMV(cameraPosInEyeSpace, 0, viewMatrix, 0, actualCameraPosition, 0);
+        Matrix.multiplyMV(cameraPosInEyeSpace, 0, viewMatrix, 0, cameraPosInModelSpace, 0);
         GLES20.glUniform3f(viewPositionHandle, cameraPosInEyeSpace[0], cameraPosInEyeSpace[1], cameraPosInEyeSpace[2]);
 
         // Pass in global light colour
@@ -568,96 +601,35 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         }
     }
 
-    public void setGameInterface(GameInterface gameInterface) {
-        this.gameInterface = gameInterface;
-        weatherManager = gameInterface.getWeatherManager();
-        timeManager = gameInterface.getTimeManager();
-    }
-
-    public void setMapSize(int[] size) {
-        mapGridWidth = size[0];
-        mapGridHeight = size[1];
-    }
+    /*
+    ------------------------------------------------------------------------------------------
+    VBOs and FBOs
+    ------------------------------------------------------------------------------------------
+    */
 
     private void generateCubes() {
         singleThreadedExecutor.submit(new Runnable() {
             @Override
             public void run() {
-                createEntityRendererData();
+                generateRendererData();
             }
         });
     }
 
-    private int totalEntities;
+    private final float worldGridSize = 8f; // The size of a cell in world space
 
-    private int cubeCount = 0;
-    private int spriteCount = 0;
+    private void generateRendererData() {
+        // Typically the maximum number of entities we would need to generate renderer data for
+        // would be equal to the area . We will double the area to get a relatively safe number
+        int potentialEntities = (visibleGridWidth * visibleGridHeight) * 2;
 
-    private void createEntityRendererData() {
-        // X, Y, Z
-        // The normal is used in light calculations and is a vector which points
-        // orthogonal to the plane of the surface. For a cube model, the normals
-        // should be orthogonal to the points of each face.
-        final float[] CUBE_NORMAL_DATA = {
-                // Front face
-                0.0f, 0.0f, 1.0f,
-                0.0f, 0.0f, 1.0f,
-                0.0f, 0.0f, 1.0f,
-                0.0f, 0.0f, 1.0f,
-                0.0f, 0.0f, 1.0f,
-                0.0f, 0.0f, 1.0f,
+        int cubePositionDataSize = CUBE_POSITION_SIZE * potentialEntities;
+        int cubeUvDataSize = CUBE_UV_SIZE * potentialEntities;
+        int cubeNormalDataSize = CUBE_NORMAL_SIZE * potentialEntities;
 
-                // Right face
-                1.0f, 0.0f, 0.0f,
-                1.0f, 0.0f, 0.0f,
-                1.0f, 0.0f, 0.0f,
-                1.0f, 0.0f, 0.0f,
-                1.0f, 0.0f, 0.0f,
-                1.0f, 0.0f, 0.0f,
-
-                // Back face
-                0.0f, 0.0f, -1.0f,
-                0.0f, 0.0f, -1.0f,
-                0.0f, 0.0f, -1.0f,
-                0.0f, 0.0f, -1.0f,
-                0.0f, 0.0f, -1.0f,
-                0.0f, 0.0f, -1.0f,
-
-                // Left face
-                -1.0f, 0.0f, 0.0f,
-                -1.0f, 0.0f, 0.0f,
-                -1.0f, 0.0f, 0.0f,
-                -1.0f, 0.0f, 0.0f,
-                -1.0f, 0.0f, 0.0f,
-                -1.0f, 0.0f, 0.0f,
-
-                // Top face
-                0.0f, 1.0f, 0.0f,
-                0.0f, 1.0f, 0.0f,
-                0.0f, 1.0f, 0.0f,
-                0.0f, 1.0f, 0.0f,
-                0.0f, 1.0f, 0.0f,
-                0.0f, 1.0f, 0.0f,
-
-                // Bottom face
-                0.0f, -1.0f, 0.0f,
-                0.0f, -1.0f, 0.0f,
-                0.0f, -1.0f, 0.0f,
-                0.0f, -1.0f, 0.0f,
-                0.0f, -1.0f, 0.0f,
-                0.0f, -1.0f, 0.0f
-        };
-
-        // Todo: this is just a guesstimate
-        totalEntities = (visibleGridWidth * visibleGridHeight) * 2;
-
-        int cubePositionDataSize = CUBE_POSITION_SIZE * totalEntities;
-        int cubeUvDataSize = CUBE_UV_SIZE * totalEntities;
-        int cubeNormalDataSize = CUBE_NORMAL_SIZE * totalEntities;
-
-        int spritePositionDataSize = SPRITE_POSITION_SIZE * totalEntities;
-        int spriteUvDataSize = SPRITE_UV_SIZE * totalEntities;
-        int spriteNormalDataSize = SPRITE_NORMAL_SIZE * totalEntities;
+        int spritePositionDataSize = SPRITE_POSITION_SIZE * potentialEntities;
+        int spriteUvDataSize = SPRITE_UV_SIZE * potentialEntities;
+        int spriteNormalDataSize = SPRITE_NORMAL_SIZE * potentialEntities;
 
         try {
             float[] cubePositionData = new float[cubePositionDataSize];
@@ -668,8 +640,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
             float[] spriteNormalData = new float[spriteNormalDataSize];
             float[] spriteUvData = new float[spriteUvDataSize];
 
-            final float size = 2f;
-
             int cubePositionDataOffset = 0;
             int cubeNormalDataOffset = 0;
             int cubeUvDataOffset = 0;
@@ -678,66 +648,102 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
             int spriteNormalDataOffset = 0;
             int spriteUvDataOffset = 0;
 
-            RandomNumberGenerator rng = new RandomNumberGenerator();
-
-            // For each position on grid, generate a cube and texture each side using Sprite object
-
             for (int gridX = 0; gridX < visibleGridWidth; gridX++) {
                 for (int gridY = 0; gridY < visibleGridHeight; gridY++) {
-                    Sprite sprite = currentFloorData.terrain[gridX][gridY];
+                    Sprite terrain = currentFloorData.terrain[gridX][gridY];
 
-                    float x = gridX * size;
-                    float y = gridY * size;
-                    float z = sprite.zLayer * size;
+                    float x = gridX * worldGridSize;
+                    float y = gridY * worldGridSize;
+                    float z = terrain.zLayer * worldGridSize;
 
-                    // Render as cube.
-                    // Note that we use x,z to represent x,y in floor data, and use y for height
+                    float x1, x2, y1, y2, z1, z2;
 
-                    float x1 = x;
-                    float x2 = x + size;
+                    if (terrain.zLayer > 0) {
+                        // Render as cube.
+                        // Note that we use x,z to represent x,y in floor data, and use y for height
 
-                    float y1 = z;
-                    float y2 = z + size;
+                        x1 = x;
+                        x2 = x + worldGridSize;
 
-                    float z1 = y;
-                    float z2 = y + size;
+                        y1 = z;
+                        y2 = z + worldGridSize;
 
-                    // Define points for a cube.
-                    float[] p1p = { x1, y2, z2 };
-                    float[] p2p = { x2, y2, z2 };
-                    float[] p3p = { x1, y1, z2 };
-                    float[] p4p = { x2, y1, z2 };
-                    float[] p5p = { x1, y2, z1 };
-                    float[] p6p = { x2, y2, z1 };
-                    float[] p7p = { x1, y1, z1 };
-                    float[] p8p = { x2, y1, z1 };
+                        z1 = y;
+                        z2 = y + worldGridSize;
 
-                    float[] thisCubePositionData = ShapeBuilder.generateCubeData(p1p, p2p, p3p, p4p, p5p, p6p, p7p, p8p, p1p.length);
-                    System.arraycopy(thisCubePositionData, 0, cubePositionData, cubePositionDataOffset, thisCubePositionData.length);
-                    cubePositionDataOffset += thisCubePositionData.length;
+                        // Define points for a cube.
+                        float[] p1p = { x1, y2, z2 };
+                        float[] p2p = { x2, y2, z2 };
+                        float[] p3p = { x1, y1, z2 };
+                        float[] p4p = { x2, y1, z2 };
+                        float[] p5p = { x1, y2, z1 };
+                        float[] p6p = { x2, y2, z1 };
+                        float[] p7p = { x1, y1, z1 };
+                        float[] p8p = { x2, y1, z1 };
 
-                    System.arraycopy(CUBE_NORMAL_DATA, 0, cubeNormalData, cubeNormalDataOffset, CUBE_NORMAL_DATA.length);
-                    cubeNormalDataOffset += CUBE_NORMAL_DATA.length;
+                        float[] thisCubePositionData = ShapeBuilder.generateCubeData(p1p, p2p, p3p, p4p, p5p, p6p, p7p, p8p, p1p.length);
+                        System.arraycopy(thisCubePositionData, 0, cubePositionData, cubePositionDataOffset, thisCubePositionData.length);
+                        cubePositionDataOffset += thisCubePositionData.length;
 
-                    float[] thisCubeUv = cachedCubeUvs[spriteIndexes.get(sprite.path)];
-                    System.arraycopy(thisCubeUv, 0, cubeUvData, cubeUvDataOffset, thisCubeUv.length);
-                    cubeUvDataOffset += thisCubeUv.length;
+                        System.arraycopy(ShapeBuilder.CUBE_NORMAL_DATA, 0, cubeNormalData, cubeNormalDataOffset, ShapeBuilder.CUBE_NORMAL_DATA.length);
+                        cubeNormalDataOffset += ShapeBuilder.CUBE_NORMAL_DATA.length;
 
-                    cubeCount++;
+                        float[] thisCubeUv = cachedCubeUvs[spriteIndexes.get(terrain.path)];
+                        System.arraycopy(thisCubeUv, 0, cubeUvData, cubeUvDataOffset, thisCubeUv.length);
+                        cubeUvDataOffset += thisCubeUv.length;
+
+                        cubeCount++;
+                    }
+                    else {
+                        // Add to sprite batch
+
+                        x1 = x;
+                        x2 = x + worldGridSize;
+
+                        y1 = z;
+                        y2 = z + worldGridSize;
+
+                        z1 = y;
+                        z2 = y + worldGridSize;
+
+                        float[] p5 = { x1, y2, z1 };
+                        float[] p6 = { x2, y2, z1 };
+                        float[] p1 = { x1, y2, z2 };
+                        float[] p2 = { x2, y2, z2 };
+
+                        float[] thisSpritePositionData = ShapeBuilder.generateSpriteData(p5, p6, p1, p2, p1.length);
+                        System.arraycopy(thisSpritePositionData, 0, spritePositionData,
+                                spritePositionDataOffset, thisSpritePositionData.length);
+
+                        spritePositionDataOffset += thisSpritePositionData.length;
+
+                        System.arraycopy(ShapeBuilder.SPRITE_TOP_NORMAL_DATA, 0, spriteNormalData,
+                                spriteNormalDataOffset, ShapeBuilder.SPRITE_TOP_NORMAL_DATA.length);
+
+                        spriteNormalDataOffset += ShapeBuilder.SPRITE_TOP_NORMAL_DATA.length;
+
+                        float[] thisSpriteUvData = cachedSpriteUvs[spriteIndexes.get(terrain.path)];
+                        System.arraycopy(thisSpriteUvData, 0, spriteUvData,
+                                spriteUvDataOffset, thisSpriteUvData.length);
+                        spriteUvDataOffset += thisSpriteUvData.length;
+
+                        spriteCount++;
+                    }
+
 
                     for (Sprite object : currentFloorData.getObjects()[gridX][gridY]) {
-                        z = object.zLayer * size;
+                        z = object.zLayer * worldGridSize;
 
                         if (object.wrapToCube) {
                             // Add to cube batch
                             x1 = x;
-                            x2 = x + size;
+                            x2 = x + worldGridSize;
 
                             y1 = z;
-                            y2 = z + size;
+                            y2 = z + worldGridSize;
 
                             z1 = y;
-                            z2 = y + size;
+                            z2 = y + worldGridSize;
 
                             float[] p1 = { x1, y2, z2 };
                             float[] p2 = { x2, y2, z2 };
@@ -748,14 +754,14 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
                             float[] p7 = { x1, y1, z1 };
                             float[] p8 = { x2, y1, z1 };
 
-                            thisCubePositionData = ShapeBuilder.generateCubeData(p1, p2, p3, p4, p5, p6, p7, p8, p1.length);
+                            float[] thisCubePositionData = ShapeBuilder.generateCubeData(p1, p2, p3, p4, p5, p6, p7, p8, p1.length);
                             System.arraycopy(thisCubePositionData, 0, cubePositionData, cubePositionDataOffset, thisCubePositionData.length);
                             cubePositionDataOffset += thisCubePositionData.length;
 
-                            System.arraycopy(CUBE_NORMAL_DATA, 0, cubeNormalData, cubeNormalDataOffset, CUBE_NORMAL_DATA.length);
-                            cubeNormalDataOffset += CUBE_NORMAL_DATA.length;
+                            System.arraycopy(ShapeBuilder.CUBE_NORMAL_DATA, 0, cubeNormalData, cubeNormalDataOffset, ShapeBuilder.CUBE_NORMAL_DATA.length);
+                            cubeNormalDataOffset += ShapeBuilder.CUBE_NORMAL_DATA.length;
 
-                            thisCubeUv = cachedCubeUvs[spriteIndexes.get(object.path)];
+                            float[] thisCubeUv = cachedCubeUvs[spriteIndexes.get(object.path)];
                             System.arraycopy(thisCubeUv, 0, cubeUvData, cubeUvDataOffset, thisCubeUv.length);
                             cubeUvDataOffset += thisCubeUv.length;
                             cubeCount++;
@@ -765,13 +771,13 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
                             // Add to sprite batch
 
                             x1 = x;
-                            x2 = x + size;
+                            x2 = x + worldGridSize;
 
                             y1 = z;
-                            y2 = z + size;
+                            y2 = z + worldGridSize;
 
                             // z1 = y;
-                            z2 = y + (size / 2f) + size;
+                            z2 = y + (worldGridSize / 2f) + worldGridSize; // Move to centre of tile
 
                             float[] p1 = { x1, y2, z2 };
                             float[] p2 = { x2, y2, z2 };
@@ -784,10 +790,10 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
                             spritePositionDataOffset += thisSpritePositionData.length;
 
-                            System.arraycopy(SpriteBatch.SPRITE_FRONT_NORMAL_DATA, 0, spriteNormalData,
-                                    spriteNormalDataOffset, SpriteBatch.SPRITE_FRONT_NORMAL_DATA.length);
+                            System.arraycopy(ShapeBuilder.SPRITE_FRONT_NORMAL_DATA, 0, spriteNormalData,
+                                    spriteNormalDataOffset, ShapeBuilder.SPRITE_FRONT_NORMAL_DATA.length);
 
-                            spriteNormalDataOffset += SpriteBatch.SPRITE_FRONT_NORMAL_DATA.length;
+                            spriteNormalDataOffset += ShapeBuilder.SPRITE_FRONT_NORMAL_DATA.length;
 
                             float[] thisSpriteUvData = cachedSpriteUvs[spriteIndexes.get(object.path)];
                             System.arraycopy(thisSpriteUvData, 0, spriteUvData,
@@ -847,7 +853,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     }
 
     private void createSpriteVBO(final float[] spritePositionData, final float[] spriteNormalData,
-                               final float[] spriteUvData, final int count) {
+                                 final float[] spriteUvData, final int count) {
 
         gameSurfaceView.queueEvent(new Runnable() {
             @Override
@@ -863,8 +869,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
                 try {
                     sprites = new SpriteBatch(spritePositionData, spriteNormalData, spriteUvData, count);
-                    // Note: we still use the cube shader to render these
-                    sprites.setShaderHandles(cubeProgramHandle, textureUniformHandle);
 
                 } catch (OutOfMemoryError err) {
                     if (sprites != null) {
@@ -880,11 +884,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
             }
         });
     }
-
-    private int shadowMapWidth;
-    private int shadowMapHeight;
-    private int depthMapTextureId;
-    private int depthMapFrameBufferId;
 
     private void createDepthMapFBO(int width, int height) {
         shadowMapWidth = width;
@@ -931,19 +930,19 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         }
     }
 
-    private void addUiText() {
-        // Component[] playerComponents = currentFloorData.getPlayer();
-        // long entity = playerComponents[0].id;
-        // ComponentManager componentManager = ComponentManager.getInstance();
-        //  vitality = (Vitality) componentManager.getEntityComponent(entity, Vitality.class.getSimpleName());
-        // String hp = "HP: " + vitality.hp;
-        String hp = "(" + actualLightPosition[0] + ", " + actualLightPosition[1] + ", " + actualLightPosition[2] + ")";
+    /*
+    ------------------------------------------------------------------------------------------
+    Misc. stuff
+    ------------------------------------------------------------------------------------------
+    */
 
-        String worldState = timeManager.getTimeString() + " (" + weatherManager.getWeatherString() + ")";
-        String cameraPos = ((int) x) + ", " + ((int) y) + ", " + ((int) z);
-        String fps = fpsCount + " fps";
+    public static void checkGlErrors() {
+        int debugInfo = GLES20.glGetError();
 
-        uiController.setUiText(hp, worldState, cameraPos, fps);
+        if (debugInfo != GLES20.GL_NO_ERROR) {
+            String msg = "OpenGL error: " + GLU.gluErrorString(debugInfo);
+            Log.w("GameRenderer3D", msg);
+        }
     }
 
     private void setGridChunkToRender() {
@@ -1008,39 +1007,8 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         gridSize = SPRITE_SIZE * scaleFactor;
     }
 
-    public void switchRenderMode() {
-        renderUsingDepthMap = !renderUsingDepthMap;
-    }
-
-    public void setCameraRotationX(float deltaX) {
-        this.deltaX = deltaX;
-        xAngle += (deltaX * fraction);
-        calculateCameraRotation();
-    }
-
-    public void setCameraRotationY(float deltaY) {
-        this.deltaY = deltaY;
-        yAngle += (deltaY * fraction);
-        calculateCameraRotation();
-    }
-
-    public void setScaleDelta(float delta) {
-        x += lx * (-delta / 10f);
-        y += ly * (-delta / 10f);
-        z += lz * (-delta / 10f);
-
-        calculateCameraRotation();
-    }
-
-    private void calculateCameraRotation() {
-        lz = (float) (Math.cos(yAngle) * Math.cos(xAngle));
-        lx = (float) -(Math.sin(xAngle) * Math.cos(yAngle));
-        ly = (float) -Math.sin(yAngle);
-    }
-
     public void setZoom(float zoomLevel) {
         this.zoomLevel = zoomLevel;
-        //setProjection();
     }
 
     private float[] transformCoordsToWorld(float x, float y) {
@@ -1069,86 +1037,36 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         renderState = GAME;
     }
 
-    private float[][] cachedSpriteUvs;
+    /*
+    ------------------------------------------------------------------------------------------
+    UI stuff
+    ------------------------------------------------------------------------------------------
+    */
 
-    private void precalculateSpriteUvs(int numberOfIndexes) {
-        cachedSpriteUvs = new float[numberOfIndexes][CUBE_UV_SIZE];
-
-        for (int i = 0; i < numberOfIndexes; i++) {
-            int row = i / SPRITES_PER_ROW;
-            int col = i % SPRITES_PER_ROW;
-
-            float u = col * SPRITE_BOX_WIDTH;
-            float u2 = u + SPRITE_BOX_WIDTH;
-            float v = row * SPRITE_BOX_HEIGHT;
-            float v2 = v + SPRITE_BOX_HEIGHT;
-
-            float[] uv = {
-                    u, v,
-                    u, v2,
-                    u2, v,
-                    u, v2,
-                    u2, v2,
-                    u2, v
-            };
-
-            cachedSpriteUvs[i] = uv;
-        }
+    public void queueNarrationUpdate(ArrayList<TextObject> narrations) {
+        uiController.queueNarrationUpdate(narrations);
     }
 
-    private void precalculateCubeUvs(int numberOfIndexes) {
-        cachedCubeUvs = new float[numberOfIndexes][CUBE_UV_SIZE];
+    public void queueNewStatus(Status status) {
+        uiController.queueNewStatus(status);
+    }
 
-        for (int i = 0; i < numberOfIndexes; i++) {
-            int row = i / SPRITES_PER_ROW;
-            int col = i % SPRITES_PER_ROW;
+    private void addUiText() {
+        // Component[] playerComponents = currentFloorData.getPlayer();
+        // long entity = playerComponents[0].id;
+        // ComponentManager componentManager = ComponentManager.getInstance();
+        //  vitality = (Vitality) componentManager.getEntityComponent(entity, Vitality.class.getSimpleName());
+        // String hp = "HP: " + vitality.hp;
+        String hp = "(" + ((int) actualLightPosition[0]) + ", " + ((int) actualLightPosition[1]) + ", " + ((int) actualLightPosition[2]) + ")";
 
-            float u = col * SPRITE_BOX_WIDTH;
-            float u2 = u + SPRITE_BOX_WIDTH;
-            float v = row * SPRITE_BOX_HEIGHT;
-            float v2 = v + SPRITE_BOX_HEIGHT;
+        String worldState = timeManager.getTimeString() + " (" + weatherManager.getWeatherString() + ")";
+        String cameraPos = ((int) cameraPosInModelSpace[0]) + ", " + ((int) cameraPosInModelSpace[1]) + ", " + ((int) cameraPosInModelSpace[2]);
+        String fps = fpsCount + " fps";
 
-            // TODO: yikes
-            float[] uv = {
-                    u, v,
-                    u, v2,
-                    u2, v,
-                    u, v2,
-                    u2, v2,
-                    u2, v,
-                    u, v,
-                    u, v2,
-                    u2, v,
-                    u, v2,
-                    u2, v2,
-                    u2, v,
-                    u, v,
-                    u, v2,
-                    u2, v,
-                    u, v2,
-                    u2, v2,
-                    u2, v,
-                    u, v,
-                    u, v2,
-                    u2, v,
-                    u, v2,
-                    u2, v2,
-                    u2, v,
-                    u, v,
-                    u, v2,
-                    u2, v,
-                    u, v2,
-                    u2, v2,
-                    u2, v,
-                    u, v,
-                    u, v2,
-                    u2, v,
-                    u, v2,
-                    u2, v2,
-                    u2, v
-            };
+        uiController.setUiText(hp, worldState, cameraPos, fps);
+    }
 
-            cachedCubeUvs[i] = uv;
-        }
+    public void switchRenderMode() {
+        renderUsingDepthMap = !renderUsingDepthMap;
     }
 }

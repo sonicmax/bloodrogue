@@ -18,6 +18,10 @@ import com.sonicmax.bloodrogue.engine.components.Position;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
 import com.sonicmax.bloodrogue.engine.components.Vitality;
 import com.sonicmax.bloodrogue.engine.systems.StatBuilder;
+import com.sonicmax.bloodrogue.renderer.Animation;
+import com.sonicmax.bloodrogue.tilesets.AnimationTileset;
+
+import java.util.ArrayList;
 
 public class PlayerFactory {
     public static final String PLAYER_NAME = "Player";
@@ -33,7 +37,36 @@ public class PlayerFactory {
 
         Sprite spriteComponent = new Sprite(entity.id);
         spriteComponent.path = "sprites/dude.png";
-        spriteComponent.shader = Sprite.DYNAMIC;
+        spriteComponent.renderState = Sprite.DYNAMIC;
+        spriteComponent.currentAnimationState = Sprite.IDLE_ANIMATION;
+        spriteComponent.wrapToCube = false;
+
+        spriteComponent.hasIdleAnimation = true;
+        Animation idle = new Animation(x, y);
+
+        ArrayList<String> frames = new ArrayList<>();
+        frames.add(AnimationTileset.DUDE_IDLE_1);
+        frames.add(AnimationTileset.DUDE_IDLE_2);
+        frames.add(AnimationTileset.DUDE_IDLE_3);
+        frames.add(AnimationTileset.DUDE_IDLE_4);
+        idle.setFrames(frames);
+        idle.setRepeating(true);
+
+        spriteComponent.idleAnimation = idle;
+
+        spriteComponent.hasHitAnimation = true;
+        Animation hit = new Animation(x, y);
+
+        frames = new ArrayList<>();
+        frames.add(AnimationTileset.DUDE_HIT_0);
+        frames.add(AnimationTileset.DUDE_HIT_1);
+        frames.add(AnimationTileset.DUDE_HIT_2);
+        hit.setFrames(frames);
+        hit.setRepeating(false);
+        hit.setDestroyable(false);
+        hit.setFrameLength(17f);
+
+        spriteComponent.hitAnimation = hit;
 
         Name nameComponent = new Name(PLAYER_NAME, "it me", entity.id);
 

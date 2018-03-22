@@ -5,6 +5,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
@@ -12,6 +13,7 @@ import android.view.ScaleGestureDetector;
 import android.view.WindowManager;
 
 import com.sonicmax.bloodrogue.GameInterface;
+import com.sonicmax.bloodrogue.renderer.GameRenderer3D;
 import com.sonicmax.bloodrogue.renderer.GameSurfaceView;
 
 /**
@@ -24,6 +26,7 @@ public class MainActivity extends AppCompatActivity {
     private GameSurfaceView gameSurfaceView;
     private GameInterface gameInterface;
     private ScaleGestureDetector scaleDetector;
+    private GameRenderer3D gameRenderer3D;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -39,11 +42,23 @@ public class MainActivity extends AppCompatActivity {
             mgr.listen(phoneStateListener, PhoneStateListener.LISTEN_CALL_STATE);
         }*/
 
+        final DisplayMetrics displayMetrics = new DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
+
         // GameInterface initialises all the required components. Once we've set the content view
         // we can generate game data (or load from disk) and start accepting player input.
 
-        gameInterface = new GameInterface(this);
         gameSurfaceView = new GameSurfaceView(this);
+        gameRenderer3D = new GameRenderer3D(gameSurfaceView, this);
+        gameInterface = new GameInterface(this, gameRenderer3D);
+        gameRenderer3D.setGameInterface(gameInterface);
+        gameInterface.setDensity(displayMetrics.density);
+
+        Log.v(LOG_TAG, "Density: " + displayMetrics.densityDpi);
+
+        gameSurfaceView.setEGLContextClientVersion(2);
+        gameSurfaceView.setRenderer(gameRenderer3D);
+        gameSurfaceView.setRenderMode(GameSurfaceView.RENDERMODE_CONTINUOUSLY);
 
         // Second, set custom UncaughtExceptionHandler
         defaultUEH = Thread.getDefaultUncaughtExceptionHandler();
@@ -141,7 +156,7 @@ public class MainActivity extends AppCompatActivity {
     private Thread.UncaughtExceptionHandler mCaughtExceptionHandler = new Thread.UncaughtExceptionHandler() {
         @Override
         public void uncaughtException(Thread thread, Throwable ex) {
-            Log.v(LOG_TAG, "Uncaught exception");
+            Log.v(LOG_TAG, "Uncaught exception", ex);
             gameInterface.freeResources();
             defaultUEH.uncaughtException(thread, ex);
         }

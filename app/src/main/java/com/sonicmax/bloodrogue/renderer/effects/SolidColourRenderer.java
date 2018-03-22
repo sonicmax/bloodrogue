@@ -2,7 +2,7 @@ package com.sonicmax.bloodrogue.renderer.effects;
 
 import android.opengl.GLES20;
 
-import com.sonicmax.bloodrogue.renderer.shaders.Shader;
+import com.sonicmax.bloodrogue.renderer.shaders.ShaderAttributes;
 import com.sonicmax.bloodrogue.renderer.VertexBufferObject;
 import com.sonicmax.bloodrogue.utils.BufferUtils;
 
@@ -150,9 +150,9 @@ public class SolidColourRenderer {
 
         positionBuffer.bind();
 
-        GLES20.glEnableVertexAttribArray(Shader.POSITION);
+        GLES20.glEnableVertexAttribArray(ShaderAttributes.POSITION);
         GLES20.glVertexAttribPointer(
-                Shader.POSITION,
+                ShaderAttributes.POSITION,
                 FLOATS_PER_POSITION,
                 GLES20.GL_FLOAT,
                 false,
@@ -166,9 +166,9 @@ public class SolidColourRenderer {
         FloatBuffer colourBuffer = bb.asFloatBuffer();
         BufferUtils.copy(colours, colourBuffer, colours.length, 0);
 
-        GLES20.glEnableVertexAttribArray(Shader.COLOUR);
+        GLES20.glEnableVertexAttribArray(ShaderAttributes.COLOUR);
         GLES20.glVertexAttribPointer(
-                Shader.COLOUR,
+                ShaderAttributes.COLOUR,
                 FLOATS_PER_COLOUR,
                 GLES20.GL_FLOAT,
                 false,

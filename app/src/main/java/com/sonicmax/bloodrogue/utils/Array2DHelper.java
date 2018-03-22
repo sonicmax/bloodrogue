@@ -2,7 +2,7 @@ package com.sonicmax.bloodrogue.utils;
 
 import com.sonicmax.bloodrogue.engine.Component;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
-import com.sonicmax.bloodrogue.renderer.ui.Animation;
+import com.sonicmax.bloodrogue.renderer.Animation;
 
 import java.util.ArrayList;
 

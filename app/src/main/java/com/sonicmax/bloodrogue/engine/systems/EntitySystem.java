@@ -19,7 +19,7 @@ public class EntitySystem {
 
     public static void hide(ComponentManager componentManager, long entity) {
         Sprite sprite = (Sprite) componentManager.getEntityComponent(entity, Sprite.class.getSimpleName());
-        sprite.shader = Sprite.NONE;
+        sprite.renderState = Sprite.NONE;
 
         Position position = (Position) componentManager.getEntityComponent(entity, Position.class.getSimpleName());
         position.x = 0;

@@ -3,7 +3,7 @@ package com.sonicmax.bloodrogue.renderer.cubes;
 import android.opengl.GLES20;
 import android.util.Log;
 
-import com.sonicmax.bloodrogue.renderer.shaders.Shader;
+import com.sonicmax.bloodrogue.renderer.shaders.ShaderAttributes;
 import com.sonicmax.bloodrogue.utils.BufferUtils;
 
 import java.nio.ByteBuffer;
@@ -13,6 +13,7 @@ import java.nio.FloatBuffer;
 public class CubeBatch {
     private final String LOG_TAG = this.getClass().getSimpleName();
 
+    private final int VERTICES_PER_CUBE = 36;
     private final int POSITION_DATA_SIZE = 3;
     private final int NORMAL_DATA_SIZE = 3;
     private final int UV_DATA_SIZE = 2;
@@ -22,22 +23,21 @@ public class CubeBatch {
 
     private final int numberOfCubes;
 
-    private FloatBuffer cubeBuffer;
-    private FloatBuffer positionBuffer;
-    private FloatBuffer uvBuffer;
+    private final FloatBuffer positionBuffer;
+    private final FloatBuffer uvBuffer;
 
-    public CubeBatch(float[] cubePositions, float[] cubeNormals, float[] cubeTextureCoordinates, int numberOfCubes) {
+    public CubeBatch(float[] cubePositions, float[] cubeNormals, float[] cubeUvs, int numberOfCubes) {
         this.numberOfCubes = numberOfCubes;
 
         // Create interleaved buffer for VBO, and separate position/UV buffers for depth map rendering.
-        cubeBuffer = getInterleavedBuffer(cubePositions, cubeNormals, cubeTextureCoordinates, numberOfCubes);
-        positionBuffer = getFloatBuffer(cubePositions);
-        uvBuffer = getFloatBuffer(cubeTextureCoordinates);
+        FloatBuffer cubeBuffer = createInterleavedBuffer(cubePositions, cubeNormals, cubeUvs, numberOfCubes);
+        positionBuffer = createFloatBuffer(cubePositions);
+        uvBuffer = createFloatBuffer(cubeUvs);
 
         // Second, copy these buffers into OpenGL's memory.
-        // cubeBufferId = createVBO(cubeBuffer);
-        // cubeBuffer.limit(0);
-        // cubeBuffer = null;
+        cubeBufferId = createVBO(cubeBuffer);
+        cubeBuffer.limit(0);
+        cubeBuffer = null;
     }
 
     private int createVBO(FloatBuffer buffer) {
@@ -51,7 +51,7 @@ public class CubeBatch {
         return buffers[0];
     }
 
-    private FloatBuffer getInterleavedBuffer(float[] cubePositions, float[] cubeNormals, float[] cubeTextureCoordinates, int numberOfCubes) {
+    private FloatBuffer createInterleavedBuffer(float[] cubePositions, float[] cubeNormals, float[] cubeTextureCoordinates, int numberOfCubes) {
         Log.v(LOG_TAG, "Allocating buffer for " + numberOfCubes + " cubes");
         final int cubeDataLength = cubePositions.length + cubeNormals.length + cubeTextureCoordinates.length;
 
@@ -78,7 +78,7 @@ public class CubeBatch {
         return cubeBuffer;
     }
 
-    private FloatBuffer getFloatBuffer(float[] data) {
+    private FloatBuffer createFloatBuffer(float[] data) {
         FloatBuffer buffer = ByteBuffer.allocateDirect(data.length * BYTES_PER_FLOAT)
                 .order(ByteOrder.nativeOrder()).asFloatBuffer();
 
@@ -88,77 +88,74 @@ public class CubeBatch {
     }
 
     public void render() {
-        final int count = numberOfCubes * 36;
+        final int count = numberOfCubes * VERTICES_PER_CUBE;
         final int stride = (POSITION_DATA_SIZE + NORMAL_DATA_SIZE + UV_DATA_SIZE) * BYTES_PER_FLOAT;
 
         // Pass in the position information
-        // GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, cubeBufferId);
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, cubeBufferId);
 
-        GLES20.glEnableVertexAttribArray(Shader.POSITION);
-        GLES20.glVertexAttribPointer(Shader.POSITION,
+        GLES20.glEnableVertexAttribArray(ShaderAttributes.POSITION);
+        GLES20.glVertexAttribPointer(ShaderAttributes.POSITION,
                 POSITION_DATA_SIZE,
                 GLES20.GL_FLOAT,
                 false,
                 stride,
-                cubeBuffer.position(0));
+                0);
 
-        GLES20.glEnableVertexAttribArray(Shader.NORMAL);
-        GLES20.glVertexAttribPointer(Shader.NORMAL,
+        GLES20.glEnableVertexAttribArray(ShaderAttributes.NORMAL);
+        GLES20.glVertexAttribPointer(ShaderAttributes.NORMAL,
                 NORMAL_DATA_SIZE, GLES20.GL_FLOAT,
                 false,
                 stride,
-                cubeBuffer.position(POSITION_DATA_SIZE));
+                POSITION_DATA_SIZE * BYTES_PER_FLOAT);
 
-        GLES20.glEnableVertexAttribArray(Shader.TEXCOORD);
-        GLES20.glVertexAttribPointer(Shader.TEXCOORD,
+        GLES20.glEnableVertexAttribArray(ShaderAttributes.TEXCOORD);
+        GLES20.glVertexAttribPointer(ShaderAttributes.TEXCOORD,
                 UV_DATA_SIZE,
                 GLES20.GL_FLOAT,
                 false,
                 stride,
-                cubeBuffer.position(POSITION_DATA_SIZE + NORMAL_DATA_SIZE));
+                (POSITION_DATA_SIZE + NORMAL_DATA_SIZE) * BYTES_PER_FLOAT);
 
         // Draw the cubes.
         GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, count);
 
         // Clear the currently bound buffer (so future OpenGL calls do not use this buffer).
-        // GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
 
-        GLES20.glDisableVertexAttribArray(Shader.POSITION);
-        GLES20.glDisableVertexAttribArray(Shader.NORMAL);
-        GLES20.glDisableVertexAttribArray(Shader.TEXCOORD);
+        GLES20.glDisableVertexAttribArray(ShaderAttributes.POSITION);
+        GLES20.glDisableVertexAttribArray(ShaderAttributes.NORMAL);
+        GLES20.glDisableVertexAttribArray(ShaderAttributes.TEXCOORD);
     }
 
     public void renderDepthMap() {
-        final int count = numberOfCubes * 36;
-
-        // Make sure these are disabled - not used in depth map shader
-        GLES20.glDisableVertexAttribArray(Shader.NORMAL);
+        final int count = numberOfCubes * VERTICES_PER_CUBE;
+        final int stride = 0;
 
         // Pass in the position information so we can calculate depth
-        GLES20.glEnableVertexAttribArray(Shader.SHADOW_POSITION);
+        GLES20.glEnableVertexAttribArray(ShaderAttributes.SHADOW_POSITION);
         GLES20.glVertexAttribPointer(
-                Shader.SHADOW_POSITION,
+                ShaderAttributes.SHADOW_POSITION,
                 POSITION_DATA_SIZE,
                 GLES20.GL_FLOAT,
                 false,
-                0,
+                stride,
                 positionBuffer);
 
         // Pass in UV coords - this is so we can discard fragments based on the texel alpha values
-        GLES20.glEnableVertexAttribArray(Shader.TEXCOORD);
+        GLES20.glEnableVertexAttribArray(ShaderAttributes.TEXCOORD);
         GLES20.glVertexAttribPointer(
-                Shader.TEXCOORD,
+                ShaderAttributes.TEXCOORD,
                 UV_DATA_SIZE,
                 GLES20.GL_FLOAT,
                 false,
-                0,
+                stride,
                 uvBuffer);
 
         GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, count);
 
-        GLES20.glDisableVertexAttribArray(Shader.SHADOW_POSITION);
-        GLES20.glDisableVertexAttribArray(Shader.TEXCOORD);
+        GLES20.glDisableVertexAttribArray(ShaderAttributes.SHADOW_POSITION);
+        GLES20.glDisableVertexAttribArray(ShaderAttributes.TEXCOORD);
     }
 
     public void release() {

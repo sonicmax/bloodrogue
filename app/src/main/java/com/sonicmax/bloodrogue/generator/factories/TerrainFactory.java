@@ -19,6 +19,7 @@ public class TerrainFactory {
 
         Sprite sprite = new Sprite(entity.id);
         sprite.path = tile;
+        sprite.zLayer = 0;
 
         Terrain s = new Terrain(Terrain.FLOOR, entity.id);
 
@@ -46,6 +47,7 @@ public class TerrainFactory {
 
         Sprite sprite = new Sprite(entity.id);
         sprite.path = tile;
+        sprite.zLayer = 1;
 
         Terrain s = new Terrain(Terrain.WALL, entity.id);
 
@@ -73,6 +75,7 @@ public class TerrainFactory {
 
         Sprite sprite = new Sprite(entity.id);
         sprite.path = tile;
+        sprite.zLayer = 0;
 
         Terrain s = new Terrain(Terrain.DOORWAY, entity.id);
 
@@ -100,13 +103,14 @@ public class TerrainFactory {
 
         Sprite sprite = new Sprite(entity.id);
         sprite.path = tile;
-        sprite.layer = Sprite.BACKGROUND;
+        sprite.zLayer = Sprite.BACKGROUND;
+        sprite.zLayer = 0;
 
         Terrain s = new Terrain(Terrain.FLOOR, entity.id);
 
         Physics physics = new Physics(entity.id);
         physics.isBlocking = false;
-        // Background tiles are effectively gaps in the terrain layer and have to be moved around
+        // Background tiles are effectively gaps in the terrain zLayer and have to be moved around
         physics.isTraversable = false;
         physics.isDestructable = false;
 

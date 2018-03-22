@@ -1,7 +1,7 @@
 package com.sonicmax.bloodrogue.generator.factories;
 
 import com.sonicmax.bloodrogue.engine.components.Blood;
-import com.sonicmax.bloodrogue.renderer.ui.Animation;
+import com.sonicmax.bloodrogue.renderer.Animation;
 
 import java.util.ArrayList;
 

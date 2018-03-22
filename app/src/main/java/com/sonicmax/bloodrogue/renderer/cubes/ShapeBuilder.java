@@ -1,7 +1,76 @@
 package com.sonicmax.bloodrogue.renderer.cubes;
 
-public class ShapeBuilder
-{
+public class ShapeBuilder {
+    public static final float[] CUBE_NORMAL_DATA = {
+            // Front face
+            0.0f, 0.0f, 1.0f,
+            0.0f, 0.0f, 1.0f,
+            0.0f, 0.0f, 1.0f,
+            0.0f, 0.0f, 1.0f,
+            0.0f, 0.0f, 1.0f,
+            0.0f, 0.0f, 1.0f,
+
+            // Top face
+            0.0f, 1.0f, 0.0f,
+            0.0f, 1.0f, 0.0f,
+            0.0f, 1.0f, 0.0f,
+            0.0f, 1.0f, 0.0f,
+            0.0f, 1.0f, 0.0f,
+            0.0f, 1.0f, 0.0f,
+
+            // Back face
+            0.0f, 0.0f, -1.0f,
+            0.0f, 0.0f, -1.0f,
+            0.0f, 0.0f, -1.0f,
+            0.0f, 0.0f, -1.0f,
+            0.0f, 0.0f, -1.0f,
+            0.0f, 0.0f, -1.0f,
+
+            // Bottom face
+            0.0f, -1.0f, 0.0f,
+            0.0f, -1.0f, 0.0f,
+            0.0f, -1.0f, 0.0f,
+            0.0f, -1.0f, 0.0f,
+            0.0f, -1.0f, 0.0f,
+            0.0f, -1.0f, 0.0f,
+
+            // Left face
+            -1.0f, 0.0f, 0.0f,
+            -1.0f, 0.0f, 0.0f,
+            -1.0f, 0.0f, 0.0f,
+            -1.0f, 0.0f, 0.0f,
+            -1.0f, 0.0f, 0.0f,
+            -1.0f, 0.0f, 0.0f,
+
+            // Right face
+            1.0f, 0.0f, 0.0f,
+            1.0f, 0.0f, 0.0f,
+            1.0f, 0.0f, 0.0f,
+            1.0f, 0.0f, 0.0f,
+            1.0f, 0.0f, 0.0f,
+            1.0f, 0.0f, 0.0f
+    };
+
+    public static final float[] SPRITE_FRONT_NORMAL_DATA = {
+            // Front face
+            0.0f, 0.0f, 1.0f,
+            0.0f, 0.0f, 1.0f,
+            0.0f, 0.0f, 1.0f,
+            0.0f, 0.0f, 1.0f,
+            0.0f, 0.0f, 1.0f,
+            0.0f, 0.0f, 1.0f
+    };
+
+    public static final float[] SPRITE_TOP_NORMAL_DATA = {
+            // Front face
+            0.0f, 1.0f, 0.0f,
+            0.0f, 1.0f, 0.0f,
+            0.0f, 1.0f, 0.0f,
+            0.0f, 1.0f, 0.0f,
+            0.0f, 1.0f, 0.0f,
+            0.0f, 1.0f, 0.0f
+    };
+
     public static float[] generateCubeData(float[] point1,
                                            float[] point2,
                                            float[] point3,
@@ -17,11 +86,11 @@ public class ShapeBuilder
         // back left top, back right top, back left bottom, back right bottom,
         // return an array of 6 sides, 2 triangles per side, 3 vertices per triangle, and 4 floats per vertex.
         final int FRONT = 0;
-        final int RIGHT = 1;
+        final int TOP = 1;
         final int BACK = 2;
-        final int LEFT = 3;
-        final int TOP = 4;
-        final int BOTTOM = 5;
+        final int BOTTOM = 3;
+        final int LEFT = 4;
+        final int RIGHT = 5;
 
         final int size = elementsPerPoint * 6 * 6;
         final float[] cubeData = new float[size];
@@ -35,21 +104,21 @@ public class ShapeBuilder
                 case FRONT:
                     p1 = point1; p2 = point2; p3 = point3; p4 = point4;
                     break;
-                case RIGHT:
-                    p1 = point2; p2 = point6; p3 = point4; p4 = point8;
+                case TOP:
+                    p1 = point5; p2 = point6; p3 = point1; p4 = point2;
                     break;
                 case BACK:
                     p1 = point6; p2 = point5; p3 = point8; p4 = point7;
                     break;
+                case BOTTOM:
+                    p1 = point8; p2 = point7; p3 = point4; p4 = point3;
+                    break;
                 case LEFT:
                     p1 = point5; p2 = point1; p3 = point7; p4 = point3;
                     break;
-                case TOP:
-                    p1 = point5; p2 = point6; p3 = point1; p4 = point2;
-                    break;
-                case BOTTOM:
+                case RIGHT:
                 default:
-                    p1 = point8; p2 = point7; p3 = point4; p4 = point3;
+                    p1 = point2; p2 = point6; p3 = point4; p4 = point8;
                     break;
             }
 
@@ -73,5 +142,31 @@ public class ShapeBuilder
         }
 
         return cubeData;
+    }
+
+    public static float[] generateSpriteData(float[] point1,
+                                             float[] point2,
+                                             float[] point3,
+                                             float[] point4,
+                                             int elementsPerPoint) {
+
+        final int elementsPerSprite = 6;
+        final float[] spriteData = new float[elementsPerPoint * elementsPerSprite];
+
+        int offset = 0;
+
+        System.arraycopy(point1, 0, spriteData, offset, point1.length);
+        offset += point1.length;
+        System.arraycopy(point3, 0, spriteData, offset, point3.length);
+        offset += point3.length;
+        System.arraycopy(point2, 0, spriteData, offset, point2.length);
+        offset += point2.length;
+        System.arraycopy(point3, 0, spriteData, offset, point3.length);
+        offset += point3.length;
+        System.arraycopy(point4, 0, spriteData, offset, point4.length);
+        offset += point4.length;
+        System.arraycopy(point2, 0, spriteData, offset, point2.length);
+
+        return spriteData;
     }
 }

@@ -3,7 +3,7 @@ package com.sonicmax.bloodrogue.renderer.effects;
 import android.opengl.GLES20;
 import android.util.Log;
 
-import com.sonicmax.bloodrogue.renderer.shaders.Shader;
+import com.sonicmax.bloodrogue.renderer.shaders.ShaderAttributes;
 import com.sonicmax.bloodrogue.utils.BufferUtils;
 
 import java.nio.ByteBuffer;
@@ -263,18 +263,18 @@ public class WeatherRenderer {
         // GLES20.glVertexAttribPointer() doesn't have offset parameter, so we have to
         // add the offset manually using Buffer.position()
 
-        GLES20.glEnableVertexAttribArray(Shader.POSITION);
+        GLES20.glEnableVertexAttribArray(ShaderAttributes.POSITION);
         GLES20.glVertexAttribPointer(
-                Shader.POSITION,
+                ShaderAttributes.POSITION,
                 FLOATS_PER_POSITION,
                 GLES20.GL_FLOAT,
                 false,
                 stride,
                 floatBuffer);
 
-        GLES20.glEnableVertexAttribArray(Shader.COLOUR);
+        GLES20.glEnableVertexAttribArray(ShaderAttributes.COLOUR);
         GLES20.glVertexAttribPointer(
-                Shader.COLOUR,
+                ShaderAttributes.COLOUR,
                 FLOATS_PER_COLOUR,
                 GLES20.GL_FLOAT,
                 false,
