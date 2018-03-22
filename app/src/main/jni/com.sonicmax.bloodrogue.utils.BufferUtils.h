@@ -77,6 +77,14 @@ JNIEXPORT void JNICALL Java_com_sonicmax_bloodrogue_utils_BufferUtils_copyJni___
 JNIEXPORT void JNICALL Java_com_sonicmax_bloodrogue_utils_BufferUtils_copyJni__Ljava_nio_Buffer_2ILjava_nio_Buffer_2II
         (JNIEnv *, jclass, jobject, jint, jobject, jint, jint);
 
+/*
+ * Class:     com_sonicmax_bloodrogue_utils_BufferUtils
+ * Method:    clear
+ * Signature: (Ljava/nio/ByteBuffer;I)V
+ */
+JNIEXPORT void JNICALL Java_com_sonicmax_bloodrogue_utils_BufferUtils_clear
+        (JNIEnv *, jclass, jobject, jint);
+
 #ifdef __cplusplus
 }
 #endif

@@ -10,6 +10,10 @@ import java.nio.LongBuffer;
 import java.nio.ShortBuffer;
 import java.util.Arrays;
 
+/**
+ *  Some stuff I borrowed from libGDX
+ */
+
 public class BufferUtils {
     private static final String BUFFER_UTILS = "buffer-utils";
 
@@ -76,6 +80,11 @@ public class BufferUtils {
         dst.limit(dst.position() + bytesToElements(dst, numElements << 1));
         copyJni(src, srcOffset, dst, positionInBytes(dst), numElements << 1);
     }
+
+    /** Writes the specified number of zeros to the buffer. This is generally faster than reallocating a new buffer. */
+    public static native void clear (ByteBuffer buffer, int numBytes); /*
+		memset(buffer, 0, numBytes);
+	*/
 
     /**
      *  Note: not sure why Android Studio is unable to resolve these JNI functions, but it still works
