@@ -2,6 +2,7 @@ package com.sonicmax.bloodrogue.renderer.shaders;
 
 import android.content.Context;
 import android.opengl.GLES20;
+import android.util.Log;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -13,6 +14,8 @@ import java.io.InputStreamReader;
  */
 
 public class GLShaderLoader {
+    private final String LOG_TAG = this.getClass().getSimpleName();
+
     private final String COLOUR_VERT_PATH = "shaders/solid_colour.vert";
     private final String BASIC_VERT_PATH = "shaders/basic.vert";
     private final String WAVE_VERT_PATH = "shaders/wave.vert";
@@ -69,92 +72,15 @@ public class GLShaderLoader {
     }
 
     public int compileCubeShader() {
-        try {
-            InputStream inputStream = context.getAssets().open(CUBE_VERT_PATH);
-            String vertCode = readStringFromStream(inputStream);
-            inputStream = context.getAssets().open(CUBE_FRAG_PATH);
-            String fragCode = readStringFromStream(inputStream);
-            inputStream.close();
-
-            int vertexShader = loadShader(GLES20.GL_VERTEX_SHADER, vertCode);
-            int fragmentShader = loadShader(GLES20.GL_FRAGMENT_SHADER, fragCode);
-
-            int spriteShaderHandle = GLES20.glCreateProgram();
-            GLES20.glAttachShader(spriteShaderHandle, vertexShader);
-            GLES20.glAttachShader(spriteShaderHandle, fragmentShader);
-
-            GLES20.glBindAttribLocation(spriteShaderHandle, Shader.POSITION, "a_Position");
-            GLES20.glBindAttribLocation(spriteShaderHandle, Shader.COLOUR, "a_Color");
-            GLES20.glBindAttribLocation(spriteShaderHandle, Shader.TEXCOORD, "a_texCoord");
-            GLES20.glBindAttribLocation(spriteShaderHandle, Shader.NORMAL, "a_Normal");
-
-            GLES20.glLinkProgram(spriteShaderHandle);
-
-            return spriteShaderHandle;
-
-
-        } catch (IOException e) {
-            // Todo: static string fallback?
-            return 0;
-        }
+        return compileShader(CUBE_VERT_PATH, CUBE_FRAG_PATH);
     }
 
     public int compileDebugDepthMapShader() {
-        try {
-            InputStream inputStream = context.getAssets().open(DEBUG_DEPTH_VERT_PATH);
-            String vertCode = readStringFromStream(inputStream);
-            inputStream = context.getAssets().open(DEBUG_DEPTH_FRAG_PATH);
-            String fragCode = readStringFromStream(inputStream);
-            inputStream.close();
-
-            int vertexShader = loadShader(GLES20.GL_VERTEX_SHADER, vertCode);
-            int fragmentShader = loadShader(GLES20.GL_FRAGMENT_SHADER, fragCode);
-
-            int shaderHandle = GLES20.glCreateProgram();
-            GLES20.glAttachShader(shaderHandle, vertexShader);
-            GLES20.glAttachShader(shaderHandle, fragmentShader);
-
-            GLES20.glBindAttribLocation(shaderHandle, Shader.POSITION, "a_Position");
-            GLES20.glBindAttribLocation(shaderHandle, Shader.TEXCOORD, "a_texCoord");
-
-            GLES20.glLinkProgram(shaderHandle);
-
-            return shaderHandle;
-
-
-        } catch (IOException e) {
-            // Todo: static string fallback?
-            return 0;
-        }
+        return compileShader(DEBUG_DEPTH_VERT_PATH, DEBUG_DEPTH_FRAG_PATH);
     }
 
     public int compileDepthMapShader() {
-        try {
-            InputStream inputStream = context.getAssets().open(DEPTH_MAP_VERT_PATH);
-            String vertCode = readStringFromStream(inputStream);
-            inputStream = context.getAssets().open(DEPTH_MAP_FRAG_PATH);
-            String fragCode = readStringFromStream(inputStream);
-            inputStream.close();
-
-            int vertexShader = loadShader(GLES20.GL_VERTEX_SHADER, vertCode);
-            int fragmentShader = loadShader(GLES20.GL_FRAGMENT_SHADER, fragCode);
-
-            int shaderHandle = GLES20.glCreateProgram();
-            GLES20.glAttachShader(shaderHandle, vertexShader);
-            GLES20.glAttachShader(shaderHandle, fragmentShader);
-
-            GLES20.glBindAttribLocation(shaderHandle, Shader.SHADOW_POSITION, "a_ShadowPosition");
-            GLES20.glBindAttribLocation(shaderHandle, Shader.TEXCOORD, "a_texCoord");
-
-            GLES20.glLinkProgram(shaderHandle);
-
-            return shaderHandle;
-
-
-        } catch (IOException e) {
-            // Todo: static string fallback?
-            return 0;
-        }
+        return compileShader(DEPTH_MAP_VERT_PATH, DEPTH_MAP_FRAG_PATH);
     }
 
     private int compileShader(String vertPath, String fragPath) {
@@ -168,21 +94,36 @@ public class GLShaderLoader {
             int vertexShader = loadShader(GLES20.GL_VERTEX_SHADER, vertCode);
             int fragmentShader = loadShader(GLES20.GL_FRAGMENT_SHADER, fragCode);
 
-            int spriteShaderHandle = GLES20.glCreateProgram();
-            GLES20.glAttachShader(spriteShaderHandle, vertexShader);
-            GLES20.glAttachShader(spriteShaderHandle, fragmentShader);
+            int shaderHandle = GLES20.glCreateProgram();
+            GLES20.glAttachShader(shaderHandle, vertexShader);
+            GLES20.glAttachShader(shaderHandle, fragmentShader);
 
-            GLES20.glBindAttribLocation(spriteShaderHandle, Shader.POSITION, "a_Position");
-            GLES20.glBindAttribLocation(spriteShaderHandle, Shader.COLOUR, "a_Color");
-            GLES20.glBindAttribLocation(spriteShaderHandle, Shader.TEXCOORD, "a_texCoord");
+            // These attributes are not used in all shaders - be careful to double check when binding vertex arrays/etc
+            GLES20.glBindAttribLocation(shaderHandle, Shader.POSITION, "a_Position");
+            GLES20.glBindAttribLocation(shaderHandle, Shader.SHADOW_POSITION, "a_ShadowPosition");
+            GLES20.glBindAttribLocation(shaderHandle, Shader.COLOUR, "a_Color");
+            GLES20.glBindAttribLocation(shaderHandle, Shader.TEXCOORD, "a_texCoord");
+            GLES20.glBindAttribLocation(shaderHandle, Shader.NORMAL, "a_Normal");
 
-            GLES20.glLinkProgram(spriteShaderHandle);
+            GLES20.glLinkProgram(shaderHandle);
 
-            return spriteShaderHandle;
+            int[] linkStatus = new int[1];
+            GLES20.glGetProgramiv(shaderHandle, GLES20.GL_LINK_STATUS, linkStatus, 0);
+
+            if (linkStatus[0] != GLES20.GL_TRUE) {
+                GLES20.glDeleteProgram(shaderHandle);
+                throw new RuntimeException("Could not link program: " + GLES20.glGetProgramInfoLog(shaderHandle));
+            }
+
+            return shaderHandle;
 
 
         } catch (IOException e) {
-            // Todo: static string fallback?
+            Log.e(LOG_TAG, "Error while reading shader source from disk:", e);
+            return 0;
+
+        } catch (RuntimeException e2) {
+            Log.e(LOG_TAG, e2.getMessage(), e2);
             return 0;
         }
     }
@@ -191,26 +132,39 @@ public class GLShaderLoader {
      * Compiles provided source code for renderState and returns reference int
      *
      * @param type Must be GLES20.GL_VERTEX_SHADER OR GLES20.GL_FRAGMENT_SHADER
-     * @param shaderCode Code for renderState
+     * @param source Code for shader
      * @return
      */
 
-    public static int loadShader(int type, String shaderCode) {
+    public static int loadShader(int type, String source) throws RuntimeException {
         int shader = GLES20.glCreateShader(type);
-        GLES20.glShaderSource(shader, shaderCode);
+        GLES20.glShaderSource(shader, source);
         GLES20.glCompileShader(shader);
+
+        int[] compiled = new int[1];
+        GLES20.glGetShaderiv(shader, GLES20.GL_COMPILE_STATUS, compiled, 0);
+
+        if (compiled[0] == 0) {
+            GLES20.glDeleteShader(shader);
+            throw new RuntimeException("Could not compile program: "
+                    + GLES20.glGetShaderInfoLog(shader) + " | " + source);
+        }
 
         return shader;
     }
 
-    public String readStringFromStream(InputStream is) throws IOException {
+    private String readStringFromStream(InputStream is) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-        StringBuilder sb = new StringBuilder();
+        StringBuilder stringBuilder = new StringBuilder();
+
         String line;
+
         while ((line = reader.readLine()) != null) {
-            sb.append(line);
+            stringBuilder.append(line);
         }
+
         reader.close();
-        return sb.toString();
+
+        return stringBuilder.toString();
     }
 }
