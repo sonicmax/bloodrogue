@@ -1,4 +1,4 @@
-package com.sonicmax.bloodrogue.renderer.sprites;
+package com.sonicmax.bloodrogue.renderer.textures;
 
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
