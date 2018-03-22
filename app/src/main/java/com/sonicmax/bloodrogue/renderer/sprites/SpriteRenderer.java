@@ -629,6 +629,10 @@ public class SpriteRenderer {
         GLES20.glUniform1i(uniformTexture, 0);
 
         GLES20.glDrawElements(GLES20.GL_TRIANGLES, indicesCount, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);
+
+        GLES20.glDisableVertexAttribArray(Shader.POSITION);
+        GLES20.glDisableVertexAttribArray(Shader.COLOUR);
+        GLES20.glDisableVertexAttribArray(Shader.TEXCOORD);
     }
 
     public void renderDepthMap(float near, float far) {
@@ -683,6 +687,9 @@ public class SpriteRenderer {
         GLES20.glUniform1i(uniformTexture, 3);
 
         GLES20.glDrawElements(GLES20.GL_TRIANGLES, indicesCount, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);
+
+        GLES20.glDisableVertexAttribArray(Shader.POSITION);
+        GLES20.glDisableVertexAttribArray(Shader.TEXCOORD);
     }
 
     /**

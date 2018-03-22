@@ -122,6 +122,11 @@ public class CubeBatch {
 
         // Clear the currently bound buffer (so future OpenGL calls do not use this buffer).
         // GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
+
+        GLES20.glDisableVertexAttribArray(Shader.POSITION);
+        GLES20.glDisableVertexAttribArray(Shader.NORMAL);
+        GLES20.glDisableVertexAttribArray(Shader.TEXCOORD);
     }
 
     public void renderDepthMap() {
@@ -151,6 +156,9 @@ public class CubeBatch {
                 uvBuffer);
 
         GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, count);
+
+        GLES20.glDisableVertexAttribArray(Shader.SHADOW_POSITION);
+        GLES20.glDisableVertexAttribArray(Shader.TEXCOORD);
     }
 
     public void release() {

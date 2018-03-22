@@ -561,6 +561,10 @@ public class TextRenderer {
 
         // render the triangle
         GLES20.glDrawElements(GLES20.GL_TRIANGLES, indicesCount, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);
+
+        GLES20.glDisableVertexAttribArray(Shader.POSITION);
+        GLES20.glDisableVertexAttribArray(Shader.COLOUR);
+        GLES20.glDisableVertexAttribArray(Shader.TEXCOORD);
     }
 
     /**

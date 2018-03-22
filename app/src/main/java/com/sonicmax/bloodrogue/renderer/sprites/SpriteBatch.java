@@ -148,6 +148,10 @@ public class SpriteBatch {
         GLES20.glDrawElements(GLES20.GL_TRIANGLES, indicesCount, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);
 
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
+
+        GLES20.glDisableVertexAttribArray(Shader.POSITION);
+        GLES20.glDisableVertexAttribArray(Shader.NORMAL);
+        GLES20.glDisableVertexAttribArray(Shader.TEXCOORD);
     }
 
     public void renderDepthMap() {
@@ -177,6 +181,10 @@ public class SpriteBatch {
                 uvBuffer);
 
         GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, count);
+
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
+        GLES20.glDisableVertexAttribArray(Shader.SHADOW_POSITION);
+        GLES20.glDisableVertexAttribArray(Shader.TEXCOORD);
     }
 
     public void release() {
