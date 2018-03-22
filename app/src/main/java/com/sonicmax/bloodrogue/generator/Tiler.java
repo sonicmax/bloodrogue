@@ -30,9 +30,7 @@ public class Tiler {
     ---------------------------------------------
     */
 
-    public String getWallTile(int x, int y, int theme) {
-        String sprite;
-
+    public String getWallTile(int theme) {
         switch (tileset) {
             case BuildingTileset.KEY:
                 return BuildingTileset.WALLPAPER_3;
@@ -70,7 +68,7 @@ public class Tiler {
     ---------------------------------------------
     */
 
-    public String getFloorTile(int x, int y, int type) {
+    public String getFloorTile(int type) {
         switch (tileset) {
             case BuildingTileset.KEY:
                 return getMansionFloorTilePath(type);

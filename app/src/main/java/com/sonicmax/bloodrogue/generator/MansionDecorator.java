@@ -10,17 +10,18 @@ import com.sonicmax.bloodrogue.engine.Directions;
 import com.sonicmax.bloodrogue.engine.Component;
 import com.sonicmax.bloodrogue.engine.components.Physics;
 import com.sonicmax.bloodrogue.engine.components.Position;
+import com.sonicmax.bloodrogue.engine.components.Sprite;
 import com.sonicmax.bloodrogue.engine.components.Terrain;
 import com.sonicmax.bloodrogue.engine.systems.PotionSystem;
 import com.sonicmax.bloodrogue.generator.factories.DecalFactory;
-import com.sonicmax.bloodrogue.generator.factories.TerrainFactory;
 import com.sonicmax.bloodrogue.engine.systems.ComponentFinder;
+import com.sonicmax.bloodrogue.generator.tools.GridGeometryHelper;
 import com.sonicmax.bloodrogue.tilesets.BuildingTileset;
 import com.sonicmax.bloodrogue.tilesets.GenericTileset;
-import com.sonicmax.bloodrogue.utils.maths.Calculator;
+import com.sonicmax.bloodrogue.utils.maths.GeometryHelper;
 import com.sonicmax.bloodrogue.data.JSONLoader;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
-import com.sonicmax.bloodrogue.generator.mansion.Room;
+import com.sonicmax.bloodrogue.generator.buildings.Room;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 
 import org.json.JSONObject;
@@ -84,25 +85,28 @@ public class MansionDecorator {
      *
      */
 
-    public void decorateRooms(ArrayList<Room> rooms) {
+    public void decorateRooms(ArrayList<MapRegion> rooms, int buildingWidth, int buildingHeight) {
         // Make copy of rooms array so we can modify it safely
-        ArrayList<Room> roomsCopy = new ArrayList<>(rooms);
+        ArrayList<MapRegion> roomsCopy = new ArrayList<>(rooms);
 
         // Designate 1 quarter of the map to a specific shader of room & attempt to decorate each one.
         // Any rooms which are missed (eg. for being too small/big) will be decorated later
-        int sectionSize = mapWidth / 2;
+        int sectionWidth = buildingWidth / 2;
+        int sectionHeight = buildingHeight / 2;
 
-        Room livingQuartersQuad = new Room(0, 0, sectionSize, sectionSize);
+        Room livingQuartersQuad = new Room(0, 0, sectionWidth, sectionHeight);
 
-        Iterator it = roomsCopy.iterator();
+        Iterator<MapRegion> it = roomsCopy.iterator();
 
         int bathroomCount = 0;
 
         while (it.hasNext()) {
-            Room room = (Room) it.next();
-            if (AxisAlignedBoxTester.test(livingQuartersQuad, room)) {
-                if (bathroomCount <= 2) {
-                    // Todo: we should make sure that bathrooms arent connected to each other or other inappropriate rooms
+            MapRegion room = it.next();
+            // Todo: this will work for most rooms, but not irregularly shaped ones
+            Chunk boundingBox = GridGeometryHelper.getBoundingBox(room.getCorners());
+            if (AxisAlignedBoxTester.test(livingQuartersQuad, boundingBox)) {
+                if (bathroomCount < 1) {
+                    // Todo: bathroom should be room with 1 door
                     convertRoomToBathroom(room);
                     bathroomCount++;
                 } else {
@@ -113,49 +117,50 @@ public class MansionDecorator {
             }
         }
 
-        Room officeQuad = new Room(sectionSize, 0, sectionSize, sectionSize);
+        Room officeQuad = new Room(sectionWidth, 0, sectionWidth, sectionHeight);
 
         it = roomsCopy.iterator();
 
         while (it.hasNext()) {
-            Room room = (Room) it.next();
-
-            if (AxisAlignedBoxTester.test(officeQuad, room)) {
+            MapRegion room = it.next();
+            Chunk boundingBox = GridGeometryHelper.getBoundingBox(room.getCorners());
+            if (AxisAlignedBoxTester.test(livingQuartersQuad, boundingBox)) {
                 convertRoomToOffice(room);
                 it.remove();
             }
         }
 
         // Now iterate over the remaining rooms and assign random styles to theme
-        for (Room room : roomsCopy) {
+        for (MapRegion room : roomsCopy) {
             furnishRoom(room);
         }
 
         int windowCount = 0;
 
         // Iterate over unmodified rooms array and add lighting/chests/enemies/etc
-        for (Room room : rooms) {
+        for (MapRegion room : rooms) {
 
-            if (getDoorsFromRoom(room) == 0) {
+            /*if (getDoorsFromRoom(room) == 0) {
                 Log.v(LOG_TAG, "inaccessible room");
-                room.isAccessible = true;
             }
 
             addNorthWallTiles(room);
             addLightingToRoom(room);
-            decorateNorthWall(room);
-            addItemsToRoom(room);
-            addWeaponsToRoom(room);
-            addEnemiesToRoom(room);
+            decorateNorthWall(room);*/
+
+            // Todo: we should add items/weapons/enemies separately to decorations
+            // addItemsToRoom(room);
+            // addWeaponsToRoom(room);
+            // addEnemiesToRoom(room);
         }
     }
 
-    private void furnishRoom(Room room) {
-        if (libraryCount < 2) {
+    private void furnishRoom(MapRegion room) {
+        if (libraryCount < 1) {
             convertRoomToLibrary(room);
         }
 
-        else if (galleryCount < 2) {
+        else if (galleryCount < 1 && room.getCorners().size() == 4) {
             convertRoomToArtGallery(room);
         }
 
@@ -165,21 +170,24 @@ public class MansionDecorator {
     }
 
     /**
-     *  Art gallery rooms have paintings on north wall, with pedastals in front.
+     *  Art gallery rooms have paintings on north wall, with pedastals in front. For now we can only
+     *  build these in rectangular rooms
      */
 
-    private void convertRoomToArtGallery(Room room) {
-        if (room.width() < 5) return;
+    private void convertRoomToArtGallery(MapRegion room) {
+        Chunk boundingBox = GridGeometryHelper.getBoundingBox(room.getCorners());
 
-        Vector topLeft = new Vector(room.x(), room.y() + room.height());
-        Vector topRight = new Vector(room.x() + room.width(), room.y() + room.height());
+        if (boundingBox.width < 5) return;
+
+        Vector topLeft = new Vector(boundingBox.x, boundingBox.y + boundingBox.height);
+        Vector topRight = new Vector(boundingBox.x + boundingBox.width, boundingBox.y + boundingBox.height);
 
         ArrayList<String> paintings = new ArrayList<>(Arrays.asList(BuildingTileset.PAINTINGS));
 
         for (int x = topLeft.x(); x < topRight.x(); x += 2) {
-            Vector cell = new Vector(x, room.y() + room.height());
+            Vector cell = new Vector(x, boundingBox.y + boundingBox.height);
 
-            Terrain stat = getStationaryTerrainComponent(cell);
+            Terrain stat = getTerrainComponent(cell);
 
             if (stat.type == Terrain.WALL && paintings.size() > 0) {
                 int random = rng.getRandomInt(0, paintings.size() - 1);
@@ -197,7 +205,7 @@ public class MansionDecorator {
             }
         }
 
-        ArrayList<Vector> corners = getCornerTiles(room);
+        ArrayList<Vector> corners = GridGeometryHelper.findInsideCorners(room.getVectors());
 
         int statueCount = 0;
 
@@ -223,11 +231,9 @@ public class MansionDecorator {
      *  specific pieces of furniture are placed at each corner.
      */
 
-    private void convertRoomToOffice(Room room) {
-        if (room.width() * room.height() > 30) return;
-
+    private void convertRoomToOffice(MapRegion room) {
         // Add/subtract 1 from corner to account for position of wall
-        ArrayList<Vector> corners = getCornerTiles(room);
+        ArrayList<Vector> corners = GridGeometryHelper.findInsideCorners(room.getVectors());
 
         boolean deskAdded = false;
         boolean filingCabinetAdded = false;
@@ -287,10 +293,8 @@ public class MansionDecorator {
         officeCount++;
     }
 
-    private void convertRoomToBedroom(Room room) {
-        if (room.width() * room.height() > 30) return;
-
-        ArrayList<Vector> corners = getCornerTiles(room);
+    private void convertRoomToBedroom(MapRegion room) {
+        ArrayList<Vector> corners = GridGeometryHelper.findInsideCorners(room.getVectors());
 
         boolean bedAdded = false;
         boolean wardrobeAdded = false;
@@ -351,10 +355,8 @@ public class MansionDecorator {
         bedroomCount++;
     }
 
-    private void convertRoomToBathroom(Room room) {
-        if (room.width() * room.height() > 25) return;
-
-        ArrayList<Vector> corners = getCornerTiles(room);
+    private void convertRoomToBathroom(MapRegion room) {
+        ArrayList<Vector> corners = GridGeometryHelper.findInsideCorners(room.getVectors());
 
         boolean toiletAdded = false;
         boolean sinkAdded = false;
@@ -403,22 +405,11 @@ public class MansionDecorator {
         bathroomCount++;
     }
 
-    private ArrayList<Vector> getCornerTiles(Room room) {
-        ArrayList<Vector> corners = new ArrayList<>();
-
-        corners.add(new Vector(room.x(), room.y()));
-        corners.add(new Vector(room.x() + room.width() - 1, room.y()));
-        corners.add(new Vector(room.x(), room.y() + room.height() - 1));
-        corners.add(new Vector(room.x() + room.width() - 1, room.y() + room.height() - 1));
-
-        return corners;
-    }
-
     private boolean blocksDoorway(Vector cell) {
         for (Vector direction : Directions.Cardinal.values()) {
             Vector adjacent = cell.add(direction);
             if (inBounds(adjacent)) {
-                Terrain stat = getStationaryTerrainComponent(adjacent);
+                Terrain stat = getTerrainComponent(adjacent);
                 if (stat.type == Terrain.DOORWAY) {
                     return true;
                 }
@@ -434,7 +425,7 @@ public class MansionDecorator {
 
         for (int x = topLeft.x(); x < topRight.x(); x++) {
             Vector cell = new Vector(x, room.y() + room.height());
-            GameObject object = getStationaryTerrainComponent(cell);
+            GameObject object = getTerrainComponent(cell);
 
             if (object.shader == Terrain.WALL && adjacentCellsAreCarvable(cell)) {
                 object.setSprite(BuildingTileset.WALLPAPER_1);
@@ -459,7 +450,7 @@ public class MansionDecorator {
         // Check for doors
         for (int x = topLeft.x(); x < topRight.x(); x++) {
             Vector cell = new Vector(x, room.y() + room.height());
-            Terrain stat = getStationaryTerrainComponent(cell);
+            Terrain stat = getTerrainComponent(cell);
             if (stat.type == Terrain.DOORWAY) {
                 numberOfDoors++;
                 doorPosition = cell;
@@ -484,7 +475,7 @@ public class MansionDecorator {
                 itemCoord = new Vector(doorPosition.x() + (int) Math.floor(lengthB / 2), topLeft.y());
             }
 
-            Terrain stat = getStationaryTerrainComponent(itemCoord.add(Directions.Cardinal.get("NORTH")));
+            Terrain stat = getTerrainComponent(itemCoord.add(Directions.Cardinal.get("NORTH")));
 
             if (stat.type == Terrain.FLOOR) {
                 // Ignore single-tiled walls
@@ -507,22 +498,13 @@ public class MansionDecorator {
      *  Replaces texture of floor objects contained in room.
      */
 
-    private void retextureFloor(Room room, String imgPath) {
-        int right = room.x() + room.width();
-        int bottom = room.y() + room.height();
-
-        for (int x = room.x(); x < right; x++) {
-            for (int y = room.y(); y < bottom; y++) {
-                Vector pos = new Vector(x, y);
-                long entity = terrainEntities[x][y];
-                Terrain s = (Terrain) componentManager.getEntityComponent(entity, Terrain.class.getSimpleName());
-
-                if (s != null && inBounds(pos) && s.type == Terrain.FLOOR) {
-                    Component[] floor = TerrainFactory.createFloor(x, y, imgPath);
-                    terrainEntities[x][y] = floor[0].id;
-                    componentManager.sortComponentArray(floor);
-                }
-            }
+    private void retextureFloor(MapRegion room, String imgPath) {
+        for (Vector pos : room.getVectors()) {
+            int x = pos.x;
+            int y = pos.y;
+            long entity = terrainEntities[x][y];
+            Sprite sprite = (Sprite) componentManager.getEntityComponent(entity, Sprite.class.getSimpleName());
+            sprite.path = imgPath;
         }
     }
 
@@ -531,8 +513,8 @@ public class MansionDecorator {
      *  Otherwise they are treated the same as any other room
      */
 
-    private void convertRoomToLibrary(Room room) {
-        if (room.height() < 5) return;
+    private void convertRoomToLibrary(MapRegion room) {
+        Chunk boundingBox = GridGeometryHelper.getBoundingBox(room.getCorners());
 
         if (rng.getRandomInt(0, 1) == 0) { // Add rows of bookshelves
 
@@ -540,18 +522,18 @@ public class MansionDecorator {
             int startPositionY;
             boolean isEven = false;
 
-            if (room.height() % 2 == 1) {
+            if (boundingBox.height % 2 == 1) {
                 // Start against wall
-                startPositionY = room.y();
+                startPositionY = boundingBox.y;
             }
             else {
                 // Start at square in front of wall
-                startPositionY = room.y() + 1;
+                startPositionY = boundingBox.y + 1;
                 isEven = true;
             }
 
-            for (int y = startPositionY; y < startPositionY + room.height() + 1; y += 2) {
-                Vector cell = new Vector(room.x(), y);
+            for (int y = startPositionY; y < startPositionY + boundingBox.height + 1; y += 2) {
+                Vector cell = new Vector(boundingBox.x, y);
                 addBookshelfRow(cell, isEven);
             }
         }
@@ -561,18 +543,18 @@ public class MansionDecorator {
             int startPositionX;
             boolean isEven = false;
 
-            if (room.width() % 2 == 1) {
+            if (boundingBox.width % 2 == 1) {
                 // Start against wall
-                startPositionX = room.x();
+                startPositionX = boundingBox.x;
             }
             else {
                 // Start at square in front of wall
-                startPositionX = room.x() + 1;
+                startPositionX = boundingBox.x + 1;
                 isEven = true;
             }
 
-            for (int x = startPositionX; x < startPositionX + room.width(); x += 2) {
-                Vector cell = new Vector(x, room.y());
+            for (int x = startPositionX; x < startPositionX + boundingBox.width; x += 2) {
+                Vector cell = new Vector(x, boundingBox.y);
                 addBookshelfColumn(cell, isEven);
             }
         }
@@ -583,23 +565,23 @@ public class MansionDecorator {
     }
 
     private void addBookshelfColumn(Vector cell, boolean isEven) {
-        while (inBounds(cell) && getStationaryTerrainComponent(cell).type == Terrain.FLOOR) {
+        while (inBounds(cell) && getTerrainComponent(cell).type == Terrain.FLOOR) {
 
-            Terrain floor = getStationaryTerrainComponent(cell);
+            Terrain floor = getTerrainComponent(cell);
 
             if (floor.type == Terrain.DOORWAY) return;
 
             Vector lookahead = cell.add(Directions.Cardinal.get("NORTH"));
 
-            if (inBounds(lookahead) && getStationaryTerrainComponent(cell).type == Terrain.FLOOR) {
+            if (inBounds(lookahead) && getTerrainComponent(lookahead).type == Terrain.FLOOR) {
 
-                floor = getStationaryTerrainComponent(lookahead);
+                floor = getTerrainComponent(lookahead);
 
                 if (floor.type == Terrain.DOORWAY) return;
 
                 if (!cellBlocksDoorway(cell, isEven)) {
                     String tile = BuildingTileset.BOOKSHELVES[rng.getRandomInt(0, BuildingTileset.BOOKSHELVES.length - 1)];
-                    Component[] decal = DecalFactory.createDecal(cell.x, cell.y, tile);
+                    Component[] decal = DecalFactory.createCubeDecal(cell.x, cell.y, tile, true, true);
                     objectEntities[cell.x][cell.y].add(decal[0].id);
                     componentManager.sortComponentArray(decal);
                 }
@@ -615,23 +597,23 @@ public class MansionDecorator {
 
     private void addBookshelfRow(Vector cell, boolean isEven) {
 
-        while (inBounds(cell) && getStationaryTerrainComponent(cell).type == Terrain.FLOOR) {
+        while (inBounds(cell) && getTerrainComponent(cell).type == Terrain.FLOOR) {
 
-            Terrain floor = getStationaryTerrainComponent(cell);
+            Terrain floor = getTerrainComponent(cell);
 
             if (floor.type == Terrain.DOORWAY) return;
 
             Vector lookahead = cell.add(Directions.Cardinal.get("EAST"));
 
-            if (inBounds(lookahead) && getStationaryTerrainComponent(cell).type == Terrain.FLOOR) {
+            if (inBounds(lookahead) && getTerrainComponent(lookahead).type == Terrain.FLOOR) {
 
-                floor = getStationaryTerrainComponent(lookahead);
+                floor = getTerrainComponent(lookahead);
 
                 if (floor.type == Terrain.DOORWAY) return;
 
                 else if (!cellBlocksDoorway(cell, isEven)) {
                     String tile = BuildingTileset.BOOKSHELVES[rng.getRandomInt(0, BuildingTileset.BOOKSHELVES.length - 1)];
-                    Component[] decal = DecalFactory.createDecal(cell.x, cell.y, tile);
+                    Component[] decal = DecalFactory.createCubeDecal(cell.x, cell.y, tile, true, true);
                     objectEntities[cell.x][cell.y].add(decal[0].id);
                     componentManager.sortComponentArray(decal);
                 }
@@ -652,7 +634,7 @@ public class MansionDecorator {
 
             if (!inBounds(vector)) continue;
 
-            Terrain object = getStationaryTerrainComponent(vector);
+            Terrain object = getTerrainComponent(vector);
 
             if (object.type == Terrain.DOORWAY) {
                 return true;
@@ -664,7 +646,7 @@ public class MansionDecorator {
             Vector newCell = cell.add(direction.scale(2));
 
             if (inBounds(newCell)) {
-                object = getStationaryTerrainComponent(cell.add(direction.scale(2)));
+                object = getTerrainComponent(cell.add(direction.scale(2)));
                 if (isEven && object.type == Terrain.DOORWAY) {
                     return true;
                 }
@@ -680,7 +662,7 @@ public class MansionDecorator {
         Vector direction = Directions.Cardinal.get(bearing);
         Vector cell = room.roundedCentre();
 
-        while (inBounds(cell) && getStationaryTerrainComponent(cell).type == Terrain.FLOOR) {
+        while (inBounds(cell) && getTerrainComponent(cell).type == Terrain.FLOOR) {
             cell = cell.add(direction);
         }
 
@@ -688,7 +670,7 @@ public class MansionDecorator {
             return;
         }
 
-        Terrain object = getStationaryTerrainComponent(cell);
+        Terrain object = getTerrainComponent(cell);
 
         if (object.type != Terrain.FLOOR && object.type != Terrain.DOORWAY) {
             Component[] lightSource = DecalFactory.createDecal(cell.x, cell.y, getLightSourceTile(bearing));
@@ -722,15 +704,15 @@ public class MansionDecorator {
         for (Vector direction : Directions.All.values()) {
             Vector cell = room.roundedCentre();
 
-            while (inBounds(cell) && getStationaryTerrainComponent(cell).type == Terrain.FLOOR) {
+            while (inBounds(cell) && getTerrainComponent(cell).type == Terrain.FLOOR) {
                 cell = cell.add(direction);
             }
 
             cell = cell.subtract(direction);
 
-            Terrain object = getStationaryTerrainComponent(cell);
+            Terrain object = getTerrainComponent(cell);
 
-            if (object.type != Terrain.FLOOR || object.type == Terrain.DOORWAY) continue;
+            if (object.type != Terrain.FLOOR) continue;
 
             if (detectCollisions(cell) || blocksDoorway(cell)) continue;
 
@@ -770,15 +752,15 @@ public class MansionDecorator {
         for (Vector direction : Directions.All.values()) {
             Vector cell = room.roundedCentre();
 
-            while (inBounds(cell) && getStationaryTerrainComponent(cell).type == Terrain.FLOOR) {
+            while (inBounds(cell) && getTerrainComponent(cell).type == Terrain.FLOOR) {
                 cell = cell.add(direction);
             }
 
             cell = cell.subtract(direction);
 
-            Terrain object = getStationaryTerrainComponent(cell);
+            Terrain object = getTerrainComponent(cell);
 
-            if (object.type != Terrain.FLOOR || object.type == Terrain.DOORWAY) continue;
+            if (object.type != Terrain.FLOOR) continue;
 
             if (detectCollisions(cell) || blocksDoorway(cell)) continue;
 
@@ -876,7 +858,7 @@ public class MansionDecorator {
 
                 if (adjacentNode.equals(obstacle) || detectCollisions(adjacentNode)) continue;
 
-                double distanceToGoal = Calculator.getDistance(adjacentNode, goalNode);
+                double distanceToGoal = GeometryHelper.getDistance(adjacentNode, goalNode);
 
                 if (distanceToGoal < bestDistance) {
                     bestDistance = distanceToGoal;
@@ -997,13 +979,13 @@ public class MansionDecorator {
             Vector south = new Vector(x, room.y() - 1);
 
             if (inBounds(north)) {
-                if (getStationaryTerrainComponent(north).type == Terrain.DOORWAY) {
+                if (getTerrainComponent(north).type == Terrain.DOORWAY) {
                     doorCount++;
                 }
             }
 
             if (inBounds(south)) {
-                if (getStationaryTerrainComponent(south).type == Terrain.DOORWAY) {
+                if (getTerrainComponent(south).type == Terrain.DOORWAY) {
                     doorCount++;
                 }
             }
@@ -1014,13 +996,13 @@ public class MansionDecorator {
             Vector west = new Vector(room.x() + room.width(), y);
 
             if (inBounds(east)) {
-                if (getStationaryTerrainComponent(east).type == Terrain.DOORWAY) {
+                if (getTerrainComponent(east).type == Terrain.DOORWAY) {
                     doorCount++;
                 }
             }
 
             if (inBounds(west)) {
-                if (getStationaryTerrainComponent(west).type == Terrain.DOORWAY) {
+                if (getTerrainComponent(west).type == Terrain.DOORWAY) {
                     doorCount++;
                 }
             }
@@ -1086,7 +1068,7 @@ public class MansionDecorator {
         return (cell.x() >= 0 && cell.x() < mapWidth && cell.y() >= 0 && cell.y() < mapHeight);
     }
 
-    private Terrain getStationaryTerrainComponent(Vector cell) {
+    private Terrain getTerrainComponent(Vector cell) {
         return (Terrain) componentManager.getEntityComponent(terrainEntities[cell.x][cell.y],
                 Terrain.class.getSimpleName());
     }

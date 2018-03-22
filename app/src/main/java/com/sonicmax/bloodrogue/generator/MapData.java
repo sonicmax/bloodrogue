@@ -1,11 +1,8 @@
 package com.sonicmax.bloodrogue.generator;
 
-import com.sonicmax.bloodrogue.engine.Component;
-import com.sonicmax.bloodrogue.generator.mansion.Room;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 
 public class MapData {
     private long[][] terrainEntities;

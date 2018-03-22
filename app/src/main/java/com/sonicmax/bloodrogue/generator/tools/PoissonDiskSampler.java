@@ -1,21 +1,23 @@
 package com.sonicmax.bloodrogue.generator.tools;
 
 import com.sonicmax.bloodrogue.engine.Directions;
-import com.sonicmax.bloodrogue.utils.maths.Calculator;
+import com.sonicmax.bloodrogue.utils.maths.GeometryHelper;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 
 import java.util.ArrayList;
 
 /**
- * Uses poisson disk sampling to generate an array of random points.
+ * Class which uses poisson disk sampling to create evenly distributed random noise.
  */
 
 public class PoissonDiskSampler {
     private RandomNumberGenerator rng;
+    private int density;
 
     public PoissonDiskSampler() {
         rng = new RandomNumberGenerator();
+        density = 10;
     }
 
     private ArrayList<Vector>[][] initGrid(int width, int height) {
@@ -30,33 +32,56 @@ public class PoissonDiskSampler {
         return grid;
     }
 
-    public ArrayList<Vector> generatePoisson(int width, int height, int minDist, int newPointsCount) {
+    public void setDensity(int density) {
+        this.density = density;
+    }
+
+    /**
+     * Uses poisson disk sampling to generate random noise with a roughly even distribution.
+     * By default, this method will attempt to place adjacent points 10 times for each newly generated
+     * point, but this can be altered using setDensity().
+     *
+     * @param width Output grid width
+     * @param height Output grid height
+     * @param minDist Minimum distance between points
+     * @param pointLimit Method will return results if we exceed this number
+     * @return ArrayList of Vectors for each point
+     */
+
+    public ArrayList<Vector> generateNoise(int width, int height, int minDist, int pointLimit) {
+        // We want to divide the grid into squares that represent the minimum distance allowed between points
         ArrayList<Vector>[][] grid = initGrid((width / minDist) + 1, (height / minDist) + 1);
 
         ArrayList<Vector> processList = new ArrayList<>();
         ArrayList<Vector> samplePoints = new ArrayList<>();
         Vector firstPoint = new Vector(rng.getRandomInt(0, width), rng.getRandomInt(0, height));
 
-        //update containers
         processList.add(firstPoint);
         samplePoints.add(firstPoint);
 
         Vector firstGrid = pointToGrid(firstPoint, minDist);
         grid[firstGrid.x][firstGrid.y].add(firstPoint);
 
-        //generate other points from points in queue.
+        // Start to generate points
         while (processList.size() > 0) {
             Vector point = processList.remove(rng.getRandomInt(0, processList.size() - 1));
 
-            for (int i = 0; i < newPointsCount; i++) {
+            for (int i = 0; i < density; i++) {
                 Vector newPoint = generateRandomPointAround(point, minDist);
                 // Check that points is in bounds and that no other points exist around it
                 if (inBounds(newPoint, width, height) && !pointInNeighbourhood(grid, newPoint, minDist)) {
-                    processList.add(newPoint);
                     samplePoints.add(newPoint);
 
-                    Vector gridPosition = pointToGrid(newPoint, minDist);
-                    grid[gridPosition.x][gridPosition.y].add(newPoint);
+                    if (samplePoints.size() > pointLimit) {
+                        return samplePoints;
+                    }
+                    else {
+                        // Add to process list and continue iterating
+                        processList.add(newPoint);
+
+                        Vector gridPosition = pointToGrid(newPoint, minDist);
+                        grid[gridPosition.x][gridPosition.y].add(newPoint);
+                    }
                 }
             }
         }
@@ -95,7 +120,7 @@ public class PoissonDiskSampler {
 
         ArrayList<Vector> cellsAroundPoint = getAdjacentCells(gridPoint, grid);
         for (Vector cell : cellsAroundPoint) {
-            if (cell != null && Calculator.getDistance(cell, point) < minDist) {
+            if (cell != null && GeometryHelper.getDistance(cell, point) < minDist) {
                 return true;
             }
         }

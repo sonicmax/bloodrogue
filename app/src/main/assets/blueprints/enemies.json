@@ -3,7 +3,7 @@
 		position: {},
 		sprite: {
 			path: "sprites/zombie_1.png",
-			shader: "dynamic"
+			renderState: "dynamic"
 		},
 		name: {
 			value: "Zombie"
@@ -42,7 +42,7 @@
 		position: {},
 		sprite: {
 			path: "sprites/zombie_2.png",
-			shader: "dynamic"
+			renderState: "dynamic"
 		},
 		name: {
 			value: "Zombie"
@@ -81,7 +81,7 @@
 		position: {},
 		sprite: {
 			path: "sprites/zombie_3.png",
-			shader: "dynamic"
+			renderState: "dynamic"
 		},
 		name: {
 			value: "Zombie"
@@ -120,7 +120,7 @@
 		position: {},
 		sprite: {
 			path: "sprites/giant_rat.png",
-			shader: "dynamic"
+			renderState: "dynamic"
 		},
 		name: {
 			value: "Giant Rat"
@@ -159,7 +159,7 @@
 		position: {},
 		sprite: {
 			path: "sprites/cockroach.png",
-			shader: "dynamic"
+			renderState: "dynamic"
 		},
 		name: {
 			value: "Giant Roach"
@@ -198,7 +198,7 @@
 		position: {},
 		sprite: {
 			path: "sprites/green_slime.png",
-			shader: "dynamic"
+			renderState: "dynamic"
 		},
 		name: {
 			value: "Green Slime"
@@ -240,7 +240,7 @@
 		position: {},
 		sprite: {
 			path: "sprites/purple_slime.png",
-			shader: "dynamic"
+			renderState: "dynamic"
 		},
 		name: {
 			value: "Purple Slime"
@@ -282,7 +282,7 @@
 		position: {},
 		sprite: {
 			path: "sprites/ogre.png",
-			shader: "dynamic"
+			renderState: "dynamic"
 		},
 		name: {
 			value: "Ogre"
@@ -321,7 +321,7 @@
 		position: {},
 		sprite: {
 			path: "sprites/ogre_2.png",
-			shader: "dynamic"
+			renderState: "dynamic"
 		},
 		name: {
 			value: "Great Ogre"
@@ -360,7 +360,7 @@
 		position: {},
 		sprite: {
 			path: "sprites/ogre_spirit.png",
-			shader: "wave"
+			renderState: "wave"
 		},
 		name: {
 			value: "Spirit"
@@ -399,7 +399,7 @@
 		position: {},
 		sprite: {
 			path: "sprites/giant_komodo.png",
-			shader: "dynamic"
+			renderState: "dynamic"
 		},
 		name: {
 			value: "Giant Komodo"
@@ -418,6 +418,207 @@
 		},
 		blood: {
 			type: "red"
+		},
+		vitality: {
+			endurance: 1
+		},
+		physics: {
+			blocking: false,
+			traversable: false,
+			gasOrLiquid: false,
+			activateOnCollide: true,
+			activateOnMove: false
+		},
+		energy: {
+			agility: 2
+		}
+	},
+	
+	goat: {
+		position: {},
+		sprite: {
+			path: "sprites/bad_goat.png",
+			renderState: "dynamic",
+			idleAnimation: true
+		},
+		name: {
+			value: "Goat"
+		},
+		dynamic: {},
+		ai: {
+			affinity: "enemy",
+			canInteract: false,
+			playerInterest: 5
+		},
+		experience: {
+			level: 1
+		},
+		damage: {
+			strength: 2
+		},
+		blood: {
+			type: "red"
+		},
+		vitality: {
+			endurance: 1
+		},
+		physics: {
+			blocking: false,
+			traversable: false,
+			gasOrLiquid: false,
+			activateOnCollide: true,
+			activateOnMove: false
+		},
+		energy: {
+			agility: 2
+		}
+	},
+	
+	carnivorousTree: {
+		position: {},
+		sprite: {
+			path: "sprites/tree_mon_hidden.png",
+			renderState: "dynamic"
+		},
+		camoflage: {
+			hidden: "sprites/tree_mon_hidden.png",
+			active: "sprites/tree_mon.png"
+		},
+		name: {
+			value: "Carnivorous Tree"
+		},
+		dynamic: {},
+		ai: {
+			affinity: "enemy",
+			canInteract: false,
+			playerInterest: 2
+		},
+		experience: {
+			level: 1
+		},
+		damage: {
+			strength: 4
+		},
+		blood: {
+			type: "green"
+		},
+		vitality: {
+			endurance: 1
+		},
+		physics: {
+			blocking: false,
+			traversable: false,
+			gasOrLiquid: false,
+			activateOnCollide: true,
+			activateOnMove: false
+		},
+		energy: {
+			agility: 1
+		}
+	},
+	
+	giantToad: {
+		position: {},
+		sprite: {
+			path: "sprites/giant_toad.png",
+			renderState: "dynamic",
+			idleAnimation: true
+		},
+		name: {
+			value: "Giant Toad"
+		},
+		dynamic: {},
+		ai: {
+			affinity: "enemy",
+			canInteract: false,
+			playerInterest: 5
+		},
+		experience: {
+			level: 1
+		},
+		damage: {
+			strength: 4
+		},
+		blood: {
+			type: "green"
+		},
+		vitality: {
+			endurance: 3
+		},
+		physics: {
+			blocking: false,
+			traversable: false,
+			gasOrLiquid: false,
+			activateOnCollide: true,
+			activateOnMove: false
+		},
+		energy: {
+			agility: 2
+		}
+	},
+	
+	bear: {
+		position: {},
+		sprite: {
+			path: "sprites/grizzly.png",
+			renderState: "dynamic"
+		},
+		name: {
+			value: "Bear"
+		},
+		dynamic: {},
+		ai: {
+			affinity: "enemy",
+			canInteract: false,
+			playerInterest: 5
+		},
+		experience: {
+			level: 1
+		},
+		damage: {
+			strength: 4
+		},
+		blood: {
+			type: "green"
+		},
+		vitality: {
+			endurance: 3
+		},
+		physics: {
+			blocking: false,
+			traversable: false,
+			gasOrLiquid: false,
+			activateOnCollide: true,
+			activateOnMove: false
+		},
+		energy: {
+			agility: 2
+		}
+	},
+	
+	bearCub: {
+		position: {},
+		sprite: {
+			path: "sprites/grizzly_cub.png",
+			renderState: "dynamic"
+		},
+		name: {
+			value: "Bear Cub"
+		},
+		dynamic: {},
+		ai: {
+			affinity: "enemy",
+			canInteract: false,
+			playerInterest: 5
+		},
+		experience: {
+			level: 1
+		},
+		damage: {
+			strength: 2
+		},
+		blood: {
+			type: "green"
 		},
 		vitality: {
 			endurance: 1

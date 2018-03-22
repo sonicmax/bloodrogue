@@ -149,7 +149,7 @@ public class AudioPlayer {
 
     public void playSound(String filename) {
         int handle = soundPoolResources.get(filename);
-        soundPool.play(handle, volume, volume, 0, PLAY_ONCE, 1);
+        soundPool.play(handle, volume, volume, 0, PLAY_ONCE, 1f);
     }
 
     public void playSound(String filename, int priority) {

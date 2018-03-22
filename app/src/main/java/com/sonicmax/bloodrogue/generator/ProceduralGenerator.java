@@ -14,18 +14,22 @@ import com.sonicmax.bloodrogue.engine.components.Portal;
 import com.sonicmax.bloodrogue.engine.components.Position;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
 import com.sonicmax.bloodrogue.engine.components.Terrain;
+import com.sonicmax.bloodrogue.generator.buildings.HouseWithYard;
+import com.sonicmax.bloodrogue.generator.enemies.EnemyBlueprintKeys;
+import com.sonicmax.bloodrogue.generator.enemies.EnemyPlacer;
 import com.sonicmax.bloodrogue.generator.factories.DecalFactory;
 import com.sonicmax.bloodrogue.generator.factories.TerrainFactory;
 import com.sonicmax.bloodrogue.engine.systems.ComponentFinder;
 import com.sonicmax.bloodrogue.generator.tools.CellularAutomata;
+import com.sonicmax.bloodrogue.generator.tools.GridGeometryHelper;
 import com.sonicmax.bloodrogue.generator.tools.MazeGenerator;
 import com.sonicmax.bloodrogue.generator.tools.PoissonDiskSampler;
 import com.sonicmax.bloodrogue.tilesets.BuildingTileset;
 import com.sonicmax.bloodrogue.tilesets.ExteriorTileset;
 import com.sonicmax.bloodrogue.tilesets.RuinsTileset;
-import com.sonicmax.bloodrogue.utils.maths.Calculator;
+import com.sonicmax.bloodrogue.utils.maths.GeometryHelper;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
-import com.sonicmax.bloodrogue.generator.mansion.Room;
+import com.sonicmax.bloodrogue.generator.buildings.Room;
 import com.sonicmax.bloodrogue.tilesets.GenericTileset;
 import com.sonicmax.bloodrogue.utils.Array2DHelper;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
@@ -84,10 +88,10 @@ public class ProceduralGenerator {
 
     // Random building generation defaults
     private int buildingDensity = 2000;
-    private int minBuildingWidth = 10;
-    private int maxBuildingWidth = 20;
-    private int minBuildingHeight = 10;
-    private int maxBuildingHeight = 20;
+    private int minBuildingWidth = 15;
+    private int maxBuildingWidth = 25;
+    private int minBuildingHeight = 15;
+    private int maxBuildingHeight = 25;
 
     // Random room generation defaults
     private int minRoomWidth = 3;
@@ -110,39 +114,46 @@ public class ProceduralGenerator {
 
     private MazeGenerator mazeGenerator;
     private CellularAutomata automata;
+    private EnemyPlacer enemyPlacer;
 
     private boolean[][] blockedTiles;
 
     private long[][] terrainEntities;
     private ArrayList<Long>[][] objectEntities;
     private int currentFloor;
+    private boolean[][] indoorRegions;
+    private boolean[][] waterRegions;
 
     public ProceduralGenerator(int width, int height, AssetManager assetManager) {
         this.mapWidth = width;
         this.mapHeight = height;
+
+        // Setup grids used to store terrain and object entities. We will use these in conjunction
+        // with component manager to detect collisions and other interactions when placing terrain/objects.
+        this.terrainEntities = new long[width][height];
+        this.objectEntities = Array2DHelper.create2dLongStack(width, height);
+
         this.assetManager = assetManager;
         this.furnitureBlueprints = JSONLoader.loadFurniture(assetManager);
         this.mazeGenerator = new MazeGenerator();
         this.automata = new CellularAutomata();
+        this.enemyPlacer = new EnemyPlacer(objectEntities, assetManager);
+        this.componentManager = ComponentManager.getInstance();
+
+        // We should have emptied the component manager already, but just to be sure:
+        this.componentManager.clear();
 
         this.doors = new HashMap<>();
         this.rng = new RandomNumberGenerator();
         this.currentFloor = 1;
+    }
 
-        // Setup grids used to store terrain and object entities. We will use these in conjunction
-        // with component manager to detect collisions and other interactions when placing terrain/objects.
-        // This also means that we can simply reuse instance of ComponentManager in GameEngine, rather
-        // than having to return raw arrays of components
+    public boolean[][] getIndoorRegions() {
+        return indoorRegions;
+    }
 
-        this.terrainEntities = new long[width][height];
-        this.objectEntities = Array2DHelper.create2dLongStack(width, height);
-
-        this.componentManager = ComponentManager.getInstance();
-
-        // Make sure that component manager is clear before generating new terrain.
-        // (it probably is, but need to be certain)
-
-        this.componentManager.clear();
+    public boolean[][] getWaterRegions() {
+        return waterRegions;
     }
 
 	/*
@@ -170,10 +181,10 @@ public class ProceduralGenerator {
                 }
                 else {
                     if (floorType == ProceduralGenerator.EXTERIOR) {
-                        setTerrain(new Vector(x, y), FLOOR, tiler.getFloorTile(x, y, theme));
+                        setTerrain(new Vector(x, y), FLOOR, tiler.getFloorTile(theme));
                     }
                     else {
-                        setTerrain(new Vector(x, y), WALL, tiler.getWallTile(x, y, theme));
+                        setTerrain(new Vector(x, y), WALL, tiler.getWallTile(theme));
                     }
                 }
 
@@ -181,6 +192,8 @@ public class ProceduralGenerator {
         }
 
         mapRegions = Array2DHelper.fillIntArray(mapWidth, mapHeight, -1);
+        indoorRegions = new boolean[mapWidth][mapHeight];
+        waterRegions = new boolean[mapWidth][mapHeight];
     }
 
     public void setFloor(int floor) {
@@ -188,7 +201,7 @@ public class ProceduralGenerator {
     }
 
     public MapData getMapData() {
-        return new MapData(terrainEntities, objectEntities, floorEntrance, floorExit, type);
+        return new MapData(terrainEntities, objectEntities, new Vector(0, 30), floorExit, type);
     }
 
     /*
@@ -299,7 +312,7 @@ public class ProceduralGenerator {
 
         decorator = new MansionDecorator(mapWidth, mapHeight, theme, themeKey, assetManager);
         decorator.setGeneratorData(terrainEntities, objectEntities);
-        decorator.decorateRooms(rooms);
+        // decorator.decorateRooms(rooms);
 
         removeHiddenWalls();
         removeInaccessibleCells();
@@ -344,7 +357,7 @@ public class ProceduralGenerator {
 
         decorator = new MansionDecorator(mapWidth, mapHeight, theme, themeKey, assetManager);
         decorator.setGeneratorData(terrainEntities, objectEntities);
-        decorator.decorateRooms(rooms);
+        // decorator.decorateRooms(rooms);
     }
 
     private void generateRuins() {
@@ -382,21 +395,16 @@ public class ProceduralGenerator {
 
         startRegion();
 
-        // First, generate all the organic terrain - trees, flowers, lakes, etc
+        // First, generate all the organic terrain (trees, flowers, lakes, etc) and add outdoor mobs
         placeRandomTreesInChunk(mapWithoutBorders);
-
+        addForestRegions(mapWithoutBorders);
+        addFloralRegions(mapWithoutBorders);
+        addOutdoorMobs(mapWithoutBorders);
         growLakes(mapWithoutBorders);
 
-        addForestRegions(mapWithoutBorders);
-
-        addFloralRegions(mapWithoutBorders);
-
         // Now we can start to add man made terrain - roads, buildings, etc
-
         ArrayList<Chunk> buildings = new ArrayList<>();
         ArrayList<Chunk> streetBlocks = getStreetBlocks(map);
-
-        Log.v(LOG_TAG, "street block count: " + streetBlocks.size());
 
         for (Chunk block : streetBlocks) {
             // Add pavement to border of block
@@ -404,13 +412,22 @@ public class ProceduralGenerator {
             clearObjectsFromBorder(block);
 
             // Place buildings in each block
-            buildings.addAll(addBuildingsToChunk(block));
+            if (block.width > 24 && block.height > 24) {
+                addHousesToChunk(block);
+            }
+            else {
+                addBuildingsToChunk(block);
+            }
         }
 
-        removeHiddenWalls();
+        // removeHiddenWalls();
         checkForBrokenDoors();
 
-        Log.v(LOG_TAG, "street block with bs: " + chunkswithbs);
+        for (Chunk seed : debugSeedslol) {
+            Component[] tree = DecalFactory.createDecal(seed.x, seed.y, GenericTileset.LIGHT_SOURCE);
+            objectEntities[seed.x][seed.y].add(tree[0].id);
+            componentManager.sortComponentArray(tree);
+        }
 
         // Now use maze generator to add paths to map?
         /*mazeGenerator.setChunk(mapWithoutBorders);
@@ -441,61 +458,209 @@ public class ProceduralGenerator {
         }*/
     }
 
+    private ArrayList<Long> treeEntities = new ArrayList<>();
+
+    public ArrayList<Long> getTreeEntities() {
+        return treeEntities;
+    }
+
     private void placeRandomTreesInChunk(Chunk chunk) {
         PoissonDiskSampler sampler = new PoissonDiskSampler();
         int minDistance = 3;
-        int pointCount = 5;
-        ArrayList<Vector> treePositions = sampler.generatePoisson(chunk.width, chunk.height, minDistance, pointCount);
+        // Roughly guess how many trees will fit, and reduce this amount by a percentage
+        // (as we are also placing forest regions)
+        double filter = 0.7;
+        int treeCount = (mapWidth / minDistance) * (mapHeight / minDistance);
+        treeCount *= filter;
+        Log.v(LOG_TAG, "Placing " + treeCount + " trees");
+        ArrayList<Vector> treePositions = sampler.generateNoise(chunk.width, chunk.height, minDistance, treeCount);
         for (Vector cell : treePositions) {
             Component[] tree = DecalFactory.createDecal(cell.x, cell.y, ExteriorTileset.TREES[rng.getRandomInt(0, ExteriorTileset.TREES.length - 1)]);
+            treeEntities.add(tree[0].id);
             objectEntities[cell.x][cell.y].add(tree[0].id);
             componentManager.sortComponentArray(tree);
         }
     }
 
-    private boolean[][] growLakes(Chunk chunk) {
+    private void growLakes(Chunk chunk) {
+        Vector offset = new Vector(chunk.x, chunk.y);
+
         automata.setParams(4, 3, 3, 0.3f);
         boolean[][] lakes = automata.generate(chunk);
 
-        int waterTextureIndex = 0;
+        ArrayList<Vector> lakeVectors = new ArrayList<>();
 
         for (int x = 0; x < lakes.length; x++) {
             for (int y = 0; y < lakes[0].length; y++) {
-                if (lakes[x][y] && !detectCollisions(new Vector(x, y))) {
-                    String texture = ExteriorTileset.WATER[waterTextureIndex];
-
-                    setTerrain(new Vector(x, y), BACKGROUND, ExteriorTileset.DIRT_PATH_1);
-
-                    // Water texture array is designed to be iterated over in this order to align the tiles
-                    // in a certain way (to try and create a semi random water texture)
-
-                    waterTextureIndex++;
-
-                    if (waterTextureIndex > ExteriorTileset.WATER.length - 1) {
-                        waterTextureIndex = 0;
-                    }
-
-                    Component[] water = DecalFactory.createLiquid(x, y, texture);
-                    objectEntities[x][y].add(water[0].id);
-                    componentManager.sortComponentArray(water);
-
-
+                Vector vector = new Vector(x, y);
+                // Remember to translate position on grid to position in world
+                Vector translatedVec = vector.subtract(offset);
+                if (lakes[x][y] && !detectCollisions(translatedVec)) {
+                    lakeVectors.add(vector);
                 }
             }
         }
 
-        return lakes;
+        // Now we should locate adjacent lake tiles and separate into regions
+
+        if (lakeVectors.size() == 0) {
+            return;
+        }
+
+        ArrayList<MapRegion> lakeRegions = new ArrayList<>();
+        ArrayList<Vector> checkedVectors = new ArrayList<>();
+
+        for (Vector vector : lakeVectors) {
+
+            for (Vector direction : Directions.All.values()) {
+                Vector adjacent = vector.add(direction);
+
+                if (checkedVectors.contains(adjacent)) {
+                    continue;
+                }
+
+                if (inBounds(adjacent, 0, 0, lakes.length, lakes[0].length)) {
+                    if (lakes[adjacent.x][adjacent.y]) {
+                        MapRegion region = new MapRegion();
+                        ArrayList<Vector> regionVecs = getRegionVectors(adjacent, lakes);
+                        region.addAll(regionVecs);
+                        checkedVectors.addAll(regionVecs);
+                        lakeRegions.add(region);
+                    }
+                    else {
+                        checkedVectors.add(adjacent);
+                    }
+                }
+                else {
+                    checkedVectors.add(adjacent);
+                }
+            }
+        }
+
+        // Find lake regions that are big enough, fill with water and add any special terrain/mobs
+
+        Iterator<MapRegion> it = lakeRegions.iterator();
+
+        while (it.hasNext()) {
+            MapRegion region = it.next();
+            if (region.getVectors().size() > 2) {
+                fillLakeRegion(region, offset);
+                addLakeDecorations(region, offset);
+            }
+            else {
+                it.remove();
+            }
+        }
+    }
+
+    private ArrayList<Vector> translateVectors(ArrayList<Vector> vectors, Vector offset) {
+        ArrayList<Vector> translated = new ArrayList<>();
+        for (Vector vector : vectors) {
+            translated.add(vector.subtract(offset));
+        }
+        return translated;
+    }
+
+    private void fillLakeRegion(MapRegion lake, Vector offset) {
+        int waterTextureIndex = 0;
+
+        for (Vector vector : lake.getVectors()) {
+            Vector translatedVec = vector.subtract(offset);
+            clearObjects(translatedVec.x, translatedVec.y);
+
+            String texture = ExteriorTileset.WATER[waterTextureIndex];
+
+            // Water texture array is designed to be iterated over in this order to align the tiles
+            // in a certain way (to try and create a semi random water texture)
+
+            waterTextureIndex++;
+
+            if (waterTextureIndex > ExteriorTileset.WATER.length - 1) {
+                waterTextureIndex = 0;
+            }
+
+            setTerrain(translatedVec, FLOOR, texture);
+
+            waterRegions[translatedVec.x][translatedVec.y] = true;
+        }
+    }
+
+    private void addLakeDecorations(MapRegion lake, Vector offset) {
+        ArrayList<Vector> lakeVectors = lake.getVectors();
+        if (lakeVectors.size() > 5) {
+            int random = rng.getRandomInt(0, lakeVectors.size() - 1);
+            Vector location = lakeVectors.get(random).subtract(offset);
+            String texture = rng.getRandomItemFromStringArray(ExteriorTileset.POND_LILIES);
+            Component[] flower = DecalFactory.createTraversableDecoration(location.x, location.y, texture);
+            objectEntities[location.x][location.y].add(flower[0].id);
+            componentManager.sortComponentArray(flower);
+        }
+
+        ArrayList<Vector> borderVectors = GridGeometryHelper.getBorderVectorsFromRegion(lake);
+
+        if (borderVectors.size() > 0) {
+            int random = rng.getRandomInt(0, borderVectors.size() - 1);
+            Vector location = borderVectors.get(random).subtract(offset);
+            if (inBounds(location) && !detectCollisions(location)) {
+                enemyPlacer.placeEnemy(location.x, location.y, EnemyBlueprintKeys.TOAD);
+            }
+        }
+    }
+
+    private ArrayList<Vector> getRegionVectors(Vector start, boolean[][] tiles) {
+        ArrayList<Vector> region = new ArrayList<>();
+        ArrayList<Vector> queue = new ArrayList<>();
+        ArrayList<Vector> checked = new ArrayList<>();
+
+        queue.add(start);
+        region.add(start);
+
+        while (queue.size() > 0) {
+            Vector vector = queue.remove(0);
+
+            if (checked.contains(vector)) continue;
+
+            for (Vector direction : Directions.Cardinal.values()) {
+                Vector adjacent = vector.add(direction);
+
+                if (checked.contains(adjacent)) continue;
+
+                if (inBounds(adjacent, 0, 0, tiles.length, tiles[0].length) && tiles[adjacent.x][adjacent.y]) {
+                    region.add(adjacent);
+                    queue.add(adjacent);
+                }
+                else {
+                    checked.add(adjacent);
+                }
+            }
+
+            checked.add(vector);
+        }
+
+        return region;
+    }
+
+    private boolean chunkContainsVector(Vector vector, Chunk chunk) {
+        return (vector.x >= chunk.x && vector.x < chunk.x + chunk.width)
+                && (vector.y >= chunk.y && vector.y < chunk.y + chunk.height);
+    }
+
+    private boolean inBounds(Vector vector, int x, int y, int width, int height) {
+        return (vector.x >= x && vector.x < x + width)
+                && (vector.y >= y && vector.y < y + height);
     }
 
     private void addForestRegions(Chunk chunk) {
         automata.setParams(4, 3, 2, 0.3f);
         boolean[][] forest = automata.generate(chunk);
 
+
         for (int x = 0; x < forest.length; x++) {
             for (int y = 0; y < forest[0].length; y++) {
                 if (forest[x][y] && !detectCollisions(new Vector(x, y))) {
 
                     Component[] tree = DecalFactory.createFovBlockingDecal(x, y, ExteriorTileset.TREES[rng.getRandomInt(0, ExteriorTileset.TREES.length - 1)]);
+                    treeEntities.add(tree[0].id);
                     objectEntities[x][y].add(tree[0].id);
                     componentManager.sortComponentArray(tree);
                 }
@@ -517,17 +682,375 @@ public class ProceduralGenerator {
             }
         }
     }
+
+    private void addOutdoorMobs(Chunk chunk) {
+        // Add herds of bad goats
+
+        automata.setParams(4, 3, 2, 0.3f);
+        boolean[][] badGoats = automata.generate(chunk);
+
+        for (int x = 0; x < badGoats.length; x++) {
+            for (int y = 0; y < badGoats[0].length; y++) {
+                if (badGoats[x][y] && !detectCollisions(new Vector(x, y))) {
+                    enemyPlacer.placeEnemy(x, y, EnemyBlueprintKeys.GOAT);
+                }
+            }
+        }
+
+        // Add mama bears
+        PoissonDiskSampler sampler = new PoissonDiskSampler();
+        int minDistance = mapWidth / 2;
+        int bearCount = 2;
+        ArrayList<Vector> treePositions = sampler.generateNoise(chunk.width, chunk.height, minDistance, bearCount);
+        for (Vector cell : treePositions) {
+            Component[] tree = DecalFactory.createDecal(cell.x, cell.y, ExteriorTileset.TREES[rng.getRandomInt(0, ExteriorTileset.TREES.length - 1)]);
+            objectEntities[cell.x][cell.y].add(tree[0].id);
+            componentManager.sortComponentArray(tree);
+        }
+    }
+
 /*
     ------------------------------------------------------------------------------------------
-    Mansion generation
-
-    These types of floor are generated using binary space partition to place the hallways and
-    define chunks of rooms, which are then populated using a similar algorithm (with some
-    alterations to make sure the generated rooms meet certain parameters). At this point we can
-    connect the regions and place doors, and perform any other terrain generation we require
-    (ruined rooms, bodies of water, etcetc).
+    Building generation
     ------------------------------------------------------------------------------------------
 */
+
+
+    private final int MIN_ROOM_SEEDS = 3;
+    private final int MINIMUM_ROOM_AREA = 9;
+    private final float MAX_RECT_RATIO = 2f;
+
+    private ArrayList<Chunk> debugSeedslol = new ArrayList<>();
+    private ArrayList<MapRegion> debugRegionsLol = new ArrayList<>();
+    private ArrayList<MapRegion> roomRegions = new ArrayList<>();
+    private ArrayList<Vector> carvedWallslol = new ArrayList<>();
+
+    private ArrayList<MapRegion> generateRoomRegions(Chunk building) {
+        ArrayList<Chunk> seeds = generateRoomSeeds(building);
+        ArrayList<Chunk> discardedSeeds = new ArrayList<>();
+        ArrayList<MapRegion> regions = growRooms(building, seeds, discardedSeeds);
+
+        // Now we want to make sure all space is filled by combining the discarded seeds with existing regions
+        Iterator<Chunk> it = discardedSeeds.iterator();
+
+        while (it.hasNext()) {
+            Chunk seed = it.next();
+            MapRegion mergedRegion = mergeChunkWithRegion(seed, regions);
+            if (mergedRegion != null) {
+                it.remove();
+            }
+        }
+
+        return regions;
+    }
+
+    private ArrayList<Chunk> generateRoomSeeds(Chunk chunk) {
+        int maxRoomSeeds = chunk.area() / MINIMUM_ROOM_AREA;
+        int roomSeedCount = rng.getRandomInt(MIN_ROOM_SEEDS, maxRoomSeeds);
+
+        ArrayList<Chunk> seeds = new ArrayList<>();
+        PoissonDiskSampler sampler = new PoissonDiskSampler();
+        sampler.setDensity(100);
+        int minDistance = chunk.width / minRoomWidth;
+
+        int offset = minRoomWidth / 2;
+
+        // Place random room seeds in building
+        ArrayList<Vector> seedPositions = sampler.generateNoise(chunk.width - minRoomWidth, chunk.height - minRoomWidth, minDistance, roomSeedCount);
+
+        for (Vector cell : seedPositions) {
+            Chunk seed = new Chunk(cell.x + chunk.x + offset, cell.y + chunk.y + offset, 1, 1);
+            seeds.add(seed);
+            // debugSeedslol.add(seed);
+        }
+
+        return seeds;
+    }
+
+    private ArrayList<Chunk> addSeedsToCorners(Chunk chunk) {
+        ArrayList<Chunk> seeds = new ArrayList<>();
+
+        seeds.add(new Chunk(chunk.x + 1, chunk.y + 1, 1, 1));
+        seeds.add(new Chunk(chunk.x + chunk.width - 2, chunk.y + 1, 1, 1));
+        seeds.add(new Chunk(chunk.x + 1, chunk.y + chunk.height - 2, 1, 1));
+        seeds.add(new Chunk(chunk.x + chunk.width - 2, chunk.y + chunk.height - 2, 1, 1));
+
+        // debugSeedslol.addAll(seeds);
+
+        return seeds;
+    }
+
+    private ArrayList<MapRegion> growRooms(Chunk building, ArrayList<Chunk> seeds,
+                                           ArrayList<Chunk> discardedSeeds) {
+
+        // Iterate over seeds in queue and expand them outwards until we collide with other rooms
+        // or exceed the building bounds. Stop iterating once it's impossible for seeds to expand
+
+        ArrayList<MapRegion> output = new ArrayList<>();
+        ArrayList<Chunk> growQueue = new ArrayList<>();
+        growQueue.addAll(seeds);
+
+        while (growQueue.size() > 0) {
+            Chunk seed = growQueue.remove(0);
+            Chunk growth;
+
+            boolean canGrow = true;
+            int blockedCount = 0;
+
+            // Expand bottom
+            growth = new Chunk(seed.x, seed.y - 1, seed.width, seed.height + 1);
+
+            if (!chunkContainsChunk(growth, building)) {
+                canGrow = false;
+                blockedCount++;
+
+            } else {
+                // Check whether expanded seed collides with any of the rooms in grow queue.
+                for (Chunk room : seeds) {
+                    if (!room.equals(seed) && AxisAlignedBoxTester.test(room, growth)) {
+                        canGrow = false;
+                        blockedCount++;
+                        break;
+                    }
+                }
+            }
+
+            if (!canGrow) {
+                growth.y += 1;
+                growth.height -= 1;
+            }
+
+            canGrow = true;
+
+            // Expand top
+            growth.height += 1;
+
+            if (!chunkContainsChunk(growth, building)) {
+                canGrow = false;
+                blockedCount++;
+
+            } else {
+                for (Chunk room : seeds) {
+                    if (!room.equals(seed) && AxisAlignedBoxTester.test(room, growth)) {
+                        canGrow = false;
+                        blockedCount++;
+                        break;
+                    }
+                }
+            }
+
+            if (!canGrow) {
+                growth.height -= 1;
+            }
+
+            canGrow = true;
+
+            // Expand left
+            growth.x -= 1;
+            growth.width += 1;
+
+            if (!chunkContainsChunk(growth, building)) {
+                canGrow = false;
+                blockedCount++;
+
+            } else {
+                for (Chunk room : seeds) {
+                    if (!room.equals(seed) && AxisAlignedBoxTester.test(room, growth)) {
+                        canGrow = false;
+                        blockedCount++;
+                        break;
+                    }
+                }
+            }
+
+            if (!canGrow) {
+                growth.x += 1;
+                growth.width -= 1;
+            }
+
+            canGrow = true;
+
+            // Expand right
+            growth.width += 1;
+
+            if (!chunkContainsChunk(growth, building)) {
+                canGrow = false;
+                blockedCount++;
+
+            } else {
+                for (Chunk room : seeds) {
+                    if (!room.equals(seed) && AxisAlignedBoxTester.test(room, growth)) {
+                        canGrow = false;
+                        blockedCount++;
+                        break;
+                    }
+                }
+            }
+
+            if (!canGrow) {
+                growth.width -= 1;
+            }
+
+            // We don't want rooms to be overly tall or overly wide, so make sure the ratio
+            // of longest side to shortest side doesn't exceed 2
+
+            float largestSide = Math.max(seed.width, seed.height);
+            float smallestSide = Math.min(seed.width, seed.height);
+            float ratio = largestSide / smallestSide;
+
+            if (ratio > MAX_RECT_RATIO) {
+                MapRegion region = new MapRegion();
+                region.addChunk(seed);
+                output.add(region);
+
+                // Todo: remove reliance on rooms array amnd use mapregions
+                rooms.add(new Room(seed.x, seed.y, seed.width, seed.height));
+                continue;
+            }
+
+            // Update seed size
+            seed.x = growth.x;
+            seed.y = growth.y;
+            seed.width = growth.width;
+            seed.height = growth.height;
+
+            // If there are still directions that we could expand into, add seed back into queue.
+            // Once seed has finished expanding we either add it to the output, or add it
+            // to discarded seeds pile for more processing
+
+            if (blockedCount < 4) {
+                growQueue.add(seed);
+
+            } else if (seed.width > 2 && seed.height > 2 && seed.width * seed.height >= MINIMUM_ROOM_AREA) {
+                MapRegion region = new MapRegion();
+                region.addChunk(seed);
+                output.add(region);
+
+                // Todo: remove reliance on rooms array amnd use mapregions
+                rooms.add(new Room(seed.x, seed.y, seed.width, seed.height));
+
+            } else {
+                discardedSeeds.add(seed);
+            }
+        }
+
+        return output;
+    }
+
+    private ArrayList<Integer> mergedRegions = new ArrayList<>();
+
+    private MapRegion mergeChunkWithRegion(Chunk chunk, ArrayList<MapRegion> regions) {
+        // Ignore failed seeds for now.
+        if (chunk.area() == 1) {
+            return null;
+        }
+
+        MapRegion seedRegion = new MapRegion();
+        seedRegion.addChunk(chunk);
+
+        for (int i = 0; i < regions.size(); i++) {
+            if (mergedRegions.contains(i)) continue;
+
+            MapRegion region = regions.get(i);
+
+            for (Vector[] seedSide : seedRegion.getSides()) {
+                Vector seedA = seedSide[0];
+                Vector seedB = seedSide[1];
+
+                int seedLeft = Math.min(seedA.x, seedB.x);
+                int seedRight = Math.max(seedA.x, seedB.x);
+                int seedBottom = Math.min(seedA.y, seedB.y);
+                int seedTop = Math.max(seedA.y, seedB.y);
+
+                // We need to check whether any sides of chunk are adjacent to an existing region
+                // so we can merge them together
+
+                for (Vector[] side : region.getSides()) {
+                    Vector pointA = side[0];
+                    Vector pointB = side[1];
+
+                    int regionLeft = Math.min(pointA.x, pointB.x);
+                    int regionRight = Math.max(pointA.x, pointB.x);
+                    int regionBottom = Math.min(pointA.y, pointB.y);
+                    int regionTop = Math.max(pointA.y, pointB.y);
+
+                    // Because we are only dealing with right angles (relative to grid)
+                    // we can just check whether the x/y coords are equal in both regions
+                    // to check whether the sides are parallel
+
+                    if (seedLeft == seedRight && regionLeft == regionRight) {
+                        // Parallel on vertical plane
+                        region.addChunk(chunk);
+
+                        // Make sure that chunk is adjacent to region
+                        if (seedLeft - 1 == regionRight + 1) {
+                            // Todo: we only want to remove section of wall that is shared between rooms
+
+                            // Remove separating wall and merge seed with room
+                            for (int y = seedBottom; y <= seedTop; y++) {
+                                if (y < regionBottom || y > regionTop) continue;
+                                region.add(new Vector(seedLeft - 1, y));
+                                carvedWallslol.add(new Vector(seedLeft - 1, y));
+                            }
+
+                            region.addChunk(chunk);
+                            debugRegionsLol.add(seedRegion);
+
+                            mergedRegions.add(i);
+
+                            return region;
+                        }
+
+                        else if (regionLeft - 1 == seedRight + 1) {
+                            for (int y = seedBottom; y <= seedTop; y++) {
+                                if (y < regionBottom || y > regionTop) continue;
+                                region.add(new Vector(regionLeft - 1, y));
+                                carvedWallslol.add(new Vector(regionLeft - 1, y));
+                            }
+                            region.addChunk(chunk);
+                            debugRegionsLol.add(seedRegion);
+                            mergedRegions.add(i);
+                            return region;
+                        }
+                    }
+
+                    if (seedTop == seedBottom && regionTop == regionBottom) {
+                        // Parallel on horizontal plane
+
+                        if (seedBottom - 1 == regionTop + 1) {
+                            for (int x = seedLeft; x <= seedRight; x++) {
+                                if (x < regionLeft || x > regionRight) continue;
+                                region.add(new Vector(x, seedBottom - 1));
+                                carvedWallslol.add(new Vector(x, seedBottom - 1));
+                            }
+
+                            region.addChunk(chunk);
+                            debugRegionsLol.add(seedRegion);
+                            mergedRegions.add(i);
+                            return region;
+                        }
+
+                        else if (regionBottom - 1 == seedTop + 1) {
+                            for (int x = seedLeft; x <= seedRight; x++) {
+                                if (x < regionLeft || x > regionRight) continue;
+                                region.add(new Vector(x, regionBottom - 1));
+                                carvedWallslol.add(new Vector(x, regionBottom - 1));
+                            }
+
+                            region.addChunk(chunk);
+                            debugRegionsLol.add(seedRegion);
+                            mergedRegions.add(i);
+                            return region;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Chunk wasn't adjacent to any regions
+        Log.d(LOG_TAG, "Couldn't merge chunk " + chunk + " with any regions");
+        return null;
+    }
 
     private ArrayList<Chunk> getHallwayChunks(Chunk start) {
         ArrayList<Chunk> generatedChunks = new ArrayList<>();
@@ -538,7 +1061,7 @@ public class ProceduralGenerator {
         // Ignore border tiles when defining starting chunk
         chunkQueue.add(start);
 
-        // This boolean is inverted on each step so we carve alternating horizontal/vertical hallways
+        // This boolean is inverted on each step so we carveRegion alternating horizontal/vertical hallways
         boolean horizontal = true;
 
         while (chunkQueue.size() > 0 && totalHalls < maxHallLimit) {
@@ -564,7 +1087,7 @@ public class ProceduralGenerator {
                 }
 
                 Chunk splitChunkA = new Chunk(chunk.x, chunk.y, chunk.width, splitY - chunk.y);
-                Chunk splitChunkB = new Chunk(chunk.x, splitY + 1, chunk.width, (chunk.y + chunk.height) - splitY - 1);
+                Chunk splitChunkB = new Chunk(chunk.x, splitY, chunk.width, (chunk.y + chunk.height) - splitY);
 
                 if (splitChunkA.width >= minChunkSize && splitChunkA.height >= minChunkSize) {
                     // Add chunk to queue to continue splitting
@@ -602,7 +1125,7 @@ public class ProceduralGenerator {
                 }
 
                 Chunk splitChunkA = new Chunk(chunk.x, chunk.y, splitX - chunk.x, chunk.height);
-                Chunk splitChunkB = new Chunk(splitX + 1, chunk.y, (chunk.x + chunk.width) - splitX - 1, chunk.height);
+                Chunk splitChunkB = new Chunk(splitX, chunk.y, (chunk.x + chunk.width) - splitX, chunk.height);
 
                 if (splitChunkA.width > minChunkSize && splitChunkA.height > minChunkSize) {
                     chunkQueue.add(splitChunkA);
@@ -641,7 +1164,7 @@ public class ProceduralGenerator {
         // Ignore border tiles when defining starting chunk
         chunkQueue.add(start);
 
-        // This boolean is inverted on each step so we carve alternating horizontal/vertical hallways
+        // This boolean is inverted on each step so we carveRegion alternating horizontal/vertical hallways
         boolean horizontal = true;
 
         boolean[][] horizontalRoads = new boolean[start.width][start.height];
@@ -676,9 +1199,11 @@ public class ProceduralGenerator {
 
                     setTerrain(new Vector(x, splitY + 1), FLOOR, ExteriorTileset.ROAD_PLAIN);
 
-                    // Either clear objects from the road, or replace a road tile with a dirt tile
+                    // Either clear objects from the road, or replace a road tile with a dirt tile.
                     for (int y = splitY - 1; y <= splitY + 1; y++) {
                         if (objectEntities[x][y].size() > 0) {
+                            waterRegions[x][y] = false;
+
                             if (rng.coinflip()) {
                                 clearObjects(x, y);
                             }
@@ -743,6 +1268,8 @@ public class ProceduralGenerator {
                     // Either clear objects from the road, or replace a road tile with a dirt tile
                     for (int x = splitX - 1; x <= splitX + 1; x++) {
                         if (objectEntities[x][y].size() > 0) {
+                            waterRegions[x][y] = false;
+
                             if (rng.coinflip()) {
                                 clearObjects(x, y);
                             }
@@ -949,13 +1476,77 @@ public class ProceduralGenerator {
         return roomChunks;
     }
 
-    private int chunkswithbs = 0;
+    private final int HOUSE_TAG = 1;
+    private final int BACKYARD_TAG = 2;
+
+    private void addHousesToChunk(Chunk chunk) {
+        ArrayList<HouseWithYard> houses = new ArrayList<>();
+
+        // Todo: th is should be handled when deciding what to do with chunk
+        // Just return empty array list if chunk is too small
+        // if (chunk.width < minBuildingWidth || chunk.height < minBuildingHeight) return buildings;
+
+        int sizeVariance = 2;
+        int gapSize = 4;
+        int halfGap = gapSize / 2;
+        int targetSize = Math.min(chunk.width, chunk.height) / 2;
+
+        if (chunk.width > chunk.height) {
+            int columns = chunk.width / (targetSize + gapSize);
+            for (int i = 0; i < columns; i++) {
+                int x = chunk.x + (i * targetSize + gapSize) + (i * halfGap);
+                Chunk house = new Chunk(x, chunk.y + targetSize - halfGap, targetSize, targetSize - gapSize, HOUSE_TAG);
+                Chunk yard = new Chunk(x, chunk.y + 1, targetSize, targetSize - gapSize, BACKYARD_TAG);
+                houses.add(new HouseWithYard(house, yard));
+            }
+        }
+
+        else {
+            int rows = chunk.height / (targetSize + gapSize);
+            for (int i = 0; i < rows; i++) {
+                int y = chunk.y + (i * targetSize + gapSize) + (i * halfGap);
+                Chunk house = new Chunk(chunk.x + targetSize - halfGap, y, targetSize - gapSize, targetSize, HOUSE_TAG);
+                Chunk yard = new Chunk(chunk.x + 1, y, targetSize - gapSize, targetSize, BACKYARD_TAG);
+                houses.add(new HouseWithYard(house, yard));
+            }
+        }
+
+        for (HouseWithYard houseWithYard : houses) {
+            Chunk house = houseWithYard.house;
+            Chunk yard = houseWithYard.yard;
+
+            for (int x = house.x; x < house.x + house.width; x++) {
+                for (int y = house.y; y < house.y + house.height; y++) {
+                    blockedTiles[x][y] = true;
+                }
+            }
+
+            for (int x = yard.x; x < yard.x + yard.width; x++) {
+                for (int y = yard.y; y < yard.y + yard.height; y++) {
+                    blockedTiles[x][y] = true;
+                }
+            }
+
+            clearObjectsFromBorder(yard);
+            addBorderObjectToChunk(yard, ExteriorTileset.WOOD_FENCE);
+
+            clearObjectsFromBorder(house);
+            carveBuildingFoundation(house);
+            addRoomsToBuilding(houseWithYard);
+            createDamagedWalls(house);
+        }
+
+        calculateGoals();
+
+        // addBuildingPaths();
+    }
 
     private ArrayList<Chunk> addBuildingsToChunk(Chunk chunk) {
-        chunkswithbs++;
-        Log.v(LOG_TAG, "chunks with bs: " + chunkswithbs);
-        Log.v(LOG_TAG, "placing buildings in chunk " + chunk);
         ArrayList<Chunk> buildings = new ArrayList<>();
+
+        // Todo: th is should be handled when deciding what to do with chunk
+        // Just return empty array list if chunk is too small
+        // if (chunk.width < minBuildingWidth || chunk.height < minBuildingHeight) return buildings;
 
         final int areaCutoff = minBuildingWidth * minBuildingHeight;
 
@@ -1000,8 +1591,8 @@ public class ProceduralGenerator {
 
             buildings.add(building);
 
-            // clearObjectsFromBorder(building);
-            // addBorderObjectToChunk(building, ExteriorTileset.WOOD_FENCE);
+            clearObjectsFromBorder(building);
+            addBorderObjectToChunk(building, ExteriorTileset.WOOD_FENCE);
 
             carveBuildingFoundation(building);
             addRoomsToBuilding(building);
@@ -1010,10 +1601,6 @@ public class ProceduralGenerator {
 
         calculateGoals();
 
-        decorator = new MansionDecorator(mapWidth, mapHeight, theme, themeKey, assetManager);
-        decorator.setGeneratorData(terrainEntities, objectEntities);
-        decorator.decorateRooms(rooms);
-
         // addBuildingPaths();
 
         return buildings;
@@ -1021,50 +1608,162 @@ public class ProceduralGenerator {
 
     private ArrayList<Vector> buildingEntrances = new ArrayList<>();
 
-    private void addRoomsToBuilding(Chunk building) {
-        ArrayList<Chunk> chunks = getHallwayChunks(building);
-        ArrayList<Room> roomChunks = splitChunksIntoRooms(chunks);
-        rooms.addAll(roomChunks);
+    private void addRoomsToBuilding(HouseWithYard houseWithYard) {
+        Chunk building = houseWithYard.house;
 
+        MapRegion yard = new MapRegion();
+        yard.addChunk(houseWithYard.yard);
+
+        ArrayList<MapRegion> rooms = generateRoomRegions(building);
+        roomRegions.addAll(rooms);
+        carveRoomFloor(rooms);
+        addExteriorWallFeatures(rooms, building);
+
+        tiler.setTileset(BuildingTileset.KEY);
+        decorator = new MansionDecorator(mapWidth, mapHeight, theme, themeKey, assetManager);
+        decorator.setGeneratorData(terrainEntities, objectEntities);
+        decorator.decorateRooms(rooms, building.width, building.height);
+
+        // Use MazeGenerator to add corridors to building and connect regions
+        mazeGenerator.setChunk(building);
+        mazeGenerator.setExtraConnectorChance(0);
+
+        // (exclude room regions)
+        for (MapRegion room : rooms) {
+            mazeGenerator.addExistingRegion(room);
+        }
+
+        mazeGenerator.addExistingRegion(yard);
+
+        boolean[][] carvedTiles = mazeGenerator.generate();
+
+        for (int x = 0; x < building.width; x++) {
+            for (int y = 0; y < building.height; y++) {
+                if (carvedTiles[x][y]) {
+                    Vector translatedCell = new Vector(building.x + x, building.y + y);
+                    Terrain terrain = (Terrain) componentManager.getEntityComponent(
+                            terrainEntities[translatedCell.x][translatedCell.y], Terrain.class.getSimpleName());
+
+                    // We only want to carve tiles that haven't already been carved
+
+                    if (terrain.type == Terrain.WALL) {
+                        setTerrain(translatedCell, FLOOR, BuildingTileset.WOOD_FLOOR_1);
+                    }
+                }
+            }
+        }
+
+        for (Vector cell : mazeGenerator.getJunctions()) {
+            addJunction(new Vector(building.x + cell.x, building.y + cell.y));
+        }
+
+        checkForBrokenDoors();
+    }
+
+    private void addRoomsToBuilding(Chunk building) {
+        ArrayList<MapRegion> rooms = generateRoomRegions(building);
+        roomRegions.addAll(rooms);
+        carveRoomFloor(rooms);
+        addExteriorWallFeatures(rooms, building);
+
+        tiler.setTileset(BuildingTileset.KEY);
+        decorator = new MansionDecorator(mapWidth, mapHeight, theme, themeKey, assetManager);
+        decorator.setGeneratorData(terrainEntities, objectEntities);
+        decorator.decorateRooms(rooms, building.width, building.height);
+
+        // Use MazeGenerator to add corridors to building and connect regions
+        mazeGenerator.setChunk(building);
+        mazeGenerator.setExtraConnectorChance(0);
+
+        // (exclude room regions)
+        for (MapRegion room : rooms) {
+            mazeGenerator.addExistingRegion(room);
+        }
+
+        boolean[][] carvedTiles = mazeGenerator.generate();
+
+        for (int x = 0; x < building.width; x++) {
+            for (int y = 0; y < building.height; y++) {
+                if (carvedTiles[x][y]) {
+                    Vector translatedCell = new Vector(building.x + x, building.y + y);
+                    Terrain terrain = (Terrain) componentManager.getEntityComponent(
+                            terrainEntities[translatedCell.x][translatedCell.y], Terrain.class.getSimpleName());
+
+                    // We only want to carve tiles that haven't already been carved
+
+                    if (terrain.type == Terrain.WALL) {
+                        setTerrain(translatedCell, FLOOR, BuildingTileset.WOOD_FLOOR_1);
+                    }
+                }
+            }
+        }
+
+        for (Vector cell : mazeGenerator.getJunctions()) {
+            addJunction(new Vector(building.x + cell.x, building.y + cell.y));
+        }
+
+        checkForBrokenDoors();
+    }
+
+    private void addExteriorWallFeatures(ArrayList<MapRegion> rooms, Chunk building) {
         int exteriorDoors = 0;
 
-        for (Room room : roomChunks) {
+        for (MapRegion room : roomRegions) {
             int windowsInRoom = 0;
 
             ArrayList<Vector> freeTiles = new ArrayList<>();
 
-            // Check if room is aligned with exterior wall and add window
+            ArrayList<Vector[]> sides = GridGeometryHelper.findSides(room.getVectors());
 
-            if (room.x == building.x + 1) {
-                // Place window on left wall
-                int x = room.x - 1;
-                int y = room.y + (room.height / 2);
+            // Iterate over each side and check if aligned with exterior wall.
+            for (Vector[] side : sides) {
+                Vector a = side[0];
+                Vector b = side[1];
 
-                freeTiles.add(new Vector(x, y));
-            }
+                // Vertical
+                if (a.x == b.x) {
+                    int top = Math.max(a.y, b.y);
+                    int bottom = Math.min(a.y, b.y);
+                    int height = top - bottom;
 
-            if (room.x + room.width == building.x + building.width - 1) {
-                // Place window on right wall
-                int x = room.x + room.width;
-                int y = room.y + (room.height / 2);
+                    if (a.x == building.x + 1) {
+                        // Place window on left wall
+                        int x = a.x - 1;
+                        int y = bottom + (height / 2);
 
-                freeTiles.add(new Vector(x, y));
-            }
+                        freeTiles.add(new Vector(x, y));
+                    }
+                    else if (a.x == building.x + building.width - 1) {
+                        // Place window on right wall
+                        int x = a.x + 1;
+                        int y = bottom + (height / 2);
 
-            if (room.y == building.y + 1) {
-                // Place window on bottom wall
-                int x = room.x + (room.width / 2);
-                int y = room.y - 1;
+                        freeTiles.add(new Vector(x, y));
+                    }
 
-                freeTiles.add(new Vector(x, y));
-            }
+                }
 
-            if (room.y + room.height == building.y + building.height - 1) {
-                // Place window on top wall
-                int x = room.x + (room.width / 2);
-                int y = room.y + room.height;
+                // Horizontal
+                else if (a.y == b.y) {
+                    int left = Math.min(a.x, b.x);
+                    int right = Math.max(a.x, b.x);
+                    int width = right - left;
 
-                freeTiles.add(new Vector(x, y));
+                    if (a.y == building.y + 1) {
+                        // Place window on bottom wall
+                        int x = left + (width / 2);
+                        int y = a.y - 1;
+
+                        freeTiles.add(new Vector(x, y));
+                    }
+                    else if (a.y == building.y + building.height - 1) {
+                        // Place window on top wall
+                        int x = left + (width / 2);
+                        int y = a.y + 1;
+
+                        freeTiles.add(new Vector(x, y));
+                    }
+                }
             }
 
             for (Vector freeTile : freeTiles) {
@@ -1075,11 +1774,11 @@ public class ProceduralGenerator {
 
                 // All rooms with exterior access should have at least 1 window
                 if (windowsInRoom < 1) {
-                    setTerrain(new Vector(x, y), FLOOR, tiler.getFloorTile(x, y, currentRoomTheme));
+                    setTerrain(new Vector(x, y), FLOOR, tiler.getFloorTile(currentRoomTheme));
 
                     String windowTex = getMatchingWindowTexture(x, y);
 
-                    Component[] window = DecalFactory.createTransparentDecal(x, y, windowTex);
+                    Component[] window = DecalFactory.createCubeDecal(x, y, windowTex, false, false);
                     objectEntities[x][y].add(window[0].id);
                     componentManager.sortComponentArray(window);
 
@@ -1089,7 +1788,7 @@ public class ProceduralGenerator {
 
                 // One of these rooms will be used as entrance to building
                 if (exteriorDoors < 1) {
-                    setTerrain(new Vector(x, y), FLOOR, tiler.getFloorTile(x, y, currentRoomTheme));
+                    setTerrain(new Vector(x, y), FLOOR, tiler.getFloorTile(currentRoomTheme));
 
                     tiler.setTileset(BuildingTileset.KEY);
                     addJunction(freeTile);
@@ -1100,39 +1799,15 @@ public class ProceduralGenerator {
 
                 // 50/50 chance that room will have 2 windows
                 if (windowsInRoom < 2 && rng.coinflip()) {
-                    setTerrain(new Vector(x, y), FLOOR, tiler.getFloorTile(x, y, currentRoomTheme));
-
-                    Component[] window = DecalFactory.createTransparentDecal(x, y, ExteriorTileset.RED_BRICKS_WINDOW);
+                    setTerrain(new Vector(x, y), FLOOR, tiler.getFloorTile(currentRoomTheme));
+                    String windowTex = getMatchingWindowTexture(x, y);
+                    Component[] window = DecalFactory.createCubeDecal(x, y, windowTex, false, false);
                     objectEntities[x][y].add(window[0].id);
                     componentManager.sortComponentArray(window);
 
                     windowsInRoom++;
                 }
             }
-        }
-
-        tiler.setTileset(BuildingTileset.KEY);
-
-        // Use MazeGenerator to add corridors to building
-        mazeGenerator.setChunk(building);
-
-        for (Room room : rooms) {
-            mazeGenerator.carveChunkFromMaze(room);
-        }
-
-        boolean[][] carvedTiles = mazeGenerator.generate();
-
-        for (int x = 0; x < building.width; x++) {
-            for (int y = 0; y < building.height; y++) {
-                if (carvedTiles[x][y]) {
-                    Vector translatedCell = new Vector(building.x + x, building.y + y);
-                    setTerrain(translatedCell, FLOOR, BuildingTileset.WOOD_FLOOR_1);
-                }
-            }
-        }
-
-        for (Vector cell : mazeGenerator.getJunctions()) {
-            addJunction(new Vector(building.x + cell.x, building.y + cell.y));
         }
     }
 
@@ -1201,6 +1876,8 @@ public class ProceduralGenerator {
         for (int x = chunk.x; x < chunk.x + chunk.width; x++) {
             for (int y = chunk.y; y < chunk.y + chunk.height; y++) {
                 clearObjects(x, y);
+                // Mark all these tiles as indoor regions. This is mainly used for weather effects
+                indoorRegions[x][y] = true;
             }
         }
 
@@ -1271,8 +1948,8 @@ public class ProceduralGenerator {
         for (int x = chunk.x + 1; x < chunk.x + chunk.width - 1; x++) {
             Vector bottom = new Vector(x, chunk.y);
 
-            if (rng.d6(1) == 1) {
-                addObject(bottom, DecalFactory.createTransparentDecal(bottom.x, bottom.y, rng.getRandomItemFromStringArray(damagedWall)), true);
+            if (rng.d6(2) == 2) {
+                addObject(bottom, DecalFactory.createCubeDecal(bottom.x, bottom.y, rng.getRandomItemFromStringArray(damagedWall), false, false), true);
                 copyTerrain(bottom.add(new Vector(0, 1)), bottom);
 
                 // if we modify a tile, skip ahead to prevent from modifying consecutive tiles
@@ -1282,8 +1959,8 @@ public class ProceduralGenerator {
 
         for (int x = chunk.x + 1; x < chunk.x + chunk.width - 1; x++) {
             Vector top = new Vector(x, chunk.y + chunk.height - 1);
-            if (rng.d6(1) == 1) {
-                addObject(top, DecalFactory.createTransparentDecal(top.x, top.y, rng.getRandomItemFromStringArray(damagedWall)), true);
+            if (rng.d6(2) == 2) {
+                addObject(top, DecalFactory.createCubeDecal(top.x, top.y, rng.getRandomItemFromStringArray(damagedWall), false, false), true);
                 copyTerrain(top.add(new Vector(0, 1)), top);
                 x++;
             }
@@ -1385,24 +2062,23 @@ public class ProceduralGenerator {
     }
 
     private void carveRooms() {
-        for (Room room : rooms) {
+        for (MapRegion room : roomRegions) {
+            currentRoomTheme = rng.getRandomInt(0, 3);
             startRegion();
-            currentRoomTheme = new RandomNumberGenerator().getRandomInt(0, 3);
-            retextureWalls(room);
-            currentRoomTheme = new RandomNumberGenerator().getRandomInt(0, 3);
+            // retextureWalls(room);
             carveRoomFloor(room);
         }
     }
 
     private void retextureWalls(Room room) {
-        int right = room.x() + room.width() + 1;
-        int top = room.y() + room.height();
+        int right = room.x + room.width + 1;
+        int top = room.y + room.height + 1;
 
         String themedTile = tiler.getMansionWallTilePath(currentRoomTheme);
 
-        for (int x = room.x() - 1; x <= right; x++) {
+        for (int x = room.x - 1; x < right; x++) {
             Vector north = new Vector(x, top);
-            Vector south = new Vector(x, room.y() - 1);
+            Vector south = new Vector(x, room.y);
 
             if (!adjacentCellsAreCarvable(north) || !adjacentCellsAreCarvable(south)) break;
 
@@ -1419,9 +2095,9 @@ public class ProceduralGenerator {
             }
         }
 
-        for (int y = room.y() - 1; y <= top; y++) {
-            Vector east = new Vector(room.x() - 1, y);
-            Vector west = new Vector(room.x() + room.width(), y);
+        for (int y = room.y - 1; y < top; y++) {
+            Vector east = new Vector(room.x - 1, y);
+            Vector west = new Vector(room.x + room.width + 1, y);
 
             if (!adjacentCellsAreCarvable(east) || !adjacentCellsAreCarvable(west)) break;
 
@@ -1439,27 +2115,23 @@ public class ProceduralGenerator {
         }
     }
 
-    private void carveRoomFloor(Room room) {
-        int right = room.x() + room.width();
-        int bottom = room.y() + room.height();
-
-        int carved = 0;
-
-        for (int x = room.x(); x < right; x++) {
-            for (int y = room.y(); y < bottom; y++) {
-                setTerrain(new Vector(x, y), FLOOR, tiler.getFloorTile(x, y, currentRoomTheme));
-                carved++;
-            }
+    private void carveRoomFloor(ArrayList<MapRegion> rooms) {
+        for (MapRegion room : rooms) {
+            carveRoomFloor(room);
         }
+    }
 
-        if (carved == 0) {
-            Log.d(LOG_TAG, "Couldn't carve chunk: " + room.toString());
+    private void carveRoomFloor(MapRegion room) {
+        currentRoomTheme = rng.getRandomInt(0, 3);
+        String floorTexture = tiler.getFloorTile(currentRoomTheme);
+
+        for (Vector cell : room.getVectors()) {
+            carveRegion(new Vector(cell.x, cell.y), FLOOR, floorTexture);
         }
     }
 
     /**
-     *  Prevents issue where doors are sometimes placed over wall tiles.
-     *  Should really figure out the cause of this... oh well
+     *  Prevents issue where doors are placed in wall tiles with no destination
      */
 
     private void checkForBrokenDoors() {
@@ -1589,7 +2261,7 @@ public class ProceduralGenerator {
                 if (exclusions[adjacentNode.x][adjacentNode.y]) continue;
                 if (!canBuildPath(adjacentNode)) continue;
 
-                double distanceToGoal = Calculator.getDistance(adjacentNode, goalNode);
+                double distanceToGoal = GeometryHelper.getDistance(adjacentNode, goalNode);
 
                 if (distanceToGoal < bestDistance) {
                     bestDistance = distanceToGoal;
@@ -1667,7 +2339,7 @@ public class ProceduralGenerator {
 
                 if (exclusions[adjacentNode.x][adjacentNode.y]) continue;
 
-                double distanceToGoal = Calculator.getDistance(adjacentNode, goalNode);
+                double distanceToGoal = GeometryHelper.getDistance(adjacentNode, goalNode);
 
                 if (distanceToGoal < bestDistance) {
                     bestDistance = distanceToGoal;
@@ -1795,6 +2467,29 @@ public class ProceduralGenerator {
      */
 
     private void addJunction(Vector cell) {
+        // Sometimes maze generator messes up and adds junctions between regions that should not be
+        // joined. We can prevent this by making sure that cell has at least two floor tiles in
+        // directly adjacent spaces
+
+        int adjacentFloorTiles = 0;
+
+        for (Vector direction : Directions.Cardinal.values()) {
+            Vector adjacent = cell.add(direction);
+            if (inBounds(adjacent)) {
+                long entity = terrainEntities[adjacent.x][adjacent.y];
+                Terrain adjacentTerrain = (Terrain) componentManager.getEntityComponent(entity, Terrain.class.getSimpleName());
+                if (adjacentTerrain.type == Terrain.FLOOR) {
+                    adjacentFloorTiles++;
+                }
+            }
+        }
+
+        // If there are fewer than 2 adjacent floor tiles, then proposed junction location isn't connecting
+        // any regions. We can safely discard it
+        if (adjacentFloorTiles < 2) {
+            return;
+        }
+
         setTerrain(cell, DOORWAY, BuildingTileset.WOOD_FLOOR_1);
 
         Component[] door = BlueprintParser.getComponentArrayForBlueprint(furnitureBlueprints, "door");
@@ -1812,16 +2507,9 @@ public class ProceduralGenerator {
         position.y = cell.y;
         Sprite sprite = (Sprite) componentManager.getEntityComponent(door[0].id, Sprite.class.getSimpleName());
         sprite.path = tiler.getClosedDoorTilePath();
+        sprite.wrapToCube = true;
 
         doors.put(cell.toString(), door);
-    }
-
-    private void startRegion() {
-        currentRegion++;
-    }
-
-    private boolean inBounds(Vector cell) {
-        return (cell.x() >= 0 && cell.x() < mapWidth && cell.y() >= 0 && cell.y() < mapHeight);
     }
 
     private void removeInaccessibleCells() {
@@ -1880,7 +2568,7 @@ public class ProceduralGenerator {
 
 /*
     ---------------------------------------------
-    Methods for setting/getting tiles
+    Methods for creating and modifying entities
     ---------------------------------------------
 */
 
@@ -1890,6 +2578,16 @@ public class ProceduralGenerator {
     private final int BORDER = 3;
     private final int BACKGROUND = 4;
     private final int OBJECT = 5;
+
+
+    private void startRegion() {
+        currentRegion++;
+    }
+
+    private void carveRegion(Vector cell, int type, String texture) {
+        mapRegions[cell.x][cell.y] = currentRegion;
+        setTerrain(cell, type, texture);
+    }
 
     private void setTerrain(Vector cell, int type, String texture) {
         // Make sure that we remove any existing components before adding new terrain tile
@@ -1931,13 +2629,6 @@ public class ProceduralGenerator {
         componentManager.sortComponentArray(tile);
     }
 
-    private void setTerrain(Vector cell, int type, Component[] tile) {
-        // Make sure that we remove any existing components before adding new terrain tile
-        componentManager.removeEntityComponents(terrainEntities[cell.x][cell.y]);
-        terrainEntities[cell.x][cell.y] = tile[0].id;
-        componentManager.sortComponentArray(tile);
-    }
-    
     private void copyTerrain(Vector from, Vector to) {
         long targetEntity = terrainEntities[from.x][from.y];
         Sprite target = (Sprite) componentManager.getEntityComponent(targetEntity, Sprite.class.getSimpleName());
@@ -1983,29 +2674,39 @@ public class ProceduralGenerator {
     }
 
     private void addBorderToChunk(Chunk chunk, int type, String[] borderTiles) {
+        // Todo: for now we can just remove water regions, but need to keep this in mind when adding water borders?
+
         for (int x = chunk.x; x < chunk.x + chunk.width - 1; x++) {
             setTerrain(new Vector(x, chunk.y + chunk.height - 1), type, borderTiles[NORTH]);
+            waterRegions[x][chunk.y + chunk.height - 1] = false;
         }
 
         setTerrain(new Vector(chunk.x + chunk.width - 1, chunk.y + chunk.height - 1), type, borderTiles[NORTH_EAST]);
+        waterRegions[chunk.x + chunk.width - 1][chunk.y + chunk.height - 1] = false;
 
         for (int y = chunk.y + chunk.height - 2; y > chunk.y; y--) {
             setTerrain(new Vector(chunk.x + chunk.width - 1, y), type, borderTiles[EAST]);
+            waterRegions[chunk.x + chunk.width - 1][y] = false;
         }
 
         setTerrain(new Vector(chunk.x + chunk.width - 1, chunk.y), type, borderTiles[SOUTH_EAST]);
+        waterRegions[chunk.x + chunk.width - 1][chunk.y] = false;
 
         for (int x = chunk.x + chunk.width - 2; x > chunk.x; x--) {
             setTerrain(new Vector(x, chunk.y), type, borderTiles[SOUTH]);
+            waterRegions[x][chunk.y] = false;
         }
 
         setTerrain(new Vector(chunk.x, chunk.y), type, borderTiles[SOUTH_WEST]);
+        waterRegions[chunk.x][chunk.y] = false;
 
         for (int y = chunk.y + 1; y < chunk.y + chunk.height - 1; y++) {
             setTerrain(new Vector(chunk.x, y), type, borderTiles[WEST]);
+            waterRegions[chunk.x][y] = false;
         }
 
         setTerrain(new Vector(chunk.x, chunk.y + chunk.height - 1), type, borderTiles[NORTH_WEST]);
+        waterRegions[chunk.x][chunk.y + chunk.height - 1] = false;
     }
 
     private void addBorderObjectToChunk(Chunk chunk, String[] borderTiles) {
@@ -2082,6 +2783,15 @@ public class ProceduralGenerator {
     ---------------------------------------------
     */
 
+    private boolean inBounds(Vector cell) {
+        return (cell.x() >= 0 && cell.x() < mapWidth && cell.y() >= 0 && cell.y() < mapHeight);
+    }
+
+    private boolean chunkContainsChunk(Chunk chunk, Chunk container) {
+        return (chunk.x > container.x && chunk.x + chunk.width < container.x + container.width
+                && chunk.y > container.y && chunk.y + chunk.height < container.y + container.height);
+    }
+
     private HashMap<String, Vector> getAdjacentCells(Vector coords, int lookahead, boolean directlyAdjacent) {
         int x = coords.x();
         int y = coords.y();
@@ -2108,7 +2818,7 @@ public class ProceduralGenerator {
     }
 
     /**
-     * Adjacent cell is "carvable" if all adjacent cells are wall tiles (shader == Terrain.WALL)
+     * Adjacent cell is "carvable" if all adjacent cells are wall tiles (renderState == Terrain.WALL)
      */
 
     private boolean adjacentCellsAreCarvable(Vector cell) {

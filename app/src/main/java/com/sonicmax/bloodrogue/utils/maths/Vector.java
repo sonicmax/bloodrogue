@@ -2,10 +2,6 @@ package com.sonicmax.bloodrogue.utils.maths;
 
 import java.io.Serializable;
 
-/**
- *  Stores a pair of points and provides some methods to perform vector maths with.
- */
-
 public class Vector implements Serializable {
     private static final long serialVersionUID = 1L;
     public int x;
@@ -18,6 +14,12 @@ public class Vector implements Serializable {
         this.x = x;
         this.y = y;
         this.direction = "";
+    }
+
+    public Vector(Vector clone) {
+        this.x = clone.x;
+        this.y = clone.y;
+        this.direction = clone.direction;
     }
 
     public Vector(int x, int y, String direction) {
@@ -43,7 +45,17 @@ public class Vector implements Serializable {
         return y;
     }
 
-    public boolean equals(Vector vector) {
+    /**
+     * Makes sure that Object is instance of Vector and returns true if coordinates are equal.
+     *
+     * @param object Object to compare
+     * @return True if equal
+     */
+
+    @Override
+    public boolean equals(Object object) {
+        if (!(object instanceof Vector)) return false;
+        Vector vector = (Vector) object;
         return (this.x == vector.x && this.y == vector.y);
     }
 

@@ -5,7 +5,6 @@ import android.util.Log;
 import com.sonicmax.bloodrogue.engine.Component;
 import com.sonicmax.bloodrogue.engine.Entity;
 import com.sonicmax.bloodrogue.engine.components.AI;
-import com.sonicmax.bloodrogue.engine.components.Animation;
 import com.sonicmax.bloodrogue.engine.components.Barrier;
 import com.sonicmax.bloodrogue.engine.components.Blood;
 import com.sonicmax.bloodrogue.engine.components.Collectable;
@@ -26,6 +25,7 @@ import com.sonicmax.bloodrogue.engine.components.Terrain;
 import com.sonicmax.bloodrogue.engine.components.Usable;
 import com.sonicmax.bloodrogue.engine.components.Vitality;
 import com.sonicmax.bloodrogue.engine.components.Wieldable;
+import com.sonicmax.bloodrogue.generator.enemies.EnemyAnimator;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -44,7 +44,7 @@ public class BlueprintParser {
      * with entity.
      */
 
-    public static Component[] getComponentArrayForBlueprint(JSONObject blueprint) {
+    public static Component[] getComponentArrayForBlueprint(String parent, JSONObject blueprint) {
         try {
             Entity entity = new Entity();
             int componentIndex = 0;
@@ -53,7 +53,7 @@ public class BlueprintParser {
 
             while (iterator.hasNext()) {
                 String key = iterator.next();
-                Component component = getBlueprintComponent(key, (JSONObject) blueprint.get(key), entity.id);
+                Component component = getBlueprintComponent(parent, key, (JSONObject) blueprint.get(key), entity.id);
                 if (component != null) {
                     components[componentIndex] = component;
                     componentIndex++;
@@ -73,18 +73,17 @@ public class BlueprintParser {
 
     public static Component[] getComponentArrayForBlueprint(JSONObject blueprint, String key) {
         try {
-            return getComponentArrayForBlueprint((JSONObject) blueprint.get(key));
+            return getComponentArrayForBlueprint(key, (JSONObject) blueprint.get(key));
         } catch (JSONException e) {
             Log.e(LOG_TAG, "Error while parsing \"" + key + "\" from JSONObject", e);
             return null;
         }
     }
 
-    public static Component getBlueprintComponent(String key, JSONObject object, long entity) throws JSONException {
-        switch (key) {
-            case "animation":
-                return new Animation(entity);
+    public static Component getBlueprintComponent(String parent, String key, JSONObject object, long entity)
+            throws JSONException {
 
+        switch (key) {
             case "barrier":
                 Barrier barrier;
 
@@ -268,21 +267,28 @@ public class BlueprintParser {
             case "sprite":
                 Sprite sprite = new Sprite(entity);
                 sprite.path = "sprites/transparent.png";
+                sprite.wrapToCube = false;
 
                 if (object.has("path"))
                     sprite.path = object.getString("path");
 
-                if (object.has("shader")) {
-                    switch (object.getString("shader")) {
+                if (object.has("renderState")) {
+                    switch (object.getString("renderState")) {
                         case "wave":
-                            sprite.shader = Sprite.WAVE;
+                            sprite.renderState = Sprite.WAVE;
                             break;
 
                         case "dynamic":
                         default:
-                            sprite.shader = Sprite.DYNAMIC;
+                            sprite.renderState = Sprite.DYNAMIC;
                             break;
                     }
+                }
+
+                if (object.has("idleAnimation")) {
+                    sprite.idleAnimation = EnemyAnimator.getIdleAnimation(parent);
+                    sprite.hasIdleAnimation = true;
+                    sprite.currentAnimationState = Sprite.IDLE_ANIMATION;
                 }
 
                 return sprite;

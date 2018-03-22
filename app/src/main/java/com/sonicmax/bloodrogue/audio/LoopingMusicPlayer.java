@@ -39,7 +39,7 @@ public class LoopingMusicPlayer {
 
         this.currentPlayer = new MediaPlayer();
         this.currentPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
-        float volume = getVolume(80);
+        // float volume = getVolume(80);
         this.currentPlayer.setVolume(volume, volume);
         loadMusic(currentPlayer);
 
@@ -53,7 +53,7 @@ public class LoopingMusicPlayer {
     private void createNextMediaPlayer() {
         nextPlayer = new MediaPlayer();
         nextPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
-        float volume = getVolume(80);
+        // float volume = getVolume(80);
         nextPlayer.setVolume(volume, volume);
 
         loadMusic(nextPlayer);

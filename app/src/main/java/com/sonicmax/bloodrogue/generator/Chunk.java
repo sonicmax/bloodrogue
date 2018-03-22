@@ -1,14 +1,17 @@
 package com.sonicmax.bloodrogue.generator;
 
+import com.sonicmax.bloodrogue.utils.maths.Vector;
+
 /**
- *  Defines a square/rectangle space of the map area. Used when generating mansion hallways and rooms
+ *  Defines a square/rectangle space of the map area.
  */
 
 public class Chunk {
-    public final int x;
-    public final int y;
-    public final int width;
-    public final int height;
+    public int x;
+    public int y;
+    public int width;
+    public int height;
+    public final int tag;
 
     /**
      *
@@ -23,6 +26,15 @@ public class Chunk {
         this.y = y;
         this.width = width;
         this.height = height;
+        this.tag = 0;
+    }
+
+    public Chunk(int x, int y, int width, int height, int tag) {
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+        this.tag = tag;
     }
 
     public int x() {
@@ -55,6 +67,22 @@ public class Chunk {
 
     public int[] topRight() {
         return new int[] {x + width, y + height};
+    }
+
+    public int area() {
+        return this.width * this.height;
+    }
+
+    public boolean equals(Chunk comparator) {
+        return (this.x == comparator.x && this.y == comparator.y
+                && this.width == comparator.width && this.height == comparator.height);
+    }
+
+    public Vector roundedCentre() {
+        int x = Math.round(this.x + (this.width / 2));
+        int y = Math.round(this.y + (this.height / 2));
+
+        return new Vector(x, y);
     }
 
     // For debugging lol

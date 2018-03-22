@@ -2,7 +2,6 @@ package com.sonicmax.bloodrogue.engine;
 
 import android.util.Log;
 
-import com.sonicmax.bloodrogue.engine.components.Animation;
 import com.sonicmax.bloodrogue.engine.components.Barrier;
 import com.sonicmax.bloodrogue.engine.components.Blood;
 import com.sonicmax.bloodrogue.engine.components.Collectable;
@@ -47,7 +46,6 @@ public class ComponentManager {
 
     private static ComponentManager INSTANCE = null;
 
-    private HashMap<Long, Animation> animationComponents;
     private HashMap<Long, Barrier> barrierComponents;
     private HashMap<Long, Blood> bloodComponents;
     private HashMap<Long, Collectable> collectableComponents;
@@ -73,7 +71,6 @@ public class ComponentManager {
     private HashMap<Long, Wieldable> wieldableComponents;
 
     public ComponentManager() {
-        animationComponents = new HashMap<>();
         barrierComponents = new HashMap<>();
         bloodComponents = new HashMap<>();
         collectableComponents = new HashMap<>();
@@ -112,7 +109,6 @@ public class ComponentManager {
      */
 
     public void clear() {
-        animationComponents.clear();
         barrierComponents.clear();
         bloodComponents.clear();
         collectableComponents.clear();
@@ -139,7 +135,7 @@ public class ComponentManager {
     }
 
     /**
-     * Given a Component[], sorts each Component by shader and entity.
+     * Given a Component[], sorts each Component by renderState and entity.
      *
      * @param components
      */
@@ -160,10 +156,6 @@ public class ComponentManager {
 
     public void sortComponent(Component component) {
         switch (component.TAG) {
-            case "Animation":
-                animationComponents.put(component.id, (Animation) component);
-                break;
-
             case "Barrier":
                 barrierComponents.put(component.id, (Barrier) component);
                 break;
@@ -257,12 +249,12 @@ public class ComponentManager {
                 break;
 
             default:
-                Log.e(LOG_TAG, "No bucket found for component shader \"" + component.TAG + "\"");
+                Log.e(LOG_TAG, "No bucket found for component renderState \"" + component.TAG + "\"");
         }
     }
 
     /**
-     * Returns all components of a given shader.
+     * Returns all components of a given renderState.
      *
      * @param type
      * @return ArrayList of Components
@@ -270,9 +262,6 @@ public class ComponentManager {
 
     public ArrayList getComponents(String type) {
         switch (type) {
-            case "Animation":
-                return new ArrayList<>(animationComponents.values());
-
             case "Barrier":
                 return new ArrayList<>(barrierComponents.values());
 
@@ -343,7 +332,7 @@ public class ComponentManager {
                 return new ArrayList<>(wieldableComponents.values());
 
             default:
-                Log.e(LOG_TAG, "No bucket found for component shader \"" + type + "\"");
+                Log.e(LOG_TAG, "No bucket found for component renderState \"" + type + "\"");
                 return new ArrayList();
         }
     }
@@ -358,7 +347,6 @@ public class ComponentManager {
     public ArrayList<Component> getEntityComponents(long entity) {
         ArrayList<Component> array = new ArrayList<>();
 
-        array.add(animationComponents.get(entity));
         array.add(barrierComponents.get(entity));
         array.add(bloodComponents.get(entity));
         array.add(collectableComponents.get(entity));
@@ -403,9 +391,6 @@ public class ComponentManager {
 
     public Component getEntityComponent(long entity, String type) {
         switch (type) {
-            case "Animation":
-                return animationComponents.get(entity);
-
             case "Barrier":
                 return barrierComponents.get(entity);
 
@@ -476,7 +461,7 @@ public class ComponentManager {
                 return wieldableComponents.get(entity);
 
             default:
-                Log.e(LOG_TAG, "No bucket found for component shader \"" + type + "\"");
+                Log.e(LOG_TAG, "No bucket found for component renderState \"" + type + "\"");
                 return null;
         }
     }
@@ -490,10 +475,6 @@ public class ComponentManager {
 
     public void removeEntityComponent(long entity, String type) {
         switch (type) {
-            case "Animation":
-                animationComponents.remove(entity);
-                break;
-
             case "Barrier":
                 barrierComponents.remove(entity);
                 break;
@@ -587,7 +568,7 @@ public class ComponentManager {
                 break;
 
             default:
-                Log.e(LOG_TAG, "No bucket found for component shader \"" + type + "\"");
+                Log.e(LOG_TAG, "No bucket found for component renderState \"" + type + "\"");
         }
     }
 
@@ -599,7 +580,6 @@ public class ComponentManager {
      */
 
     public void removeEntityComponents(long entity) {
-        animationComponents.remove(entity);
         barrierComponents.remove(entity);
         bloodComponents.remove(entity);
         collectableComponents.remove(entity);

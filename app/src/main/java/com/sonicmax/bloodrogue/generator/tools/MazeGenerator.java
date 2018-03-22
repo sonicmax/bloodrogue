@@ -6,6 +6,7 @@ import android.util.SparseIntArray;
 import com.sonicmax.bloodrogue.engine.collisions.AxisAlignedBoxTester;
 import com.sonicmax.bloodrogue.generator.Cell;
 import com.sonicmax.bloodrogue.generator.Chunk;
+import com.sonicmax.bloodrogue.generator.MapRegion;
 import com.sonicmax.bloodrogue.utils.Array2DHelper;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
@@ -20,10 +21,13 @@ import java.util.Set;
 
 /**
  * Generates a maze using provided parameters. The generate() method returns a boolean[][] telling us
- * which tiles to carve. getJunctions() returns an ArrayList of Vectors to aid in door placement.
+ * which tiles to carve. getJunctions() returns an array of vectors to aid in door placement.
  * To connect regions that have already been generated elsewhere, we can use carveChunkFromMaze()
  * or excludeChunkFromMaze (for regions that have already been carved) to define a new region
  * that will be connected to during maze generation.
+ *
+ * Code adapted from:
+ * https://github.com/munificent/hauberk/blob/db360d9efa714efb6d937c31953ef849c7394a39/lib/src/content/dungeon.dart
  */
 
 public class MazeGenerator {
@@ -51,8 +55,20 @@ public class MazeGenerator {
         windingPercent = 35;
     }
 
+    private void init() {
+        junctions = new ArrayList<>();
+        carvedTiles = new boolean[chunk.width][chunk.height];
+        excludedTiles = new boolean[chunk.width][chunk.height];
+        currentRegion = -1;
+        mapRegions = Array2DHelper.fillIntArray(chunk.width, chunk.height, currentRegion);
+    }
+
     public void setWindingPercent(int windingPercent) {
         this.windingPercent = windingPercent;
+    }
+
+    public void setExtraConnectorChance(int chance) {
+        this.extraConnectorChance = chance;
     }
 
     public void setChunk(Chunk chunk) {
@@ -80,6 +96,17 @@ public class MazeGenerator {
                         carve(cell);
                     }
                 }
+            }
+        }
+    }
+
+    public void addExistingRegion(MapRegion region) {
+        startRegion();
+
+        for (Vector vector : region.getVectors()) {
+            Vector cell = new Vector(vector.x - chunk.x, vector.y - chunk.y);
+            if (inBounds(cell)) {
+                carve(cell);
             }
         }
     }
@@ -130,15 +157,9 @@ public class MazeGenerator {
         connectRegions();
         removeDeadEnds();
 
-        return carvedTiles;
-    }
+        // Todo: it would probably be better to return an ArrayList<Vector> here
 
-    private void init() {
-        junctions = new ArrayList<>();
-        carvedTiles = new boolean[chunk.width][chunk.height];
-        excludedTiles = new boolean[chunk.width][chunk.height];
-        currentRegion = -1;
-        mapRegions = Array2DHelper.fillIntArray(chunk.width, chunk.height, currentRegion);
+        return carvedTiles;
     }
 
     private void carveMaze(Vector start) {
@@ -282,7 +303,7 @@ public class MazeGenerator {
                     continue;
                 }
 
-                // If the connector no long spans different regions, we don't need it.
+                // If the connector no longer spans different regions, we don't need it.
 
                 ArrayList<Integer> regionsArray = new ArrayList<>(connectorRegions.get(pos));
                 HashSet<Integer> spannedRegions = new HashSet<>();

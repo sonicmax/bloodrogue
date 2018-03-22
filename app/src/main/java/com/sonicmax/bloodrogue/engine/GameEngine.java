@@ -28,19 +28,24 @@ import com.sonicmax.bloodrogue.engine.components.Trap;
 import com.sonicmax.bloodrogue.engine.components.Usable;
 import com.sonicmax.bloodrogue.engine.components.Vitality;
 import com.sonicmax.bloodrogue.engine.components.Wieldable;
+import com.sonicmax.bloodrogue.engine.environment.TimeManager;
+import com.sonicmax.bloodrogue.engine.environment.WeatherManager;
 import com.sonicmax.bloodrogue.engine.systems.EntitySystem;
 import com.sonicmax.bloodrogue.engine.systems.PotionSystem;
 import com.sonicmax.bloodrogue.engine.systems.WeaponsSystem;
+import com.sonicmax.bloodrogue.generator.Chunk;
 import com.sonicmax.bloodrogue.generator.ProceduralGenerator;
 import com.sonicmax.bloodrogue.generator.factories.AnimationFactory;
 import com.sonicmax.bloodrogue.generator.factories.DecalFactory;
 import com.sonicmax.bloodrogue.generator.MapData;
+import com.sonicmax.bloodrogue.generator.tools.CellularAutomata;
 import com.sonicmax.bloodrogue.renderer.text.TextColours;
-import com.sonicmax.bloodrogue.renderer.ui.Animation;
+import com.sonicmax.bloodrogue.renderer.Animation;
 import com.sonicmax.bloodrogue.renderer.ui.InventoryCard;
 import com.sonicmax.bloodrogue.tilesets.BuildingTileset;
 import com.sonicmax.bloodrogue.tilesets.CorpseTileset;
-import com.sonicmax.bloodrogue.utils.maths.Calculator;
+import com.sonicmax.bloodrogue.tilesets.ExteriorTileset;
+import com.sonicmax.bloodrogue.utils.maths.GeometryHelper;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 import com.sonicmax.bloodrogue.engine.objects.GameObject;
@@ -58,11 +63,14 @@ public class GameEngine {
     private final int HIGH_PRIORITY = 0;
     private final int MEDIUM_PRIORITY = 1;
     private final int LOW_PRIORITY = 2;
+    private final int ONE_HOUR = 60;
 
     private GameInterface gameInterface;
     private FieldOfVisionCalculator fovCalculator;
     private AffinityManager affinityManager;
     private ComponentManager componentManager;
+    private WeatherManager weatherManager;
+    private RandomNumberGenerator rng;
 
     private GameState gameState;
     private int[][] playerDesireMap;
@@ -81,18 +89,32 @@ public class GameEngine {
 
     private Vector pathDestination;
 
-    private Sprite[][] terrainSprites;
-    private ArrayList<Sprite> objectSprites;
+    private Sprite[][] terrainSpriteGrid;
+    private ArrayList<Sprite>[][] objectSpriteGrid;
     private ArrayList<Animation> animations;
 
     // ECS storage and management
     private long [][] terrainEntities;
     private ArrayList<Long>[][] objectEntities;
+    private ArrayList<Long> treeEntities;
     private ArrayList<Long> aiEntities;
     private long playerEntity;
 
+    // Game world information
+    private boolean[][] indoorRegions;
+    private boolean[][] waterRegions;
+    private CellularAutomata snowCoverGenerator;
+    private int[][] snowCover;
+    private int lastSnowCheck = 0;
+    private int lastRainCheck = 0;
+
+    // Game turn data
+    private ArrayList<Long> inventoryPickupGroup;
+    private boolean footstepAlternator;
+
     public GameEngine(GameInterface gameInterface) {
         this.playerMoveLock = false;
+        this.footstepAlternator = true;
 
         this.sightRadius = 10;
         this.mapWidth = 64;
@@ -103,6 +125,8 @@ public class GameEngine {
         this.fovCalculator = new FieldOfVisionCalculator();
         this.affinityManager = new AffinityManager();
         this.componentManager = ComponentManager.getInstance();
+        this.weatherManager = new WeatherManager();
+        this.rng = new RandomNumberGenerator();
 
         initCollections();
     }
@@ -118,7 +142,8 @@ public class GameEngine {
     }
 
     public Frame getCurrentFrameData() {
-        return new Frame(currentFloor, terrainSprites, objectSprites, animations, fieldOfVision, fovCalculator.getVisitedTiles(), player);
+        return new Frame(currentFloor, terrainSpriteGrid, objectSpriteGrid, animations,
+                fieldOfVision, fovCalculator.getVisitedTiles(), indoorRegions, waterRegions, snowCover, player);
     }
 
     public FloorData getCurrentFloorData(Component[][][] rawTerrainComponents, ArrayList<Component[]>[][] rawObjectComponents) {
@@ -146,17 +171,24 @@ public class GameEngine {
      */
 
     private void initCollections() {
-        this.terrainSprites = new Sprite[mapWidth][mapHeight];
-        this.objectSprites = new ArrayList<>();
-        this.animations = new ArrayList<>();
+        terrainSpriteGrid = new Sprite[mapWidth][mapHeight];
+        objectSpriteGrid = Array2DHelper.create2DSpriteArray(mapWidth, mapHeight);
+        animations = new ArrayList<>();
+        snowCover = Array2DHelper.fillIntArray(mapWidth, mapHeight, -1);
 
-        this.terrainEntities = new long[mapWidth][mapHeight];
-        this.aiEntities = new ArrayList<>();
-        this.objectEntities = Array2DHelper.create2dLongStack(mapWidth, mapHeight);
+        terrainEntities = new long[mapWidth][mapHeight];
+        aiEntities = new ArrayList<>();
+        treeEntities = new ArrayList<>();
+        objectEntities = Array2DHelper.create2dLongStack(mapWidth, mapHeight);
+
+        inventoryPickupGroup = new ArrayList<>();
+
+        initPriorityQueue();
+        objectQueue = new ArrayList<>();
+
+        snowCoverGenerator = null;
 
         componentManager.clear();
-        initPriorityQueue();
-        this.objectQueue = new ArrayList<>();
     }
 
     private void initPriorityQueue() {
@@ -179,11 +211,11 @@ public class GameEngine {
     }
 
     /**
-     * Generates terrainSprites/objectSprites/enemies/etc for a new floor and instantiates a new GameState object
+     * Generates terrain/objects/enemies/etc for a new floor and instantiates a new GameState object
      * to hold components + any other data required for gameplay.
      */
 
-    public void generateNewFloor(int floorIndex) {
+    private void generateNewFloor(int floorIndex) {
         // Retrieve player equipment from component manager and remove components from previous floor.
         ArrayList<Component> playerEquipment = getPlayerEquipment();
 
@@ -195,10 +227,13 @@ public class GameEngine {
         generator.generate(ProceduralGenerator.EXTERIOR);
 
         // Generated data has already been sorted into ComponentManager instance, so we just have to
-        // grab the arrays of terrainSprites/object entities
+        // grab the arrays of terrainSpriteGrid/object entities
         MapData mapData = generator.getMapData();
         terrainEntities = mapData.getTerrainEntities();
         objectEntities = mapData.getObjectEntities();
+        indoorRegions = generator.getIndoorRegions();
+        waterRegions = generator.getWaterRegions();
+        treeEntities = generator.getTreeEntities();
 
         // Now we need to either create new player entity (if this was the first floor) or
         // sort the existing components and move player to new start position
@@ -212,8 +247,20 @@ public class GameEngine {
             componentManager.sortComponent(item);
         }
 
+        // Get references to enemy entities
+        ArrayList<Component> enemies = componentManager.getComponents(AI.class.getSimpleName());
+
+        for (int i = 0; i < enemies.size(); i++) {
+            this.aiEntities.add(enemies.get(i).id);
+        }
+
         addPlayer(entrance);
         prebuildSprites();
+
+        weatherManager = gameInterface.getWeatherManager();
+
+        weatherManager.setWeatherState(WeatherManager.SNOWING,
+                gameInterface.getTimeManager().getTotalTimeInMinutes());
     }
 
     private void addPlayer(Vector startPosition) {
@@ -431,25 +478,26 @@ public class GameEngine {
      */
 
     private void prebuildSprites() {
-        this.terrainSprites = new Sprite[mapWidth][mapHeight];
-        this.objectSprites.clear();
+        this.terrainSpriteGrid = new Sprite[mapWidth][mapHeight];
+        this.objectSpriteGrid = Array2DHelper.create2DSpriteArray(mapWidth, mapHeight);
         this.animations.clear();
 
         for (int y = 0; y < mapHeight; y++) {
             for (int x = 0; x < mapWidth; x++) {
-                terrainSprites[x][y] = (Sprite) componentManager.getEntityComponent(terrainEntities[x][y], Sprite.class.getSimpleName());
+                terrainSpriteGrid[x][y] = (Sprite) componentManager.getEntityComponent(terrainEntities[x][y], Sprite.class.getSimpleName());
 
-                ArrayList<Long> entities = objectEntities[x][y];
-
-                for (Long entity : entities) {
+                for (Long entity : objectEntities[x][y]) {
                     Sprite sprite = (Sprite) componentManager.getEntityComponent(entity, Sprite.class.getSimpleName());
+
                     if (sprite == null) {
                         Log.e(LOG_TAG, "Sprite was null: " + entity);
                         continue;
                     }
+
                     sprite.x = x;
                     sprite.y = y;
-                    objectSprites.add(sprite);
+
+                    objectSpriteGrid[x][y].add(sprite);
                 }
             }
         }
@@ -463,8 +511,9 @@ public class GameEngine {
 
     public void advanceFrame() {
         updatePreTurnData();
-        handleMetabolism();
+        advanceWorldTime();
         determineAiMoves();
+        doPostTurnJobs();
         gameInterface.passDataToRenderer();
     }
 
@@ -514,8 +563,33 @@ public class GameEngine {
         playerMoveLock = false;
     }
 
+    private void doPostTurnJobs() {
+        checkEntitiesTakingDamage();
+    }
+
+    private void checkEntitiesTakingDamage() {
+        Iterator<Long> it = entitiesTakingDamage.iterator();
+        while (it.hasNext()) {
+            Sprite defenderSprite = (Sprite) componentManager.getEntityComponent(it.next(), Sprite.class.getSimpleName());
+            // Make renderer display hit animation and return to previous state on completion
+            if (defenderSprite.hasHitAnimation) {
+
+                if (defenderSprite.hasIdleAnimation) {
+                    defenderSprite.nextAnimationState = Sprite.IDLE_ANIMATION;
+                }
+                else {
+                    defenderSprite.nextAnimationState = Sprite.NO_ANIMATION;
+                }
+
+                defenderSprite.currentAnimationState = Sprite.HIT_ANIMATION;
+                defenderSprite.hitAnimation.reset();
+            }
+            it.remove();
+        }
+    }
+
     private GameObject handleSelfReplication(GameObject object) {
-        /*float random = new RandomNumberGenerator().getRandomFloat(0f, 1f);
+        /*float random = rng.getRandomFloat(0f, 1f);
         if (random < object.getSelfReplicateChance()) {
 
             // Find nearest adjacent free square
@@ -533,7 +607,7 @@ public class GameEngine {
             if (newPos == null) return null;
 
 
-            // Make sure we clone right shader of object.
+            // Make sure we clone right renderState of object.
             if (object instanceof Actor) {
                 // Make sure Actor is in field of vision before cloning.
                 // (this is to prevent the map from filling up with cloned Actors)
@@ -630,6 +704,13 @@ public class GameEngine {
         sprite.y = newY;
         sprite.lastX = oldX;
         sprite.lastY = oldY;
+
+        // Update sprite grid for renderer
+        if (objectSpriteGrid[oldX][oldY].contains(sprite)) {
+            objectSpriteGrid[oldX][oldY].remove(sprite);
+        }
+
+        objectSpriteGrid[newX][newY].add(sprite);
     }
 
     private void changeSpritePath(Sprite sprite, String path) {
@@ -724,9 +805,11 @@ public class GameEngine {
         // Check adjacent tiles and find one with best desire score
         for (Vector direction : Directions.All.values()) {
             Vector adjacent = position.add(direction);
-            int desire = playerDesireMap[adjacent.x()][adjacent.y()];
-            if (desire < bestDesire) {
-                bestDesire = desire;
+            if (inBounds(adjacent)) {
+                int desire = playerDesireMap[adjacent.x()][adjacent.y()];
+                if (desire < bestDesire) {
+                    bestDesire = desire;
+                }
             }
         }
 
@@ -762,19 +845,20 @@ public class GameEngine {
 
         for (Vector direction : Directions.All.values()) {
             Vector adjacent = position.add(direction);
-            int newDesire = playerDesireMap[adjacent.x()][adjacent.y()];
-            int distance = (int) Calculator.getDistance(adjacent, playerPos);
-            // Really simple heuristic (that probably needs improving)
-            int heuristic = newDesire + distance;
+            if (inBounds(adjacent)) {
+                int newDesire = playerDesireMap[adjacent.x()][adjacent.y()];
+                int distance = (int) GeometryHelper.getDistance(adjacent, playerPos);
+                // Really simple heuristic (that probably needs improving)
+                int heuristic = newDesire + distance;
 
-            if (heuristic < bestHeuristic) {
+                if (heuristic < bestHeuristic) {
 
-                if (!detectCollisions(adjacent)) {
-                    bestHeuristic = heuristic;
-                    closestTile = adjacent;
-                }
-                else {
-                    blockedTiles.add(adjacent);
+                    if (!detectCollisions(adjacent)) {
+                        bestHeuristic = heuristic;
+                        closestTile = adjacent;
+                    } else {
+                        blockedTiles.add(adjacent);
+                    }
                 }
             }
         }
@@ -786,7 +870,7 @@ public class GameEngine {
         for (int i = 0; i < blockedSize; i++) {
             Vector tile = blockedTiles.get(i);
             int newDesire = playerDesireMap[tile.x()][tile.y()];
-            int distance = (int) Calculator.getDistance(tile, playerPos);
+            int distance = (int) GeometryHelper.getDistance(tile, playerPos);
             int heuristic = newDesire + distance;
 
             // If any of these blocked tiles are closer than the closest empty getSprite, we should
@@ -832,9 +916,11 @@ public class GameEngine {
             // Check adjacent tiles and find one with lowest desire score
             for (Vector direction : Directions.All.values()) {
                 Vector adjacent = posVec.add(direction);
-                int desire = playerDesireMap[adjacent.x()][adjacent.y()];
-                if (desire < bestDesire) {
-                    bestDesire = desire;
+                if (inBounds(adjacent)) {
+                    int desire = playerDesireMap[adjacent.x()][adjacent.y()];
+                    if (desire < bestDesire) {
+                        bestDesire = desire;
+                    }
                 }
             }
 
@@ -893,7 +979,7 @@ public class GameEngine {
 
                 if (detectCollisions(adjacentNode)) continue;
 
-                double distanceToGoal = Calculator.getDistance(adjacentNode, goalNode);
+                double distanceToGoal = GeometryHelper.getDistance(adjacentNode, goalNode);
 
                 if (distanceToGoal < bestDistance) {
                     bestDistance = distanceToGoal;
@@ -978,8 +1064,6 @@ public class GameEngine {
      Gameplay
     ---------------------------------------------
     */
-
-    private boolean footstepAlternator = true;
 
     private void takeQueuedTurns() {
         updatePreTurnData();
@@ -1099,7 +1183,7 @@ public class GameEngine {
         Trap trapComponent = (Trap) componentManager.getEntityComponent(target, Trap.class.getSimpleName());
 
         if (trapComponent != null) {
-            float chance = new RandomNumberGenerator().getRandomFloat(0f, 1f);
+            float chance = rng.getRandomFloat(0f, 1f);
             if (chance < trapComponent.chanceToActivate) {
                 activateTrap(target, actor);
             }
@@ -1224,7 +1308,7 @@ public class GameEngine {
                 break;
 
             default:
-                Log.e(LOG_TAG, "No shader associated with Barrier - can't act");
+                Log.e(LOG_TAG, "No renderState associated with Barrier - can't act");
                 break;
         }
     }
@@ -1308,8 +1392,6 @@ public class GameEngine {
      * @param actor Player/AI character
      * @return Constant from Actions class
      */
-
-    private ArrayList<Long> inventoryPickupGroup = new ArrayList<>();
 
     private int checkMovementActions(long target, long actor) {
         Collectable collectableComponent = (Collectable) componentManager.getEntityComponent(target, Collectable.class.getSimpleName());
@@ -1421,7 +1503,7 @@ public class GameEngine {
         switch (code) {
             case Actions.GO_TO_NEXT_FLOOR:
                 // Tell renderer to fade out content and display loading screen, generate
-                // terrainSprites for new floor and fade in with new content
+                // terrainSpriteGrid for new floor and fade in with new content
                 gameInterface.startFloorChange();
                 changeFloor(currentFloor + 1, Directions.DOWN);
                 advanceFrame();
@@ -1464,7 +1546,7 @@ public class GameEngine {
                 Sprite sprite = (Sprite) componentManager.getEntityComponent(entity, Sprite.class.getSimpleName());
                 sprite.x = position.x;
                 sprite.y = position.y;
-                objectSprites.add(sprite);
+                objectSpriteGrid[position.x][position.y].add(sprite);
             }
 
             else {
@@ -1475,18 +1557,175 @@ public class GameEngine {
         objectQueue.clear();
     }
 
-    /**
-     *  Iterates over components which act on metabolism (Energy, Poison, etc) and makes whatever
-     *  modifications we need for this turn.
-     */
+    private void advanceWorldTime() {
+        checkWeather();
+    }
 
-    private void handleMetabolism() {}
+    private void checkWeather() {
+        TimeManager timeManager = gameInterface.getTimeManager();
+        int currentTime = timeManager.getTotalTimeInMinutes();
+
+        // Perform any time-related weather actions (eg. puddle formation/evaporation, snow, etc)
+        switch (weatherManager.getCurrentWeatherState()) {
+            // Wet conditions
+            case WeatherManager.RAINING:
+                handleRainEffects(currentTime);
+                handleSnowMelting(currentTime);
+                break;
+
+            case WeatherManager.SNOWING:
+                // Todo: freeze puddles?
+                handleSnowEffects(currentTime);
+                break;
+
+            // Dry conditions
+            case WeatherManager.FINE:
+            case WeatherManager.FOGGY:
+                handlePuddleEvaporation(currentTime);
+                handleSnowMelting(currentTime);
+                break;
+        }
+
+        weatherManager.checkWeather(currentTime);
+    }
+
+    private void handleSnowEffects(int time) {
+        for (Long entity : treeEntities) {
+            if (rng.d6(1, 1)) {
+                Sprite sprite = (Sprite) componentManager.getEntityComponent(entity, Sprite.class.getSimpleName());
+                if (sprite != null) {
+                    sprite.overlayPath = ExteriorTileset.TREE_SNOW_TOP;
+                    sprite.overlayRenderState = Sprite.DYNAMIC;
+                    weatherManager.startTreeSnowTimer(entity);
+                }
+            }
+        }
+
+        if (snowCoverGenerator == null) {
+            snowCoverGenerator = new CellularAutomata();
+            snowCoverGenerator.setChanceToStartAlive(0.1f);
+            snowCoverGenerator.prepareSimulation(new Chunk(0, 0, mapWidth, mapHeight));
+        }
+
+        if (time - lastSnowCheck > ONE_HOUR) {
+            // Set cellular automata params so that:
+
+            // - Any cell with > 2 neighbours will be brought to life
+            // - No cells will be killed (as impossible to have < 0 neighbours)
+            // - 0.05% chance that dead cells will be resurrected
+
+            int birthLimit = 2;
+            int deathLimit = -1;
+            float chanceToRessurect = 0.05f;
+
+            snowCoverGenerator.setBirthLimit(birthLimit)
+                    .setDeathLimit(deathLimit)
+                    .setChanceToResurrect(chanceToRessurect)
+                    .setBringAlive(true)
+                    .setKillAlive(false);
+
+            snowCoverGenerator.doSimulationStep();
+            snowCover = snowCoverGenerator.getEdgeMap();
+            lastSnowCheck = time;
+        }
+    }
+
+    private void handleRainEffects(int time) {
+        // While number of puddles < PUDDLE_LIMIT, attempt to add puddles on each turn
+        if (weatherManager.getPuddleEntities().size() >= WeatherManager.PUDDLE_LIMIT) {
+            return;
+        }
+
+        int tries = rng.getRandomInt(1, weatherManager.getRainIntensity());
+
+        for (int i = 0; i < tries; i++) {
+            int x = rng.getRandomInt(0, mapWidth - 1);
+            int y = rng.getRandomInt(0, mapHeight - 1);
+            if (!indoorRegions[x][y] && !waterRegions[x][y]) {
+                String texture = rng.getRandomItemFromStringArray(ExteriorTileset.PUDDLES);
+                Component[] puddle = DecalFactory.createTraversableDecoration(x, y, texture);
+                long entity = puddle[0].id;
+
+                objectQueue.add(puddle);
+                weatherManager.addPuddle(entity);
+
+                waterRegions[x][y] = true;
+            }
+        }
+    }
+
+    private void handleSnowMelting(int time) {
+        int elapsedSnowTime = time - lastSnowCheck;
+
+        // Snow will start to melt after 2 hours
+        if (elapsedSnowTime > ONE_HOUR) {
+
+            if (snowCoverGenerator != null) {
+                // Set cellular automata params so that:
+
+                // No new cells will be generated (impossible to have >9 neighbours)
+                // Cells with less than 2 neighbours will be killed
+                // 0.05% chance that living cells will be killed
+
+                int birthLimit = 9;
+                int deathLimit = 6;
+                float chanceToDie = 0.01f;
+
+                snowCoverGenerator.setBirthLimit(birthLimit)
+                        .setDeathLimit(deathLimit)
+                        .setChanceToDie(chanceToDie)
+                        .setBringAlive(false)
+                        .setKillAlive(true);
+
+                snowCoverGenerator.doSimulationStep();
+                snowCover = snowCoverGenerator.getEdgeMap();
+            }
+
+            int ticks = elapsedSnowTime * 3;
+            ArrayList<Long> treesToMelt = weatherManager.getMeltedTreeSnow(ticks);
+
+            for (Long entity : treesToMelt) {
+                // We can just turn off overlay for this tree
+                Sprite sprite = (Sprite) componentManager.getEntityComponent(entity, Sprite.class.getSimpleName());
+                sprite.overlayRenderState = Sprite.NONE;
+            }
+
+            lastSnowCheck = time;
+        }
+    }
+
+    private void handlePuddleEvaporation(int time) {
+        int elapsedRainTime = time - lastRainCheck;
+
+        // Puddles will last for a maximum of 1 hour, and start to evaporate after 40 minutes.
+        if (elapsedRainTime > WeatherManager.PUDDLE_DURATION_MINUTES) {
+            if (weatherManager.getPuddleEntities().size() > 0) {
+                int ticks = elapsedRainTime * 3;
+                ArrayList<Long> puddles = weatherManager.getPuddlesToRemove(ticks);
+                for (Long entity : puddles) {
+                    removeEntity(entity);
+                }
+            }
+
+            lastRainCheck = time;
+        }
+    }
+
+    private void removeEntity(long entity) {
+        Position position = (Position) componentManager.getEntityComponent(entity, Position.class.getSimpleName());
+        Sprite sprite = (Sprite) componentManager.getEntityComponent(entity, Sprite.class.getSimpleName());
+        objectEntities[position.x][position.y].remove(entity);
+        objectSpriteGrid[position.x][position.y].remove(sprite);
+        componentManager.removeEntityComponents(entity);
+    }
 
     /**
      *  Calculates results of combat between two entities. Does some sanity checks to make sure
      *  that entities should be fighting, gets damage and checks whether entity is still alive.
      *  Also adds blood decals and handles UI stuff (displaying damage, narrations, etc)
      */
+
+    private ArrayList<Long> entitiesTakingDamage = new ArrayList<>();
 
     private void engageInCombat(long aggressor, long defender) {
         // Prevent entities from engaging in combat with themselves.
@@ -1525,6 +1764,8 @@ public class GameEngine {
         if (splat != null) {
             objectQueue.add(splat);
         }
+
+        entitiesTakingDamage.add(defender);
 
         gameInterface.triggerSoundEffect(FxFilePaths.SMALL_HIT_1);
 
@@ -1597,10 +1838,17 @@ public class GameEngine {
         // Replace current sprite with corpse
         Name nameComponent = (Name) componentManager.getEntityComponent(entity, Name.class.getSimpleName());
         Sprite sprite = (Sprite) componentManager.getEntityComponent(entity, Sprite.class.getSimpleName());
-        sprite.shader = Sprite.DYNAMIC;
+        sprite.renderState = Sprite.DYNAMIC;
         sprite.lastX = -1;
         sprite.lastY = -1;
         sprite.path = CorpseTileset.getCorpseForEntity(nameComponent.value);
+
+        if (sprite.currentAnimationState == Sprite.HIT_ANIMATION) {
+            sprite.nextAnimationState = Sprite.NO_ANIMATION;
+        }
+        else {
+            sprite.currentAnimationState = Sprite.NO_ANIMATION;
+        }
     }
 
     private void applyXpReward(long attacker, long defender) {

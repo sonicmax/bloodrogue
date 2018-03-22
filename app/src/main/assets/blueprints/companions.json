@@ -1,0 +1,40 @@
+{
+	memow: {
+		position: {},
+		sprite: {
+			path: "sprites/memow.png",
+			shader: "dynamic"
+		},
+		name: {
+			value: "Memow"
+		},
+		dynamic: {},
+		ai: {
+			affinity: "companion",
+			canInteract: false,
+			playerInterest: 10
+		},
+		experience: {
+			level: 1
+		},
+		damage: {
+			strength: 1
+		},
+		blood: {
+			type: "red"
+		},
+		vitality: {
+			endurance: 1
+		},
+		physics: {
+			blocking: false,
+			traversable: false,
+			gasOrLiquid: false,
+			activateOnCollide: true,
+			activateOnMove: false
+		},
+		energy: {
+			agility: 1
+		}
+	}
+}

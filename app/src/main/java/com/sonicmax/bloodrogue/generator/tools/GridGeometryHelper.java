@@ -3,6 +3,8 @@ package com.sonicmax.bloodrogue.generator.tools;
 import android.util.Log;
 
 import com.sonicmax.bloodrogue.engine.Directions;
+import com.sonicmax.bloodrogue.generator.Chunk;
+import com.sonicmax.bloodrogue.generator.MapRegion;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 
 import java.util.ArrayList;
@@ -54,7 +56,7 @@ public class GridGeometryHelper {
                 Vector adjacent = cell.add(direction);
 
                 // Check if adjacent tile is empty and add to cardinal space count.
-                if (inBounds(adjacent, width, height)) {
+                if (inBoundingBox(adjacent, width, height)) {
                     if (regionGrid[adjacent.x][adjacent.y] == null) {
                         cardinalSpaces++;
                     }
@@ -77,7 +79,7 @@ public class GridGeometryHelper {
             for (Vector direction : Directions.Diagonal.values()) {
                 Vector adjacent = cell.add(direction);
 
-                if (inBounds(adjacent, width, height)) {
+                if (inBoundingBox(adjacent, width, height)) {
                     if (regionGrid[adjacent.x][adjacent.y] == null) {
                         diagonalSpaces++;
                     }
@@ -94,6 +96,111 @@ public class GridGeometryHelper {
             // Tiles with a single diagonal
 
             if (diagonalSpaces == 1) {
+                corners.add(regionGrid[cell.x][cell.y]);
+            }
+        }
+
+        return corners;
+    }
+
+    /**
+     * Finds corner tiles and returns array of inner corners (ie. inside corner of room vs. corner of wall)
+     */
+
+    public static ArrayList<Vector> findInsideCorners(ArrayList<Vector> region) {
+        ArrayList<Vector> corners = new ArrayList<>();
+
+        Vector[][] regionGrid = vectorsToGrid(region);
+        int width = regionGrid.length;
+        int height = regionGrid[0].length;
+
+        // Iterate over tiles to find corners. Tiles with two cardinal neighbours are outer corners,
+        // and tiles with a single diagonal neighbour are inner corners.
+
+        ArrayList<Vector> queue = new ArrayList<>();
+        ArrayList<Vector> checked = new ArrayList<>();
+        queue.add(new Vector(width / 2, height / 2));
+
+        while (queue.size() > 0) {
+            Vector cell = queue.remove(0);
+
+            if (checked.contains(cell)) continue;
+
+            if (regionGrid[cell.x][cell.y] == null) continue;
+
+            checked.add(cell);
+
+            int diagonalSpaces = 0;
+
+            ArrayList<Vector> cardinalVectors = new ArrayList<>();
+
+            for (Vector direction : Directions.Cardinal.values()) {
+                Vector adjacent = cell.add(direction);
+
+                // Check if adjacent tile is empty and add to cardinal space count.
+                if (inBoundingBox(adjacent, width, height)) {
+                    if (regionGrid[adjacent.x][adjacent.y] == null) {
+                        cardinalVectors.add(direction);
+                    }
+                    else {
+                        // Add to queue and continue testing
+                        queue.add(adjacent);
+                    }
+                }
+
+                else {
+                    cardinalVectors.add(direction);
+                }
+            }
+
+            if (cardinalVectors.size() == 2) {
+                // We can find the inside corner by adding the two cardinal directions together
+                // and reversing the signs
+
+                /*Vector direction = cardinalVectors.get(0).add(cardinalVectors.get(1));
+                direction.x = -direction.x;
+                direction.y = -direction.y;
+                Vector corner = cell.add(direction);
+                Vector translatedCorner = regionGrid[corner.x][corner.y];
+                if (translatedCorner == null) {
+                    Log.e(LOG_TAG, "couldn't find inside region of inner corner");
+                    break;
+                }
+                corners.add(translatedCorner);*/
+
+                corners.add(regionGrid[cell.x][cell.y]);
+                continue;
+            }
+
+            // Inner corners have one diagonal space (and outer corners have already been filtered out)
+
+            for (Vector direction : Directions.Diagonal.values()) {
+                Vector adjacent = cell.add(direction);
+
+                if (inBoundingBox(adjacent, width, height)) {
+                    if (regionGrid[adjacent.x][adjacent.y] == null) {
+                        diagonalSpaces++;
+                    }
+                    else {
+                        queue.add(adjacent);
+                    }
+                }
+
+                else {
+                    diagonalSpaces++;
+                }
+            }
+
+            // Tiles with a single diagonal
+
+            if (diagonalSpaces == 1) {
+                /*Vector corner = cell.subtract(spaceDirection);
+                Vector translatedCorner = regionGrid[corner.x][corner.y];
+                if (translatedCorner == null) {
+                    Log.e(LOG_TAG, "couldn't find inside region of inner corner");
+                    break;
+                }
+                corners.add(translatedCorner);*/
                 corners.add(regionGrid[cell.x][cell.y]);
             }
         }
@@ -139,6 +246,30 @@ public class GridGeometryHelper {
         return regionGrid;
     }
 
+    public static ArrayList<Vector> getBorderVectorsFromRegion(MapRegion region) {
+        ArrayList<Vector> borderVectors = new ArrayList<>();
+        ArrayList<Vector> regionVectors = region.getVectors();
+        Chunk boundingBox = GridGeometryHelper.getBoundingBox(regionVectors);
+        Vector[][] grid = GridGeometryHelper.vectorsToGrid(regionVectors);
+
+        for (Vector vector : regionVectors) {
+            for (Vector direction : Directions.Cardinal.values()) {
+                Vector adjacent = vector.add(direction);
+                if (!inBoundingBox(adjacent, boundingBox) || grid[adjacent.x][adjacent.y] == null) {
+                    borderVectors.add(adjacent);
+                    break;
+                }
+            }
+        }
+
+        return borderVectors;
+    }
+
+    private static boolean inBoundingBox(Vector vector, Chunk boundingBox) {
+        return (vector.x >= 0 && vector.x < boundingBox.width)
+                && (vector.y >= 0 && vector.y < boundingBox.height);
+    }
+
     public static ArrayList<Vector[]> findRectSides(ArrayList<Vector> corners) {
         ArrayList<Vector[]> sides = new ArrayList<>();
 
@@ -176,6 +307,40 @@ public class GridGeometryHelper {
         sides.add(new Vector[] {bottomLeft, topLeft});
 
         return sides;
+    }
+
+    public static Chunk getBoundingBox(ArrayList<Vector> corners) {
+        ArrayList<Vector[]> sides = new ArrayList<>();
+
+        int lowestX = Integer.MAX_VALUE;
+        int highestX = Integer.MIN_VALUE;
+        int lowestY = Integer.MAX_VALUE;
+        int highestY = Integer.MIN_VALUE;
+
+        for (Vector corner : corners) {
+            if (corner.x < lowestX) {
+                lowestX = corner.x;
+            }
+
+            if (corner.x > highestX) {
+                highestX = corner.x;
+            }
+
+            if (corner.y < lowestY) {
+                lowestY = corner.y;
+            }
+
+            if (corner.y > highestY) {
+                highestY = corner.y;
+            }
+        }
+
+        Vector bottomLeft = new Vector(lowestX, lowestY);
+
+        int width = highestX - lowestX;
+        int height = highestY - lowestY;
+
+        return new Chunk(bottomLeft.x, bottomLeft.y, width, height);
     }
 
     public static ArrayList<Vector[]> findSides(ArrayList<Vector> region) {
@@ -236,7 +401,7 @@ public class GridGeometryHelper {
                 Vector posToCheck = current.add(direction);
 
                 // Don't check out of bounds or null tiles.
-                if (!inBounds(posToCheck, width, height) || grid[posToCheck.x][posToCheck.y] == null) {
+                if (!inBoundingBox(posToCheck, width, height) || grid[posToCheck.x][posToCheck.y] == null) {
                     checked.add(posToCheck);
                     continue;
                 }
@@ -252,7 +417,7 @@ public class GridGeometryHelper {
 
                 for (Vector cardinal : Directions.Cardinal.values()) {
                     Vector adjacent = posToCheck.add(cardinal);
-                    if (inBounds(adjacent, width, height)) {
+                    if (inBoundingBox(adjacent, width, height)) {
                         if (grid[adjacent.x][adjacent.y] == null) {
                             // Todo: we could probably save time here by breaking from loop if we exceed 2 spaces
                             cardinalSpaces++;
@@ -317,7 +482,7 @@ public class GridGeometryHelper {
 
                 for (Vector diagonal : Directions.Diagonal.values()) {
                     Vector adjacent = posToCheck.add(diagonal);
-                    if (inBounds(adjacent, width, height)) {
+                    if (inBoundingBox(adjacent, width, height)) {
                         if (grid[adjacent.x][adjacent.y] == null) {
                             diagonalSpaces++;
                         }
@@ -362,7 +527,7 @@ public class GridGeometryHelper {
 
             for (Vector cardinal : Directions.Cardinal.values()) {
                 Vector adjacent = next.add(cardinal);
-                if (inBounds(adjacent, width, height)) {
+                if (inBoundingBox(adjacent, width, height)) {
                     if (grid[adjacent.x][adjacent.y] == null) {
                         cardinalSpaces++;
                     }
@@ -391,7 +556,7 @@ public class GridGeometryHelper {
 
             for (Vector diagonal : Directions.Diagonal.values()) {
                 Vector adjacent = next.add(diagonal);
-                if (inBounds(adjacent, width, height)) {
+                if (inBoundingBox(adjacent, width, height)) {
                     if (grid[adjacent.x][adjacent.y] == null) {
                         diagonalSpaces++;
                     }
@@ -415,7 +580,7 @@ public class GridGeometryHelper {
         return null;
     }
 
-    public static boolean inBounds(Vector cell, int width, int height) {
+    public static boolean inBoundingBox(Vector cell, int width, int height) {
         return (cell.x >= 0 && cell.x < width && cell.y >= 0 && cell.y < height);
     }
 }
