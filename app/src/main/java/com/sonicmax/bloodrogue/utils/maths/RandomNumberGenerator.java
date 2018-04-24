@@ -1,26 +1,52 @@
 package com.sonicmax.bloodrogue.utils.maths;
 
-import android.util.Log;
-
 import java.util.Random;
 
+/**
+ * Just a simple wrapper for Random that provides some convenience methods for seed management,
+ * getting numbers within given range, dice rolling, etc
+ */
+
 public class RandomNumberGenerator {
+    private long seed;
+    private Random random;
+
+    /**
+     * If no arguments are provided, uses System.currentTimeMillis() to generate seed.
+     */
+
     public RandomNumberGenerator() {
-        // To reproduce results of terrain generation/etc, we would presumably have to store an
-        // array of seeds used by each instance of RandomNumberGenerator. Using the same seed for every
-        // instance seems to break the RNG.
+        long seed = System.currentTimeMillis();
+        initRandomWithSeed(seed);
     }
 
+    public RandomNumberGenerator(long seed) {
+        initRandomWithSeed(seed);
+    }
+
+    public void initRandomWithSeed(long seed) {
+        this.seed = seed;
+        random = new Random(seed);
+    }
+
+    public long getSeed() {
+        return seed;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Methods for number generation
+    ///////////////////////////////////////////////////////////////////////////
+
     public int getRandomInt(int min, int max) {
-        return new Random().nextInt((max - min) + 1) + min;
+        return random.nextInt((max - min) + 1) + min;
     }
 
     public float getRandomFloat(float min, float max) {
-        return (float) (min + Math.random() * (max - min));
+        return min + random.nextFloat() * (max - min);
     }
 
     public boolean coinflip() {
-        return new Random().nextInt(2) == 1;
+        return random.nextInt(2) == 1;
     }
 
     public String getRandomItemFromStringArray(String[] array) {
@@ -47,19 +73,5 @@ public class RandomNumberGenerator {
         }
 
         return false;
-    }
-
-    public void shuffleArray(int[] array) {
-        Random rnd = new Random();
-        for (int i = array.length - 1; i > 0; i--) {
-            int index = rnd.nextInt(i + 1);
-            if (i == index) {
-                ++i;
-            } else {
-                int a = array[index];
-                array[index] = array[i];
-                array[i] = a;
-            }
-        }
     }
 }
