@@ -60,6 +60,7 @@ public class LoopingMusicPlayer {
 
         // Todo: workaround when SDK_INT < 15?
         if (Build.VERSION.SDK_INT > 15) {
+            // Todo: catch IllegalStateException and wait for next player to prepare?
             currentPlayer.setNextMediaPlayer(nextPlayer);
         }
 

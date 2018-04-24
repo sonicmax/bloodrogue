@@ -177,7 +177,12 @@ public class AudioPlayer {
     }
 
     public void stopAndReleaseResources() {
-        soundPool.release();
-        loopingMediaPlayer.release();
+        if (soundPool != null) {
+            soundPool.release();
+        }
+
+        if (loopingMediaPlayer != null) {
+            loopingMediaPlayer.release();
+        }
     }
 }
