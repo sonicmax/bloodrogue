@@ -5,14 +5,14 @@ import com.sonicmax.bloodrogue.utils.maths.Vector;
 import java.util.ArrayList;
 
 public class MapData {
-    private long[][] terrainEntities;
+    private int[][] terrainEntities;
     private ArrayList<Long>[][] objectEntities;
 
     private Vector entrancePosition;
     private Vector exitPosition;
     private int type;
 
-    public MapData(long[][] terrainEntities, ArrayList<Long>[][] objectEntities, Vector entrance, Vector exit, int type) {
+    public MapData(int[][] terrainEntities, ArrayList<Long>[][] objectEntities, Vector entrance, Vector exit, int type) {
 
         this.terrainEntities = terrainEntities;
         this.objectEntities = objectEntities;
@@ -22,7 +22,7 @@ public class MapData {
         this.type = type;
     }
 
-    public long[][] getTerrainEntities() {
+    public int[][] getTerrainEntities() {
         return this.terrainEntities;
     }
 

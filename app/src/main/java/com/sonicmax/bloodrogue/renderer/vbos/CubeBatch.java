@@ -1,4 +1,4 @@
-package com.sonicmax.bloodrogue.renderer.cubes;
+package com.sonicmax.bloodrogue.renderer.vbos;
 
 import android.opengl.GLES20;
 import android.util.Log;
@@ -31,13 +31,22 @@ public class CubeBatch {
 
         // Create interleaved buffer for VBO, and separate position/UV buffers for depth map rendering.
         FloatBuffer cubeBuffer = createInterleavedBuffer(cubePositions, cubeNormals, cubeUvs, numberOfCubes);
-        positionBuffer = createFloatBuffer(cubePositions);
-        uvBuffer = createFloatBuffer(cubeUvs);
 
         // Second, copy these buffers into OpenGL's memory.
         cubeBufferId = createVBO(cubeBuffer);
         cubeBuffer.limit(0);
         cubeBuffer = null;
+
+        // Todo: Figure out how we can use VBO for all methods. Duplicating the data is silly
+
+        // Desperate attempt to free up more memory:
+        System.gc();
+
+        // Now create buffers for depth map rendering
+        positionBuffer = createFloatBuffer(cubePositions);
+        uvBuffer = createFloatBuffer(cubeUvs);
+
+        Log.v(LOG_TAG, "Cube VBO id: " + cubeBufferId);
     }
 
     private int createVBO(FloatBuffer buffer) {
@@ -126,6 +135,27 @@ public class CubeBatch {
         GLES20.glDisableVertexAttribArray(ShaderAttributes.POSITION);
         GLES20.glDisableVertexAttribArray(ShaderAttributes.NORMAL);
         GLES20.glDisableVertexAttribArray(ShaderAttributes.TEXCOORD);
+    }
+
+    public void renderSkyBox() {
+        final int count = numberOfCubes * VERTICES_PER_CUBE;
+        final int stride = 0;
+
+        // Pass in the position information so we can calculate depth
+        GLES20.glEnableVertexAttribArray(ShaderAttributes.POSITION);
+        GLES20.glVertexAttribPointer(
+                ShaderAttributes.POSITION,
+                POSITION_DATA_SIZE,
+                GLES20.GL_FLOAT,
+                false,
+                stride,
+                positionBuffer);
+
+        // Draw the cubes.
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, count);
+
+        GLES20.glDisableVertexAttribArray(ShaderAttributes.POSITION);
+        GLES20.glDisableVertexAttribArray(ShaderAttributes.NORMAL);
     }
 
     public void renderDepthMap() {

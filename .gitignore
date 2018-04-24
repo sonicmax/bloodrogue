@@ -56,3 +56,5 @@ freeline_project_description.json
 app/src/main/assets/xcf/
 app/src/main/assets/music/
 app/src/main/assets/fx/
+.idea/caches/build_file_checksums.ser
+.idea/codeStyles/Project.xml

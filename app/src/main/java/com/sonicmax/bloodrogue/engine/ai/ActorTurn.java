@@ -1,10 +1,14 @@
-package com.sonicmax.bloodrogue.engine;
+package com.sonicmax.bloodrogue.engine.ai;
 
 import com.sonicmax.bloodrogue.engine.components.Position;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 
 import java.util.concurrent.Delayed;
 import java.util.concurrent.TimeUnit;
+
+/**
+ * Used to store moves for each turn so we can prioritise based on different criteria
+ */
 
 public class ActorTurn implements Delayed {
     private final long DEFAULT_DURATION = 1000L;

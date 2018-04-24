@@ -12,7 +12,7 @@ public class FieldOfVisionCalculator {
     private final String LOG_TAG = this.getClass().getSimpleName();
     private double darknessFactor; // Lower value = darker lighting. Has to be > 0
 
-    private long[][] mapGrid;
+    private int[][] mapGrid;
     private ArrayList<Long>[][] objectGrid;
     private ComponentManager componentManager;
     private int startX;
@@ -33,7 +33,7 @@ public class FieldOfVisionCalculator {
         return this.visitedTiles;
     }
 
-    public void setValues(long[][] mapGrid, ArrayList<Long>[][] objectGrid, int x, int y, int radius) {
+    public void setValues(int[][] mapGrid, ArrayList<Long>[][] objectGrid, int x, int y, int radius) {
 
         this.mapGrid = mapGrid;
         this.objectGrid = objectGrid;

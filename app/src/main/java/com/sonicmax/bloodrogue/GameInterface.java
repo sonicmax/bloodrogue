@@ -15,10 +15,8 @@ import com.sonicmax.bloodrogue.engine.GameEngine;
 import com.sonicmax.bloodrogue.engine.GameState;
 import com.sonicmax.bloodrogue.engine.environment.WeatherManager;
 import com.sonicmax.bloodrogue.engine.components.Position;
-import com.sonicmax.bloodrogue.generator.Chunk;
 import com.sonicmax.bloodrogue.renderer.GameRenderer3D;
 import com.sonicmax.bloodrogue.renderer.text.NarrationManager;
-import com.sonicmax.bloodrogue.renderer.text.Status;
 import com.sonicmax.bloodrogue.renderer.ui.InventoryCard;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 
@@ -29,7 +27,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.util.ArrayList;
+import java.util.HashMap;
 
 /**
  * Class which links together the different parts of the engine and handles user input/other Android events.
@@ -39,7 +37,6 @@ public class GameInterface {
     private final String LOG_TAG = this.getClass().getSimpleName();
     private Context context;
     private AudioPlayer audioPlayer;
-    private GameRenderer gameRenderer;
     private GameRenderer3D gameRenderer3D;
     private GameEngine gameEngine;
     private NarrationManager narrationManager;
@@ -76,13 +73,10 @@ public class GameInterface {
 
         this.gameEngine = new GameEngine(this);
         this.audioPlayer = new AudioPlayer(context);
-        // this.gameRenderer = new GameRenderer(context, this);
 
         gameRenderer3D = renderer;
         gameRenderer3D.setGameInterface(this);
         gameRenderer3D.setMapSize(gameEngine.getMapSize());
-
-        // this.gameRenderer.setMapSize(gameEngine.getMapSize());
 
         // Set some variables required for UI interactions
         this.lastTouchX = 0f;
@@ -98,7 +92,6 @@ public class GameInterface {
     }
 
     public void showTitle() {
-        // gameRenderer.setRenderState(GameRenderer.TITLE);
         gameRenderer3D.setRenderState(GameRenderer3D.TITLE);
 
         handler.postDelayed(new Runnable() {
@@ -110,7 +103,6 @@ public class GameInterface {
     }
 
     public void openMainMenu() {
-        // gameRenderer.setRenderState(GameRenderer.MENU);
         gameRenderer3D.setRenderState(GameRenderer3D.MENU);
 
         waitingForMenuInput = true;
@@ -118,8 +110,13 @@ public class GameInterface {
 
     public void handleMenuInput() {
         waitingForMenuInput = false;
-        // gameRenderer.setRenderState(GameRenderer.SPLASH);
         gameRenderer3D.setRenderState(GameRenderer3D.SPLASH);
+
+        if (spriteIndexes == null) {
+            Log.w(LOG_TAG, "Sprite indexes not loaded");
+        }
+
+        gameEngine.setSpriteIndexes(gameRenderer3D.getSpriteIndexes());
 
         // Note: startGame() is an expensive method call and should be executed in background thread
 
@@ -137,6 +134,12 @@ public class GameInterface {
                 Log.v(LOG_TAG, "post in game: " + inGame);
             }
         });
+    }
+
+    private HashMap<String, Integer> spriteIndexes = null;
+
+    public void setSpriteIndexes(HashMap<String, Integer> spriteIndexes) {
+        this.spriteIndexes = spriteIndexes;
     }
 
     public AssetManager getAssets() {
@@ -278,7 +281,7 @@ public class GameInterface {
                 handleTouchUp(x, y, eventDuration);
 
                 if ((eventTime - lastClickTime) <= MAX_DURATION && inGame) {
-                    gameRenderer3D.switchRenderMode();
+                    gameRenderer3D.cycleRenderModes();
                 }
 
                 lastClickTime = eventTime;
@@ -299,13 +302,10 @@ public class GameInterface {
 
     private void handleTouchDown(float x, float y) {
         if (inGame) {
-            if (true) {
-                mPreviousX = x;
-                mPreviousY = y;
-                return;
-            }
+            mPreviousX = x;
+            mPreviousY = y;
 
-            Vector mapTouch = gameRenderer.getGridCellForTouchCoords(x, y);
+            /*Vector mapTouch = gameRenderer.getGridCellForTouchCoords(x, y);
 
             lastTouchX = x;
             lastTouchY = y;
@@ -314,10 +314,7 @@ public class GameInterface {
                 // Start path selection
                 lastMapTouch = mapTouch;
                 pathSelection = true;
-            }
-        }
-        else {
-
+            }*/
         }
     }
 
@@ -336,22 +333,18 @@ public class GameInterface {
     private void handleTouchMove(float x, float y, long duration) {
         if (inGame) {
 
-            // TODO: lol
-            if (true) {
-                if (gameRenderer3D != null) {
-                    float deltaX = (x - mPreviousX) / density / 2f;
-                    float deltaY = (y - mPreviousY) / density / 2f;
+            if (gameRenderer3D != null) {
+                float deltaX = (x - mPreviousX) / density / 2f;
+                float deltaY = (y - mPreviousY) / density / 2f;
 
-                    gameRenderer3D.setCameraRotationX(deltaX);
-                    gameRenderer3D.setCameraRotationY(deltaY);
-                }
-
-                mPreviousX = x;
-                mPreviousY = y;
-                return;
+                gameRenderer3D.setCameraRotationX(deltaX);
+                gameRenderer3D.setCameraRotationY(deltaY);
             }
 
-            final long SCROLL_THRESHOLD = 100L;  // Number of milliseconds to wait before scrolling
+            mPreviousX = x;
+            mPreviousY = y;
+
+            /*final long SCROLL_THRESHOLD = 100L;  // Number of milliseconds to wait before scrolling
 
             // If player is currently selecting a path, we should update the path destination with current position
             if (!inputLock && pathSelection) {
@@ -376,11 +369,7 @@ public class GameInterface {
                 lastTouchX = x;
                 lastTouchY = y;
                 lastMapTouch = null;
-            }
-        }
-
-        else {
-
+            }*/
         }
     }
 
@@ -396,13 +385,10 @@ public class GameInterface {
 
     private void handleTouchUp(float x, float y, long eventDuration) {
         if (inGame) {
-            if (true) {
-                mPreviousX = x;
-                mPreviousY = y;
+            mPreviousX = x;
+            mPreviousY = y;
 
-                return;
-            }
-            final long PATH_THRESHOLD = 500L; // Amount of time before we start displaying path selection nodes
+            /*final long PATH_THRESHOLD = 500L; // Amount of time before we start displaying path selection nodes
             final Vector mapTouch = gameRenderer.getGridCellForTouchCoords(x, y);
 
             // Reset path selection and scrolling.
@@ -435,8 +421,8 @@ public class GameInterface {
                                 gameEngine.queueAndFollowPath(path);
                             }
                         });
-                    }*/
-            }
+                    }
+            }*/
         }
 
         else {
@@ -465,7 +451,6 @@ public class GameInterface {
 
         // Don't let the object get too small or too large.
         // scaleFactor = Math.max(0.5f, Math.min(scaleFactor, 4.0f));
-        // gameRenderer.setZoom(scaleFactor);
         gameRenderer3D.setZoom(scaleFactor);
         return true;
     }
@@ -492,9 +477,6 @@ public class GameInterface {
     }
 
     public void passDataToRenderer() {
-        // gameRenderer.setFrame(gameEngine.getCurrentFrameData());
-        // gameRenderer.setHasGameData();
-
         gameRenderer3D.setFrame(gameEngine.getCurrentFrameData());
     }
 
@@ -512,16 +494,14 @@ public class GameInterface {
 
     public void checkNarrations() {
         narrationManager.checkQueueAndRemove();
-        //gameRenderer.queueNarrationUpdate(narrationManager.getTextObjects());
         gameRenderer3D.queueNarrationUpdate(narrationManager.getTextObjects());
     }
 
     public void displayStatus(Position position, String message, float[] color) {
-        Vector vector = new Vector(position.x, position.y);
+        /*Vector vector = new Vector(position.x, position.y);
         float[] coords = gameRenderer.getRenderCoordsForObject(vector, true);
         Status status = new Status(message, coords[0], coords[1], color);
-        // gameRenderer.queueNewStatus(status);
-        gameRenderer3D.queueNewStatus(status);
+        gameRenderer3D.queueNewStatus(status);*/
     }
 
     public void startFloorChange() {
@@ -529,9 +509,9 @@ public class GameInterface {
         narrationManager.clearAll();
     }
 
-    public Chunk getVisibleChunk() {
+    /*public Chunk getVisibleChunk() {
         return gameRenderer.getVisibleChunk();
-    }
+    }*/
 
     public void transitionToNewContent() {
         // gameRenderer.startNewFloor();

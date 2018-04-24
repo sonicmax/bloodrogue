@@ -101,15 +101,7 @@ public class SpriteRenderer {
         uniformTexture = GLES20.glGetUniformLocation(shaderHandle, "u_Texture");
     }
 
-    public void initDebugShader(int handle) {
-        shaderHandle = handle;
-        uniformMatrix = GLES20.glGetUniformLocation(shaderHandle, "u_MVPMatrix");
-        uniformTexture = GLES20.glGetUniformLocation(shaderHandle, "u_DepthMap");
-    }
-
     public void setSpriteSheet(int handle) {
-        // GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
-        // GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, handle);
         spriteSheetHandle = handle;
     }
 
@@ -635,14 +627,16 @@ public class SpriteRenderer {
         GLES20.glDisableVertexAttribArray(ShaderAttributes.TEXCOORD);
     }
 
-    public void renderDepthMap(float near, float far) {
+    /**
+     * For debugging - renders whatever texture was bound to the texture unit passed into method.
+     * Will probably explode if wrong shader was passed to initShader()
+     *
+     * @param textureUnit Texture unit to render to screen
+     */
+
+    public void renderTexture(int textureUnit) {
         GLES20.glUseProgram(shaderHandle);
-
-        int depthMapNearHandle = GLES20.glGetUniformLocation(shaderHandle, "u_Near");
-        int depthMapFarHandle = GLES20.glGetUniformLocation(shaderHandle, "u_Far");
-
-        GLES20.glUniform1f(depthMapNearHandle, near);
-        GLES20.glUniform1f(depthMapFarHandle, far);
+        GLES20.glDisable(GLES20.GL_CULL_FACE);
 
         if (packedCount == 0) {
             return;
@@ -652,17 +646,11 @@ public class SpriteRenderer {
 
         int stride = (FLOATS_PER_POSITION + FLOATS_PER_UV) * FLOAT_SIZE;
 
-        // Copy modified portion of packed float array to buffer.
         FloatBuffer floatBuffer = bb1.asFloatBuffer();
         BufferUtils.copy(packedFloats, floatBuffer, packedCount, 0);
 
         ShortBuffer drawListBuffer = bb2.asShortBuffer();
         BufferUtils.copy(indices, 0, drawListBuffer, indicesCount);
-
-        // Add pointers to buffer for each attribute.
-
-        // GLES20.glVertexAttribPointer() doesn't have offset parameter, so we have to
-        // add the offset manually using Buffer.position()
 
         GLES20.glEnableVertexAttribArray(ShaderAttributes.POSITION);
         GLES20.glVertexAttribPointer(
@@ -682,7 +670,66 @@ public class SpriteRenderer {
                 stride,
                 floatBuffer.position(FLOATS_PER_POSITION));
 
-        // Pass MVP matrix to renderState
+        GLES20.glUniformMatrix4fv(uniformMatrix, 1, false, fullScreenMvpMatrix, 0);
+        GLES20.glUniform1i(uniformTexture, textureUnit);
+
+        GLES20.glDrawElements(GLES20.GL_TRIANGLES, indicesCount, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);
+
+        GLES20.glDisableVertexAttribArray(ShaderAttributes.POSITION);
+        GLES20.glDisableVertexAttribArray(ShaderAttributes.TEXCOORD);
+    }
+
+    /**
+     * For debugging - renders depth map using debug_depth shader.
+     * Will probably explode if wrong shader was passed to initShader()
+     * Uses near/far values to linearise depth in order to improve visibility of output
+     *
+     * @param near Near frustrum
+     * @param far Far frustrum
+     */
+
+    public void renderDepthMap(float near, float far) {
+        GLES20.glUseProgram(shaderHandle);
+        GLES20.glDisable(GLES20.GL_CULL_FACE);
+
+        int depthMapNearHandle = GLES20.glGetUniformLocation(shaderHandle, "u_Near");
+        int depthMapFarHandle = GLES20.glGetUniformLocation(shaderHandle, "u_Far");
+
+        GLES20.glUniform1f(depthMapNearHandle, near);
+        GLES20.glUniform1f(depthMapFarHandle, far);
+
+        if (packedCount == 0) {
+            return;
+        }
+
+        checkBufferCapacity();
+
+        int stride = (FLOATS_PER_POSITION + FLOATS_PER_UV) * FLOAT_SIZE;
+
+        FloatBuffer floatBuffer = bb1.asFloatBuffer();
+        BufferUtils.copy(packedFloats, floatBuffer, packedCount, 0);
+
+        ShortBuffer drawListBuffer = bb2.asShortBuffer();
+        BufferUtils.copy(indices, 0, drawListBuffer, indicesCount);
+
+        GLES20.glEnableVertexAttribArray(ShaderAttributes.POSITION);
+        GLES20.glVertexAttribPointer(
+                ShaderAttributes.POSITION,
+                FLOATS_PER_POSITION,
+                GLES20.GL_FLOAT,
+                false,
+                stride,
+                floatBuffer);
+
+        GLES20.glEnableVertexAttribArray(ShaderAttributes.TEXCOORD);
+        GLES20.glVertexAttribPointer(
+                ShaderAttributes.TEXCOORD,
+                FLOATS_PER_UV,
+                GLES20.GL_FLOAT,
+                false,
+                stride,
+                floatBuffer.position(FLOATS_PER_POSITION));
+
         GLES20.glUniformMatrix4fv(uniformMatrix, 1, false, fullScreenMvpMatrix, 0);
         GLES20.glUniform1i(uniformTexture, 3);
 

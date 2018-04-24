@@ -15,7 +15,7 @@ public class Frame implements Serializable {
     private static final long serialVersionUID = 1L;
 
     public final int index;
-    public final Sprite[][] terrain;
+    public final int[][] terrain;
     public final ArrayList<Sprite>[][] objects;
     public final ArrayList<Animation> animations;
     public final double[][] fov;
@@ -23,12 +23,13 @@ public class Frame implements Serializable {
     public final boolean[][] indoorRegions;
     public final boolean[][] waterRegions;
     public final int[][] snowCover;
+    public final float[][] heightMap;
     public final Component[] player;
 
-    public Frame(int index, Sprite[][] terrain, ArrayList<Sprite>[][] objects,
+    public Frame(int index, int[][] terrain, ArrayList<Sprite>[][] objects,
                  ArrayList<Animation> animations, double[][] fov, boolean[][] visited,
                  boolean[][] indoorRegions, boolean[][] waterRegions, int[][] snowCover,
-                 Component[] player) {
+                 float[][] heightMap, Component[] player) {
 
         this.index = index;
         this.terrain = terrain;
@@ -39,10 +40,11 @@ public class Frame implements Serializable {
         this.indoorRegions = indoorRegions;
         this.waterRegions = waterRegions;
         this.snowCover = snowCover;
+        this.heightMap = heightMap;
         this.player = player;
     }
 
-    public Sprite[][] getTerrain() {
+    public int[][] getTerrain() {
         return this.terrain;
     }
 

@@ -583,4 +583,8 @@ public class GridGeometryHelper {
     public static boolean inBoundingBox(Vector cell, int width, int height) {
         return (cell.x >= 0 && cell.x < width && cell.y >= 0 && cell.y < height);
     }
+
+    public static float getDistance(int ax, int ay, int bx, int by) {
+        return (float) Math.sqrt(Math.pow(ax - bx, 2) + Math.pow(ay - by, 2));
+    }
 }

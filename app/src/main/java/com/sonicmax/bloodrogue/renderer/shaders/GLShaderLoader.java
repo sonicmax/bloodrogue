@@ -27,7 +27,6 @@ public class GLShaderLoader {
     private final String WATER_RIPPLE_FRAG = "shaders/water_ripple.frag";
     private final String RIPPLE_FRAG_PATH = "shaders/ripple.frag";
 
-    // Shaders for overlay effects
     private final String RAIN_FRAG_PATH = "shaders/rain.frag";
     private final String FOG_FRAG_PATH = "shaders/fog.frag";
     private final String SNOW_FRAG_PATH = "shaders/snow.frag";
@@ -38,8 +37,25 @@ public class GLShaderLoader {
     private final String DEPTH_MAP_VERT_PATH = "shaders/depth_map.vert";
     private final String DEPTH_MAP_FRAG_PATH = "shaders/depth_map.frag";
 
+    private final String SKY_BOX_VERT_PATH = "shaders/sky_box.vert";
+    private final String SKY_BOX_FRAG_PATH = "shaders/sky_box.frag";
+
+    private final String WATER_VERT_PATH = "shaders/water.vert";
+    private final String WATER_FRAG_PATH = "shaders/water.frag";
+
+    // For debugging:
+
+    // Renders lines to screen. Used for debugging surface normals
+    private final String DEBUG_LINE_VERT_PATH = "shaders/debug_line.vert";
+    private final String DEBUG_LINE_FRAG_PATH = "shaders/debug_line.frag";
+
+    // Renders depth map as texture to quad. Used to debug our depth map
     private final String DEBUG_DEPTH_VERT_PATH = "shaders/debug_depth.vert";
     private final String DEBUG_DEPTH_FRAG_PATH = "shaders/debug_depth.frag";
+
+    // Renders texture bound to texture unit to quad. Used to debug framebuffers
+    private final String DEBUG_TEX_VERT_PATH = "shaders/debug_tex.vert";
+    private final String DEBUG_TEX_FRAG_PATH = "shaders/debug_tex.frag";
 
     private Context context;
 
@@ -55,16 +71,8 @@ public class GLShaderLoader {
         return compileShader(BASIC_VERT_PATH, BASIC_FRAG_PATH);
     }
 
-    public int compileWaveShader() {
-        return compileShader(BASIC_VERT_PATH, WATER_RIPPLE_FRAG);
-    }
-
     public int compileRainShader() {
         return compileShader(BASIC_VERT_PATH, RAIN_FRAG_PATH);
-    }
-
-    public int compileFogShader() {
-        return compileShader(BASIC_VERT_PATH, FOG_FRAG_PATH);
     }
 
     public int compileSnowShader() {
@@ -75,12 +83,28 @@ public class GLShaderLoader {
         return compileShader(CUBE_VERT_PATH, CUBE_FRAG_PATH);
     }
 
+    public int compileDebugTexShader() {
+        return compileShader(DEBUG_TEX_VERT_PATH, DEBUG_TEX_FRAG_PATH);
+    }
+
     public int compileDebugDepthMapShader() {
         return compileShader(DEBUG_DEPTH_VERT_PATH, DEBUG_DEPTH_FRAG_PATH);
     }
 
     public int compileDepthMapShader() {
         return compileShader(DEPTH_MAP_VERT_PATH, DEPTH_MAP_FRAG_PATH);
+    }
+
+    public int compileSkyBoxShader() {
+        return compileShader(SKY_BOX_VERT_PATH, SKY_BOX_FRAG_PATH);
+    }
+
+    public int compileWaterShader() {
+        return compileShader(WATER_VERT_PATH, WATER_FRAG_PATH);
+    }
+
+    public int compileDebugLineShader() {
+        return compileShader(DEBUG_LINE_VERT_PATH, DEBUG_LINE_FRAG_PATH);
     }
 
     private int compileShader(String vertPath, String fragPath) {
@@ -98,7 +122,7 @@ public class GLShaderLoader {
             GLES20.glAttachShader(shaderHandle, vertexShader);
             GLES20.glAttachShader(shaderHandle, fragmentShader);
 
-            // These attributes are not used in all shaders - be careful to double check when binding vertex arrays/etc
+            // These attributes are not used in all shaders - be careful when binding vertex attribute arrays
             GLES20.glBindAttribLocation(shaderHandle, ShaderAttributes.POSITION, "a_Position");
             GLES20.glBindAttribLocation(shaderHandle, ShaderAttributes.SHADOW_POSITION, "a_ShadowPosition");
             GLES20.glBindAttribLocation(shaderHandle, ShaderAttributes.COLOUR, "a_Color");
@@ -120,11 +144,7 @@ public class GLShaderLoader {
 
         } catch (IOException e) {
             Log.e(LOG_TAG, "Error while reading shader source from disk:", e);
-            return 0;
-
-        } catch (RuntimeException e2) {
-            Log.e(LOG_TAG, e2.getMessage(), e2);
-            return 0;
+            throw new RuntimeException("Could not link program: " + vertPath + ", " + fragPath);
         }
     }
 

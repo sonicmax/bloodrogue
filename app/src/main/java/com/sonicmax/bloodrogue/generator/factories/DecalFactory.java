@@ -190,7 +190,7 @@ public class DecalFactory {
         return array;
     }
 
-    public static Component[] createCubeDecal(int x, int y, String tile, boolean isBlocking, boolean isTraversable) {
+    public static Component[] createCubeDecal(int x, int y, int z, String tile, boolean isBlocking, boolean isTraversable) {
         Entity entity = new Entity();
 
         Component[] array = new Component[4];
@@ -203,6 +203,7 @@ public class DecalFactory {
         sprite.renderState = Sprite.STATIC;
         sprite.path = tile;
         sprite.wrapToCube = true;
+        sprite.zLayer = z;
 
         Terrain s = new Terrain(Terrain.DEFAULT, entity.id);
 

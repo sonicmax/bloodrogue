@@ -20,7 +20,8 @@
         android:supportsRtl="true"
         android:largeHeap="true"
         android:theme="@style/Theme.AppCompat.NoActionBar">
-        <activity android:name=".activities.MainActivity">
+        <activity android:name=".activities.MainActivity"
+            android:configChanges="orientation">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

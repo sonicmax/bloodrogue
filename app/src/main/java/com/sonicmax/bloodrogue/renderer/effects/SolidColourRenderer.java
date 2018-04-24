@@ -3,7 +3,7 @@ package com.sonicmax.bloodrogue.renderer.effects;
 import android.opengl.GLES20;
 
 import com.sonicmax.bloodrogue.renderer.shaders.ShaderAttributes;
-import com.sonicmax.bloodrogue.renderer.VertexBufferObject;
+import com.sonicmax.bloodrogue.renderer.vbos.VertexBufferObject;
 import com.sonicmax.bloodrogue.utils.BufferUtils;
 
 import java.nio.ByteBuffer;

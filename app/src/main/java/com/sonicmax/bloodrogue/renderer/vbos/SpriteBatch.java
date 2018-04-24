@@ -1,6 +1,7 @@
-package com.sonicmax.bloodrogue.renderer.sprites;
+package com.sonicmax.bloodrogue.renderer.vbos;
 
 import android.opengl.GLES20;
+import android.opengl.GLUtils;
 import android.util.Log;
 
 import com.sonicmax.bloodrogue.renderer.shaders.ShaderAttributes;
@@ -31,33 +32,42 @@ public class SpriteBatch {
     private final FloatBuffer positionBuffer;
     private final FloatBuffer uvBuffer;
 
-    public SpriteBatch(float[] spritePositions, float[] spriteNormals, float[] spriteUvs, int numberOfSprites) {
+    public SpriteBatch(float[] spritePositions, float[] spriteNormals, float[] spriteUvs, int numberOfSprites, int drawMode) {
         this.numberOfSprites = numberOfSprites;
 
         // Create interleaved buffer for VBO, and separate position/UV buffers for depth map rendering.
         FloatBuffer spriteBuffer = createInterleavedBuffer(spritePositions, spriteNormals, spriteUvs, numberOfSprites);
+
+        // Second, copy these buffers into OpenGL's memory.
+        spriteBufferId = createVBO(spriteBuffer, drawMode);
+        spriteBuffer.limit(0);
+        spriteBuffer = null;
+
+        // Todo: Figure out how we can use VBO for all methods. Duplicating the data is silly
+
+        // Desperate attempt to free up more memory:
+        System.gc();
+
+        // Now create buffers for depth map rendering
         positionBuffer = createFloatBuffer(spritePositions);
         uvBuffer = createFloatBuffer(spriteUvs);
 
-        // Second, copy these buffers into OpenGL's memory.
-        spriteBufferId = createVBO(spriteBuffer);
-        spriteBuffer.limit(0);
-        spriteBuffer = null;
+        Log.v(LOG_TAG, "Sprite VBO id: " + spriteBufferId);
     }
 
-    private int createVBO(FloatBuffer buffer) {
+    private int createVBO(FloatBuffer buffer, int drawMode) {
         final int buffers[] = new int[1];
         GLES20.glGenBuffers(1, buffers, 0);
 
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, buffers[0]);
-        GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, buffer.capacity() * BYTES_PER_FLOAT, buffer, GLES20.GL_STATIC_DRAW);
+        GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, buffer.capacity() * BYTES_PER_FLOAT, buffer, drawMode);
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
 
         return buffers[0];
     }
 
     private FloatBuffer createInterleavedBuffer(float[] spritePositions, float[] spriteNormals, float[] spriteUvs, int numberOfSprites) {
-        Log.v(LOG_TAG, "Allocating buffer for " + numberOfSprites + " cubes");
+        Log.v(LOG_TAG, "Allocating buffer for " + numberOfSprites + " sprites");
         final int spriteDataLength = spritePositions.length + spriteNormals.length + spriteUvs.length;
 
         int positionOffset = 0;
@@ -81,6 +91,30 @@ public class SpriteBatch {
         spriteBuffer.position(0);
 
         return spriteBuffer;
+    }
+
+    public void updatePosition(int index, float[] newVertices) {
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, spriteBufferId);
+
+        // Find start point to modify
+        int stride = (POSITION_DATA_SIZE + NORMAL_DATA_SIZE + UV_DATA_SIZE) * BYTES_PER_FLOAT;
+        int offset = index * stride;
+
+        FloatBuffer floatBuffer = createFloatBuffer(newVertices);
+
+        for (int i = 0; i < VERTICES_PER_SPRITE; i++) {
+            GLES20.glBufferSubData(GLES20.GL_ARRAY_BUFFER,
+                    offset,
+                    POSITION_DATA_SIZE * BYTES_PER_FLOAT,
+                    floatBuffer.position(i * POSITION_DATA_SIZE));
+
+            offset += stride;
+        }
+
+        floatBuffer.limit(0);
+        floatBuffer = null;
+
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
     }
 
     public void render() {
@@ -129,7 +163,9 @@ public class SpriteBatch {
         final int count = numberOfSprites * VERTICES_PER_SPRITE;
         final int stride = 0;
 
-        // Pass in the position information so we can calculate depth
+        // When rendering depth map we can ignore normals as we don't require lighting, shadows, etc
+
+        // Pass in the position data so we can calculate depth
         GLES20.glEnableVertexAttribArray(ShaderAttributes.SHADOW_POSITION);
         GLES20.glVertexAttribPointer(
                 ShaderAttributes.SHADOW_POSITION,
@@ -139,7 +175,7 @@ public class SpriteBatch {
                 stride,
                 positionBuffer);
 
-        // Pass in UV coords - this is so we can discard fragments based on the texel alpha values
+        // Pass in texture coord data so we can check alpha values
         GLES20.glEnableVertexAttribArray(ShaderAttributes.TEXCOORD);
         GLES20.glVertexAttribPointer(
                 ShaderAttributes.TEXCOORD,
@@ -151,7 +187,6 @@ public class SpriteBatch {
 
         GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, count);
 
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
         GLES20.glDisableVertexAttribArray(ShaderAttributes.SHADOW_POSITION);
         GLES20.glDisableVertexAttribArray(ShaderAttributes.TEXCOORD);
     }

@@ -1,7 +1,5 @@
 package com.sonicmax.bloodrogue.generator;
 
-import com.sonicmax.bloodrogue.engine.Component;
-import com.sonicmax.bloodrogue.generator.factories.TerrainFactory;
 import com.sonicmax.bloodrogue.tilesets.BuildingTileset;
 import com.sonicmax.bloodrogue.tilesets.ExteriorTileset;
 import com.sonicmax.bloodrogue.tilesets.GenericTileset;
@@ -160,25 +158,5 @@ public class Tiler {
             default:
                 return BuildingTileset.CLOSED_DOOR;
         }
-    }
-
-    public Component[] getDoorwayTile(int x, int y) {
-        String sprite;
-
-        switch (tileset) {
-            case BuildingTileset.KEY:
-                sprite = BuildingTileset.WOOD_FLOOR_1;
-                break;
-
-            case RuinsTileset.KEY:
-                sprite = RuinsTileset.FLOOR;
-                break;
-
-            default:
-                sprite = BuildingTileset.WOOD_FLOOR_1;
-                break;
-        }
-
-        return TerrainFactory.createDoorway(x, y, sprite);
     }
 }

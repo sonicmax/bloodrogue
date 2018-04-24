@@ -8,8 +8,12 @@ public class ExteriorTileset {
     public static final String GRASS_1 = "sprites/grass_1.png";
     public static final String GRASS_2 = "sprites/grass_2.png";
     public static final String GRASS_3 = "sprites/grass_3.png";
+    public static final String GRASS_DISTANT = "sprites/grass_distant.png";
 
     public static final String[] GRASS = {GRASS_1, GRASS_2, GRASS_3};
+
+    public static final String SAND_1 = "sprites/sand_1.png";
+    public static final String SAND_DISTANT = "sprites/sand_solid.png";
 
     public static final String ROAD_DAMAGE = "sprites/road_damage_3.png";
 

@@ -13,20 +13,20 @@ import com.sonicmax.bloodrogue.engine.components.Physics;
 import com.sonicmax.bloodrogue.engine.components.Portal;
 import com.sonicmax.bloodrogue.engine.components.Position;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
-import com.sonicmax.bloodrogue.engine.components.Terrain;
 import com.sonicmax.bloodrogue.generator.buildings.HouseWithYard;
 import com.sonicmax.bloodrogue.generator.enemies.EnemyBlueprintKeys;
 import com.sonicmax.bloodrogue.generator.enemies.EnemyPlacer;
 import com.sonicmax.bloodrogue.generator.factories.DecalFactory;
-import com.sonicmax.bloodrogue.generator.factories.TerrainFactory;
 import com.sonicmax.bloodrogue.engine.systems.ComponentFinder;
 import com.sonicmax.bloodrogue.generator.tools.CellularAutomata;
 import com.sonicmax.bloodrogue.generator.tools.GridGeometryHelper;
 import com.sonicmax.bloodrogue.generator.tools.MazeGenerator;
 import com.sonicmax.bloodrogue.generator.tools.PoissonDiskSampler;
+import com.sonicmax.bloodrogue.generator.tools.SimplexNoiseGenerator;
 import com.sonicmax.bloodrogue.tilesets.BuildingTileset;
 import com.sonicmax.bloodrogue.tilesets.ExteriorTileset;
 import com.sonicmax.bloodrogue.tilesets.RuinsTileset;
+import com.sonicmax.bloodrogue.tilesets.TileCategorySorter;
 import com.sonicmax.bloodrogue.utils.maths.GeometryHelper;
 import com.sonicmax.bloodrogue.utils.maths.Vector;
 import com.sonicmax.bloodrogue.generator.buildings.Room;
@@ -83,7 +83,7 @@ public class ProceduralGenerator {
     private int minChunkSize = 7;
 
     // Street block generation defaults
-    private int maxRoadLimit = 8;
+    private int maxRoadLimit = 16;
     private int minBlockSize = 16;
 
     // Random building generation defaults
@@ -118,11 +118,15 @@ public class ProceduralGenerator {
 
     private boolean[][] blockedTiles;
 
-    private long[][] terrainEntities;
+    private String[][] terrainTiles;
     private ArrayList<Long>[][] objectEntities;
     private int currentFloor;
     private boolean[][] indoorRegions;
     private boolean[][] waterRegions;
+
+    private final long DEBUG_SEED = 42L;
+
+    private HashMap<String, Integer> spriteIndexes;
 
     public ProceduralGenerator(int width, int height, AssetManager assetManager) {
         this.mapWidth = width;
@@ -130,7 +134,7 @@ public class ProceduralGenerator {
 
         // Setup grids used to store terrain and object entities. We will use these in conjunction
         // with component manager to detect collisions and other interactions when placing terrain/objects.
-        this.terrainEntities = new long[width][height];
+        this.terrainTiles = new String[width][height];
         this.objectEntities = Array2DHelper.create2dLongStack(width, height);
 
         this.assetManager = assetManager;
@@ -144,7 +148,7 @@ public class ProceduralGenerator {
         this.componentManager.clear();
 
         this.doors = new HashMap<>();
-        this.rng = new RandomNumberGenerator();
+        this.rng = new RandomNumberGenerator(DEBUG_SEED);
         this.currentFloor = 1;
     }
 
@@ -156,41 +160,17 @@ public class ProceduralGenerator {
         return waterRegions;
     }
 
+    public void setSpriteIndexes(HashMap<String, Integer> spriteIndexes) {
+        this.spriteIndexes = spriteIndexes;
+    }
+
 	/*
 		---------------------------------------------
 		Initialisation
 		---------------------------------------------
 	*/
 
-    private void initGrids() {
-        for (int x = 0; x < mapWidth; x++) {
-            for (int y = 0; y < mapHeight; y++) {
-
-                if (x == 0 || x == mapWidth - 1 || y == 0 || y == mapHeight - 1) {
-                    Component[] border = TerrainFactory.createBorder(x, y, tiler.getBorderTilePath());
-
-                    terrainEntities[x][y] = border[0].id;
-                    componentManager.sortComponentArray(border);
-
-                    if (floorType == ProceduralGenerator.EXTERIOR) {
-                        Component[] borderObject = DecalFactory.createDecal(x, y, tiler.getBorderObjectPath());
-
-                        objectEntities[x][y].add(borderObject[0].id);
-                        componentManager.sortComponentArray(borderObject);
-                    }
-                }
-                else {
-                    if (floorType == ProceduralGenerator.EXTERIOR) {
-                        setTerrain(new Vector(x, y), FLOOR, tiler.getFloorTile(theme));
-                    }
-                    else {
-                        setTerrain(new Vector(x, y), WALL, tiler.getWallTile(theme));
-                    }
-                }
-
-            }
-        }
-
+	private void initGrids() {
         mapRegions = Array2DHelper.fillIntArray(mapWidth, mapHeight, -1);
         indoorRegions = new boolean[mapWidth][mapHeight];
         waterRegions = new boolean[mapWidth][mapHeight];
@@ -201,7 +181,18 @@ public class ProceduralGenerator {
     }
 
     public MapData getMapData() {
-        return new MapData(terrainEntities, objectEntities, new Vector(0, 30), floorExit, type);
+	    // Todo: this won't really work for saving purposes as sprite indexes will change whenever sprites are added to sprite folder
+	    int[][] terrainIndices = Array2DHelper.fillIntArray(mapWidth, mapHeight, -1);
+
+	    for (int x = 0; x < mapWidth; x++) {
+	        for (int y = 0; y < mapHeight; y++) {
+	            if (terrainTiles[x][y] != null) {
+                    terrainIndices[x][y] = spriteIndexes.get(terrainTiles[x][y]);
+                }
+            }
+        }
+
+        return new MapData(terrainIndices, objectEntities, new Vector(0, 30), floorExit, type);
     }
 
     /*
@@ -311,7 +302,7 @@ public class ProceduralGenerator {
         calculateGoals();
 
         decorator = new MansionDecorator(mapWidth, mapHeight, theme, themeKey, assetManager);
-        decorator.setGeneratorData(terrainEntities, objectEntities);
+        decorator.setGeneratorData(terrainTiles, objectEntities);
         // decorator.decorateRooms(rooms);
 
         removeHiddenWalls();
@@ -356,7 +347,7 @@ public class ProceduralGenerator {
         }*/
 
         decorator = new MansionDecorator(mapWidth, mapHeight, theme, themeKey, assetManager);
-        decorator.setGeneratorData(terrainEntities, objectEntities);
+        decorator.setGeneratorData(terrainTiles, objectEntities);
         // decorator.decorateRooms(rooms);
     }
 
@@ -384,7 +375,150 @@ public class ProceduralGenerator {
     ------------------------------------------------------------------------------------------
 */
 
-    public void generateExterior() {
+    private void generateExterior() {
+        this.rooms = new ArrayList<>();
+        setThemeAsMansion();
+        this.tiler = new Tiler(themeKey);
+        this.blockedTiles = new boolean[mapWidth][mapHeight];
+
+        // The first stage of terrain generation is to add roads and place buildings and other landmarks.
+        // We can afford to generate this for the whole map
+
+        Chunk world = new Chunk(0, 0, mapWidth, mapHeight);
+
+        addRoadsAndBuildingLocations(world);
+
+        // The second stage of terrain generation is to add grass tiles and other vegetation, water regions,
+        // enemies, etc. This is more costly and should only be generated for a section of the map at a time
+        // Todo: 64x64 or 128x128?
+        // Todo: accounting for z axis, maybe 32 * 32 * 8?
+
+        Chunk startingChunk = new Chunk(0, 0, 128, 128);
+
+        heightMap = generateIslandHeightMap(world);
+        addWorldDetails(startingChunk);
+        setElevationSpecificTerrain(startingChunk);
+
+        checkForBrokenDoors();
+        calculateGoals();
+    }
+
+    private void addRoadsAndBuildingLocations(Chunk chunk) {
+        ArrayList<Chunk> buildings = new ArrayList<>();
+        ArrayList<Chunk> streetBlocks = getStreetBlocks(chunk);
+
+        for (Chunk block : streetBlocks) {
+            // Add pavement to border of block
+            addBorderToChunk(block, ExteriorTileset.SIDEWALK_BORDER);
+
+            // Place buildings in each block
+            if (block.width > 24 && block.height > 24) {
+                addHousesToChunk(block);
+            }
+            else {
+                addBuildingsToChunk(block);
+            }
+        }
+    }
+
+    private void addWorldDetails(Chunk chunk) {
+        tiler.setTileset(ExteriorTileset.KEY);
+
+        // Replace empty terrain tiles with random grass
+        for (int x = chunk.x; x < chunk.x + chunk.width; x++) {
+            for (int y = chunk.y; y < chunk.y + chunk.height; y++) {
+                if (terrainTiles[x][y] == null) {
+                    setTerrain(x, y, tiler.getFloorTile(theme));
+                }
+            }
+        }
+
+        placeRandomTreesInChunk(chunk);
+        addForestRegions(chunk);
+        addFloralRegions(chunk);
+        addOutdoorMobs(chunk);
+    }
+
+    private float[][] heightMap;
+
+    private float[][] generateIslandHeightMap(Chunk chunk) {
+        /*
+            Development notes:
+            - Good results setting BE to 0.5, CH to 1.13 and DOF to 3.4, using Euclidian distance
+         */
+
+        // Todo: find range of acceptable values for these parameters.
+
+        final float baseElevation = 0.5f;
+        final float coastHeight = 1.13f;
+        final float dropOffFactor = 3.4f;
+
+        return generateIslandHeightMap(chunk, DEBUG_SEED, baseElevation, coastHeight, dropOffFactor);
+    }
+
+    /**
+     * Generates height values for terrain mesh using simplex noise.
+     * Heights generated using same seed will be identical, provided that
+     * other parameters are also the same (chunk, baseElevation, coastHeight, and dropOffFactor).
+     * If parameters differ, then terrain will likely be similar (but potentially not)
+     *
+     * @param chunk Map chunk to operate on
+     * @param seed Seed for simplex noise generator
+     * @return 2d float array containing heights for terrain mesh
+     */
+
+    private float[][] generateIslandHeightMap(Chunk chunk, long seed, float baseElevation, float coastHeight, float dropOffFactor) {
+        // For terrain mesh we need to add 1 to grid width/height
+        int width = chunk.width + 1;
+        int height = chunk.height + 1;
+
+        float[][] heightMap = new float[width][height];
+
+        SimplexNoiseGenerator generator = new SimplexNoiseGenerator(seed);
+
+        for (int x = 0; x < width; x++) {
+            for (int y = 0; y < height; y++) {
+                float nx = (float) x / width - 0.5f;
+                float ny = (float) y / height - 0.5f;
+
+                // Generate elevation using three octaves of noise
+                float noise = (1 * generator.noise2D(1 * nx, 1 * ny))
+                        + (0.5f * generator.noise2D(2 * nx, 2 * ny))
+                        + (0.25f * generator.noise2D(4 * nx, 2 * ny));
+
+                // Convert simplex noise to be within range of 0 to 1
+                // (add 1 to convert from -1,1 to 0,2, then halve to get 0,1)
+                // noise = (noise + 1) / 2;
+
+                float distance;
+
+                // Use Manhattan distance from centre of map to determine coastline
+                // distance = 2 * (Math.max(Math.abs(nx), Math.abs(ny)));
+
+                // Use Euclidian distance from centre of map to determine coastline
+                distance = 2 * (float) (Math.sqrt(nx * nx + ny * ny));
+
+                // float elevation = (baseElevation + noise) * (1 - coastHeight * (float) Math.pow(distance, dropOffFactor));
+                float elevation = (baseElevation + noise) - coastHeight * (float) Math.pow(distance, dropOffFactor);
+
+                // Add 1 to convert from range of [-1,1] to [0, 2], then halve to get [0, 1]
+                elevation = (elevation + 1) / 2;
+
+                // For terracing?
+                // elevation = Math.round(elevation * 4) / 4;
+
+                heightMap[x][y] = elevation;
+            }
+        }
+
+        return heightMap;
+    }
+
+    public float[][] getHeightMap() {
+        return heightMap;
+    }
+
+    private void generateExterior2() {
         this.rooms = new ArrayList<>();
         setThemeAsMansion();
         this.tiler = new Tiler(themeKey);
@@ -400,7 +534,7 @@ public class ProceduralGenerator {
         addForestRegions(mapWithoutBorders);
         addFloralRegions(mapWithoutBorders);
         addOutdoorMobs(mapWithoutBorders);
-        growLakes(mapWithoutBorders);
+        addRandomLakes(mapWithoutBorders);
 
         // Now we can start to add man made terrain - roads, buildings, etc
         ArrayList<Chunk> buildings = new ArrayList<>();
@@ -408,7 +542,7 @@ public class ProceduralGenerator {
 
         for (Chunk block : streetBlocks) {
             // Add pavement to border of block
-            addBorderToChunk(block, FLOOR, ExteriorTileset.SIDEWALK_BORDER);
+            addBorderToChunk(block, ExteriorTileset.SIDEWALK_BORDER);
             clearObjectsFromBorder(block);
 
             // Place buildings in each block
@@ -475,6 +609,9 @@ public class ProceduralGenerator {
         Log.v(LOG_TAG, "Placing " + treeCount + " trees");
         ArrayList<Vector> treePositions = sampler.generateNoise(chunk.width, chunk.height, minDistance, treeCount);
         for (Vector cell : treePositions) {
+            if (!inBounds(cell)) continue;
+            if (indoorRegions[cell.x][cell.y]) continue;
+
             Component[] tree = DecalFactory.createDecal(cell.x, cell.y, ExteriorTileset.TREES[rng.getRandomInt(0, ExteriorTileset.TREES.length - 1)]);
             treeEntities.add(tree[0].id);
             objectEntities[cell.x][cell.y].add(tree[0].id);
@@ -482,7 +619,45 @@ public class ProceduralGenerator {
         }
     }
 
-    private void growLakes(Chunk chunk) {
+    /**
+     * Sets terrain type based on elevation.
+     * @param chunk Map chunk to process
+     */
+
+    private void setElevationSpecificTerrain(Chunk chunk) {
+        // To add lakes we will use the height map to find regions that are below sea level
+
+        final float SEA_LEVEL = 0.25f;
+        final float GRASS_LEVEL = 0.4f;
+
+        // TODO: handle smaller chunks that don't equal size of whole map
+
+        for (int x = 0; x < chunk.width; x++) {
+            for (int y = 0; y < chunk.height; y++) {
+                // Todo: we want to prevent z-fighting, but should sample surrounding heights
+                if (heightMap[x][y] == SEA_LEVEL) {
+                    heightMap[x][y] -= 0.001f;
+                }
+
+                float elevation = heightMap[x][y];
+
+                if (elevation < SEA_LEVEL) {
+                    // Water is rendered as large quad, so we don't need to worry about that.
+                    // We need to clear any objects and change the terrain to be sand
+
+                    clearObjects(x, y);
+                    setTerrain(x, y, ExteriorTileset.SAND_1);
+                    waterRegions[x][y] = true;
+                }
+
+                else if (elevation > SEA_LEVEL && elevation <= GRASS_LEVEL) {
+                    setTerrain(x, y, ExteriorTileset.SAND_1);
+                }
+            }
+        }
+    }
+
+    private void addRandomLakes(Chunk chunk) {
         Vector offset = new Vector(chunk.x, chunk.y);
 
         automata.setParams(4, 3, 3, 0.3f);
@@ -565,6 +740,8 @@ public class ProceduralGenerator {
         int waterTextureIndex = 0;
 
         for (Vector vector : lake.getVectors()) {
+            if (indoorRegions[vector.x][vector.y]) continue;
+
             Vector translatedVec = vector.subtract(offset);
             clearObjects(translatedVec.x, translatedVec.y);
 
@@ -579,7 +756,7 @@ public class ProceduralGenerator {
                 waterTextureIndex = 0;
             }
 
-            setTerrain(translatedVec, FLOOR, texture);
+            setTerrain(translatedVec.x, translatedVec.y, texture);
 
             waterRegions[translatedVec.x][translatedVec.y] = true;
         }
@@ -657,7 +834,7 @@ public class ProceduralGenerator {
 
         for (int x = 0; x < forest.length; x++) {
             for (int y = 0; y < forest[0].length; y++) {
-                if (forest[x][y] && !detectCollisions(new Vector(x, y))) {
+                if (forest[x][y] && !indoorRegions[x][y] && !detectCollisions(new Vector(x, y))) {
 
                     Component[] tree = DecalFactory.createFovBlockingDecal(x, y, ExteriorTileset.TREES[rng.getRandomInt(0, ExteriorTileset.TREES.length - 1)]);
                     treeEntities.add(tree[0].id);
@@ -673,7 +850,7 @@ public class ProceduralGenerator {
 
         for (int x = 0; x < flowers.length; x++) {
             for (int y = 0; y < flowers[0].length; y++) {
-                if (flowers[x][y] && !detectCollisions(new Vector(x, y))) {
+                if (flowers[x][y] && !indoorRegions[x][y] && !detectCollisions(new Vector(x, y))) {
                     String texture = ExteriorTileset.DECALS[rng.getRandomInt(0, ExteriorTileset.DECALS.length - 1)];
                     Component[] flower = DecalFactory.createTraversableDecoration(x, y, texture);
                     objectEntities[x][y].add(flower[0].id);
@@ -691,7 +868,7 @@ public class ProceduralGenerator {
 
         for (int x = 0; x < badGoats.length; x++) {
             for (int y = 0; y < badGoats[0].length; y++) {
-                if (badGoats[x][y] && !detectCollisions(new Vector(x, y))) {
+                if (badGoats[x][y] && !indoorRegions[x][y] && !detectCollisions(new Vector(x, y))) {
                     enemyPlacer.placeEnemy(x, y, EnemyBlueprintKeys.GOAT);
                 }
             }
@@ -700,12 +877,13 @@ public class ProceduralGenerator {
         // Add mama bears
         PoissonDiskSampler sampler = new PoissonDiskSampler();
         int minDistance = mapWidth / 2;
-        int bearCount = 2;
+        int bearCount = 4;
         ArrayList<Vector> treePositions = sampler.generateNoise(chunk.width, chunk.height, minDistance, bearCount);
         for (Vector cell : treePositions) {
-            Component[] tree = DecalFactory.createDecal(cell.x, cell.y, ExteriorTileset.TREES[rng.getRandomInt(0, ExteriorTileset.TREES.length - 1)]);
-            objectEntities[cell.x][cell.y].add(tree[0].id);
-            componentManager.sortComponentArray(tree);
+            if (!inBounds(cell)) continue;
+            if (indoorRegions[cell.x][cell.y]) continue;
+
+            enemyPlacer.placeEnemy(cell.x, cell.y, EnemyBlueprintKeys.BEAR);
         }
     }
 
@@ -1083,7 +1261,7 @@ public class ProceduralGenerator {
                 startRegion();
 
                 for (int x = chunk.x; x <= chunk.width; x++) {
-                    setTerrain(new Vector(x, splitY), FLOOR, BuildingTileset.WOOD_FLOOR_1);
+                    setTerrain(x, splitY, BuildingTileset.WOOD_FLOOR_1);
                 }
 
                 Chunk splitChunkA = new Chunk(chunk.x, chunk.y, chunk.width, splitY - chunk.y);
@@ -1121,7 +1299,7 @@ public class ProceduralGenerator {
                 int splitX = rng.getRandomInt(left, right);
 
                 for (int y = chunk.y; y <= chunk.height; y++) {
-                    setTerrain(new Vector(splitX, y), FLOOR, BuildingTileset.WOOD_FLOOR_1);
+                    setTerrain(splitX, y, BuildingTileset.WOOD_FLOOR_1);
                 }
 
                 Chunk splitChunkA = new Chunk(chunk.x, chunk.y, splitX - chunk.x, chunk.height);
@@ -1188,16 +1366,16 @@ public class ProceduralGenerator {
 
                 for (int x = chunk.x; x < chunk.x + chunk.width; x++) {
 
-                    setTerrain(new Vector(x, splitY - 1), FLOOR, ExteriorTileset.ROAD_PLAIN);
+                    setTerrain(x, splitY - 1, ExteriorTileset.ROAD_PLAIN);
 
                     if (verticalRoads[x][splitY]) {
-                        setTerrain(new Vector(x, splitY), FLOOR, ExteriorTileset.ROAD_PLAIN);
+                        setTerrain(x, splitY, ExteriorTileset.ROAD_PLAIN);
                     }
                     else {
-                        setTerrain(new Vector(x, splitY), FLOOR, ExteriorTileset.ROAD_MIDDLE_H);
+                        setTerrain(x, splitY, ExteriorTileset.ROAD_MIDDLE_H);
                     }
 
-                    setTerrain(new Vector(x, splitY + 1), FLOOR, ExteriorTileset.ROAD_PLAIN);
+                    setTerrain(x, splitY + 1, ExteriorTileset.ROAD_PLAIN);
 
                     // Either clear objects from the road, or replace a road tile with a dirt tile.
                     for (int y = splitY - 1; y <= splitY + 1; y++) {
@@ -1208,7 +1386,7 @@ public class ProceduralGenerator {
                                 clearObjects(x, y);
                             }
                             else {
-                                setTerrain(new Vector(x, y), FLOOR, ExteriorTileset.ROAD_DAMAGE);
+                                setTerrain(x, y, ExteriorTileset.ROAD_DAMAGE);
                             }
                         }
                     }
@@ -1254,16 +1432,16 @@ public class ProceduralGenerator {
 
                 for (int y = chunk.y; y < chunk.y + chunk.height; y++) {
 
-                    setTerrain(new Vector(splitX - 1, y), FLOOR, ExteriorTileset.ROAD_PLAIN);
+                    setTerrain(splitX - 1, y, ExteriorTileset.ROAD_PLAIN);
 
                     if (horizontalRoads[splitX][y]) {
-                        setTerrain(new Vector(splitX, y), FLOOR, ExteriorTileset.ROAD_PLAIN);
+                        setTerrain(splitX, y, ExteriorTileset.ROAD_PLAIN);
                     }
                     else {
-                        setTerrain(new Vector(splitX, y), FLOOR, ExteriorTileset.ROAD_MIDDLE_V);
+                        setTerrain(splitX, y, ExteriorTileset.ROAD_MIDDLE_V);
                     }
 
-                    setTerrain(new Vector(splitX + 1, y), FLOOR, ExteriorTileset.ROAD_PLAIN);
+                    setTerrain(splitX + 1, y, ExteriorTileset.ROAD_PLAIN);
 
                     // Either clear objects from the road, or replace a road tile with a dirt tile
                     for (int x = splitX - 1; x <= splitX + 1; x++) {
@@ -1274,7 +1452,7 @@ public class ProceduralGenerator {
                                 clearObjects(x, y);
                             }
                             else {
-                                setTerrain(new Vector(x, y), FLOOR, ExteriorTileset.ROAD_DAMAGE);
+                                setTerrain(x, y, ExteriorTileset.ROAD_DAMAGE);
                             }
                         }
                     }
@@ -1532,11 +1710,11 @@ public class ProceduralGenerator {
 
             clearObjectsFromBorder(house);
             carveBuildingFoundation(house);
-            addRoomsToBuilding(houseWithYard);
+            // addRoomsToBuilding(houseWithYard);
             createDamagedWalls(house);
         }
 
-        calculateGoals();
+        // calculateGoals();
 
         // addBuildingPaths();
     }
@@ -1595,11 +1773,11 @@ public class ProceduralGenerator {
             addBorderObjectToChunk(building, ExteriorTileset.WOOD_FENCE);
 
             carveBuildingFoundation(building);
-            addRoomsToBuilding(building);
+            // addRoomsToBuilding(building);
             createDamagedWalls(building);
         }
 
-        calculateGoals();
+        // calculateGoals();
 
         // addBuildingPaths();
 
@@ -1621,7 +1799,7 @@ public class ProceduralGenerator {
 
         tiler.setTileset(BuildingTileset.KEY);
         decorator = new MansionDecorator(mapWidth, mapHeight, theme, themeKey, assetManager);
-        decorator.setGeneratorData(terrainEntities, objectEntities);
+        decorator.setGeneratorData(terrainTiles, objectEntities);
         decorator.decorateRooms(rooms, building.width, building.height);
 
         // Use MazeGenerator to add corridors to building and connect regions
@@ -1641,13 +1819,9 @@ public class ProceduralGenerator {
             for (int y = 0; y < building.height; y++) {
                 if (carvedTiles[x][y]) {
                     Vector translatedCell = new Vector(building.x + x, building.y + y);
-                    Terrain terrain = (Terrain) componentManager.getEntityComponent(
-                            terrainEntities[translatedCell.x][translatedCell.y], Terrain.class.getSimpleName());
 
-                    // We only want to carve tiles that haven't already been carved
-
-                    if (terrain.type == Terrain.WALL) {
-                        setTerrain(translatedCell, FLOOR, BuildingTileset.WOOD_FLOOR_1);
+                    if (TileCategorySorter.isWall(terrainTiles[translatedCell.x][translatedCell.y])) {
+                        setTerrain(translatedCell.x, translatedCell.y, BuildingTileset.WOOD_FLOOR_1);
                     }
                 }
             }
@@ -1668,7 +1842,7 @@ public class ProceduralGenerator {
 
         tiler.setTileset(BuildingTileset.KEY);
         decorator = new MansionDecorator(mapWidth, mapHeight, theme, themeKey, assetManager);
-        decorator.setGeneratorData(terrainEntities, objectEntities);
+        decorator.setGeneratorData(terrainTiles, objectEntities);
         decorator.decorateRooms(rooms, building.width, building.height);
 
         // Use MazeGenerator to add corridors to building and connect regions
@@ -1686,13 +1860,10 @@ public class ProceduralGenerator {
             for (int y = 0; y < building.height; y++) {
                 if (carvedTiles[x][y]) {
                     Vector translatedCell = new Vector(building.x + x, building.y + y);
-                    Terrain terrain = (Terrain) componentManager.getEntityComponent(
-                            terrainEntities[translatedCell.x][translatedCell.y], Terrain.class.getSimpleName());
 
                     // We only want to carve tiles that haven't already been carved
-
-                    if (terrain.type == Terrain.WALL) {
-                        setTerrain(translatedCell, FLOOR, BuildingTileset.WOOD_FLOOR_1);
+                    if (TileCategorySorter.isWall(terrainTiles[translatedCell.x][translatedCell.y])) {
+                        setTerrain(translatedCell.x, translatedCell.y, BuildingTileset.WOOD_FLOOR_1);
                     }
                 }
             }
@@ -1766,6 +1937,8 @@ public class ProceduralGenerator {
                 }
             }
 
+            int z = 1;
+
             for (Vector freeTile : freeTiles) {
                 int x = freeTile.x;
                 int y = freeTile.y;
@@ -1774,11 +1947,11 @@ public class ProceduralGenerator {
 
                 // All rooms with exterior access should have at least 1 window
                 if (windowsInRoom < 1) {
-                    setTerrain(new Vector(x, y), FLOOR, tiler.getFloorTile(currentRoomTheme));
+                    setTerrain(x, y, tiler.getFloorTile(currentRoomTheme));
 
                     String windowTex = getMatchingWindowTexture(x, y);
 
-                    Component[] window = DecalFactory.createCubeDecal(x, y, windowTex, false, false);
+                    Component[] window = DecalFactory.createCubeDecal(x, y, z, windowTex, false, false);
                     objectEntities[x][y].add(window[0].id);
                     componentManager.sortComponentArray(window);
 
@@ -1788,7 +1961,7 @@ public class ProceduralGenerator {
 
                 // One of these rooms will be used as entrance to building
                 if (exteriorDoors < 1) {
-                    setTerrain(new Vector(x, y), FLOOR, tiler.getFloorTile(currentRoomTheme));
+                    setTerrain(x, y, tiler.getFloorTile(currentRoomTheme));
 
                     tiler.setTileset(BuildingTileset.KEY);
                     addJunction(freeTile);
@@ -1799,9 +1972,9 @@ public class ProceduralGenerator {
 
                 // 50/50 chance that room will have 2 windows
                 if (windowsInRoom < 2 && rng.coinflip()) {
-                    setTerrain(new Vector(x, y), FLOOR, tiler.getFloorTile(currentRoomTheme));
+                    setTerrain(x, y, tiler.getFloorTile(currentRoomTheme));
                     String windowTex = getMatchingWindowTexture(x, y);
-                    Component[] window = DecalFactory.createCubeDecal(x, y, windowTex, false, false);
+                    Component[] window = DecalFactory.createCubeDecal(x, y, z, windowTex, false, false);
                     objectEntities[x][y].add(window[0].id);
                     componentManager.sortComponentArray(window);
 
@@ -1829,7 +2002,7 @@ public class ProceduralGenerator {
 
                 for (Vector path : buildPath(a, b, blockedTiles)) {
                     String texture = ExteriorTileset.DIRT_PATH[rng.getRandomInt(0, ExteriorTileset.DIRT_PATH.length - 1)];
-                    setTerrain(path, FLOOR, texture);
+                    setTerrain(path.x, path.y, texture);
 
                     // Other entities occupying this tile can be safely removed
                     clearObjects(path.x, path.y);
@@ -1840,8 +2013,7 @@ public class ProceduralGenerator {
     }
 
     public String getMatchingWindowTexture(int x, int y) {
-        Sprite sprite = (Sprite) componentManager.getEntityComponent(terrainEntities[x][y], Sprite.class.getSimpleName());
-        String window = ExteriorTileset.getWindowForWallTile(sprite.path);
+        String window = ExteriorTileset.getWindowForWallTile(terrainTiles[x][y]);
         if (window != null) {
             return window;
         }
@@ -1849,8 +2021,7 @@ public class ProceduralGenerator {
         Collection<Vector> adjacent = getAdjacentCells(new Vector(x, y), 1, false).values();
 
         for (Vector cell : adjacent) {
-            sprite = (Sprite) componentManager.getEntityComponent(terrainEntities[cell.x][cell.y], Sprite.class.getSimpleName());
-            window = ExteriorTileset.getWindowForWallTile(sprite.path);
+            window = ExteriorTileset.getWindowForWallTile(terrainTiles[cell.x][cell.y]);
             if (window != null) {
                 return window;
             }
@@ -1884,73 +2055,88 @@ public class ProceduralGenerator {
         int brickIndex = 0;
         String[] brickTiles = ExteriorTileset.WALLS[rng.getRandomInt(0, ExteriorTileset.WALLS.length - 1)];
 
-        // First, carve the inside
-        for (int x = chunk.x + 1; x < chunk.x + chunk.width - 1; x++) {
-            for (int y = chunk.y + 1; y < chunk.y + chunk.height - 1; y++) {
-                setTerrain(new Vector(x, y), WALL, BuildingTileset.WOOD_WALL);
-            }
-        }
-        
-        // Then carve the walls
+        // Carve the walls. We defer the interior terrain generation until player enters building,
+        // or interior tiles enter their field of vision (eg. through windows).
         
         for (int x = chunk.x; x < chunk.x + chunk.width; x++) {
             Vector bottom = new Vector(x, chunk.y);
 
-            setTerrain(bottom, BORDER, brickTiles[brickIndex]);
+            setTerrain(bottom.x, bottom.y, brickTiles[brickIndex]);
 
             brickIndex++;
 
             if (brickIndex > brickTiles.length - 1) {
                 brickIndex = 0;
             }
+
+            Component[] wall = DecalFactory.createCubeDecal(x, chunk.y, 1, brickTiles[brickIndex], true, true);
+            objectEntities[x][chunk.y].add(wall[0].id);
+            componentManager.sortComponentArray(wall);
         }
 
         for (int x = chunk.x; x < chunk.x + chunk.width; x++) {
             Vector top = new Vector(x, chunk.y + chunk.height - 1);
-            setTerrain(top, BORDER, brickTiles[brickIndex]);
+            setTerrain(top.x, top.y, brickTiles[brickIndex]);
 
             brickIndex++;
 
             if (brickIndex > brickTiles.length - 1) {
                 brickIndex = 0;
             }
+
+            Component[] wall = DecalFactory.createCubeDecal(x, chunk.y + chunk.height - 1, 1, brickTiles[brickIndex], true, true);
+            objectEntities[x][chunk.y + chunk.height - 1].add(wall[0].id);
+            componentManager.sortComponentArray(wall);
         }
 
+        Vector left = new Vector(chunk.x, 0);
+
         for (int y = chunk.y; y < chunk.y + chunk.height; y++) {
-            Vector left = new Vector(chunk.x, y);
-            setTerrain(left, BORDER, brickTiles[brickIndex]);
+            left.y = y;
+            setTerrain(left.x, left.y, brickTiles[brickIndex]);
             
             brickIndex++;
 
             if (brickIndex > brickTiles.length - 1) {
                 brickIndex = 0;
             }
+
+            Component[] wall = DecalFactory.createCubeDecal(left.x, left.y, 1, brickTiles[brickIndex], true, true);
+            objectEntities[left.x][left.y].add(wall[0].id);
+            componentManager.sortComponentArray(wall);
         }
 
+        Vector right = new Vector(chunk.x + chunk.width - 1, 0);
+
         for (int y = chunk.y; y < chunk.y + chunk.height; y++) {
-            Vector right = new Vector(chunk.x + chunk.width - 1, y);
-            setTerrain(right, BORDER, brickTiles[brickIndex]);
+            right.y = y;
+            setTerrain(right.x, right.y, brickTiles[brickIndex]);
 
             brickIndex++;
 
             if (brickIndex > brickTiles.length - 1) {
                 brickIndex = 0;
             }
+
+            Component[] wall = DecalFactory.createCubeDecal(right.x, right.y, 1, brickTiles[brickIndex], true, true);
+            objectEntities[right.x][right.y].add(wall[0].id);
+            componentManager.sortComponentArray(wall);
         }
     }
 
     private void createDamagedWalls(Chunk chunk) {
-        Sprite wall = (Sprite) componentManager.getEntityComponent(terrainEntities[chunk.x][chunk.y], Sprite.class.getSimpleName());
-        String[] damagedWall = ExteriorTileset.getDamagedWallTiles(wall.path);
+        String[] damagedWall = ExteriorTileset.getDamagedWallTiles(terrainTiles[chunk.x][chunk.y]);
 
         // Ignore corner tiles when placing damaged walls
+
+        int z = 1;
 
         for (int x = chunk.x + 1; x < chunk.x + chunk.width - 1; x++) {
             Vector bottom = new Vector(x, chunk.y);
 
             if (rng.d6(2) == 2) {
-                addObject(bottom, DecalFactory.createCubeDecal(bottom.x, bottom.y, rng.getRandomItemFromStringArray(damagedWall), false, false), true);
-                copyTerrain(bottom.add(new Vector(0, 1)), bottom);
+                addObject(bottom, DecalFactory.createCubeDecal(bottom.x, bottom.y, z, rng.getRandomItemFromStringArray(damagedWall), false, false), true);
+                copyTerrain(bottom.x, bottom.y + 1, bottom.x, bottom.y);
 
                 // if we modify a tile, skip ahead to prevent from modifying consecutive tiles
                 x++;
@@ -1960,8 +2146,8 @@ public class ProceduralGenerator {
         for (int x = chunk.x + 1; x < chunk.x + chunk.width - 1; x++) {
             Vector top = new Vector(x, chunk.y + chunk.height - 1);
             if (rng.d6(2) == 2) {
-                addObject(top, DecalFactory.createCubeDecal(top.x, top.y, rng.getRandomItemFromStringArray(damagedWall), false, false), true);
-                copyTerrain(top.add(new Vector(0, 1)), top);
+                addObject(top, DecalFactory.createCubeDecal(top.x, top.y, z, rng.getRandomItemFromStringArray(damagedWall), false, false), true);
+                copyTerrain(top.x, top.y + 1, top.x, top.y);
                 x++;
             }
         }
@@ -2083,15 +2269,11 @@ public class ProceduralGenerator {
             if (!adjacentCellsAreCarvable(north) || !adjacentCellsAreCarvable(south)) break;
 
             if (inBounds(north)) {
-                Component[] wall = TerrainFactory.createWall(north.x, north.y, themedTile);
-                terrainEntities[north.x][north.y] = wall[0].id;
-                componentManager.sortComponentArray(wall);
+                terrainTiles[north.x][north.y] = themedTile;
             }
 
             if (inBounds(south)) {
-                Component[] wall = TerrainFactory.createWall(south.x, south.y, themedTile);
-                terrainEntities[south.x][south.y] = wall[0].id;
-                componentManager.sortComponentArray(wall);
+                terrainTiles[south.x][south.y] = themedTile;
             }
         }
 
@@ -2102,15 +2284,11 @@ public class ProceduralGenerator {
             if (!adjacentCellsAreCarvable(east) || !adjacentCellsAreCarvable(west)) break;
 
             if (inBounds(east)) {
-                Component[] wall = TerrainFactory.createWall(east.x, east.y, themedTile);
-                terrainEntities[east.x][east.y] = wall[0].id;
-                componentManager.sortComponentArray(wall);
+                terrainTiles[east.x][east.y] = themedTile;
             }
 
             if (inBounds(west)) {
-                Component[] wall = TerrainFactory.createWall(west.x, west.y, themedTile);
-                terrainEntities[west.x][west.y] = wall[0].id;
-                componentManager.sortComponentArray(wall);
+                terrainTiles[west.x][west.y] = themedTile;
             }
         }
     }
@@ -2126,7 +2304,7 @@ public class ProceduralGenerator {
         String floorTexture = tiler.getFloorTile(currentRoomTheme);
 
         for (Vector cell : room.getVectors()) {
-            carveRegion(new Vector(cell.x, cell.y), FLOOR, floorTexture);
+            carveRegion(new Vector(cell.x, cell.y), floorTexture);
         }
     }
 
@@ -2140,12 +2318,12 @@ public class ProceduralGenerator {
         while (it.hasNext()) {
             Component[] door = (Component[]) it.next();
             Position pComp = ComponentFinder.getPositionComponent(door);
+
+            if (pComp == null) continue;
+
             Vector position = new Vector(pComp.x, pComp.y);
 
-            long entity = terrainEntities[position.x][position.y];
-            Terrain stat = (Terrain) componentManager.getEntityComponent(entity, Terrain.class.getSimpleName());
-
-            if (stat.type == Terrain.WALL) {
+            if (TileCategorySorter.isWall(terrainTiles[position.x][position.y])) {
                 it.remove();
             }
         }
@@ -2373,11 +2551,11 @@ public class ProceduralGenerator {
         int x = position.x();
         int y = position.y();
 
-        long terrainEntity = terrainEntities[x][y];
-        Physics physics = (Physics) componentManager.getEntityComponent(terrainEntity, Physics.class.getSimpleName());
-
-        if (physics.isBlocking || !physics.isTraversable) {
-            return true;
+        // If terrain tile is null, then we assume it is not blocking and continue to check objects
+        if (terrainTiles[x][y] != null) {
+            if (isBlocking(terrainTiles[x][y]) || !isTraversable(terrainTiles[x][y])) {
+                return true;
+            }
         }
 
         ArrayList<Long> objectStack = objectEntities[x][y];
@@ -2388,7 +2566,7 @@ public class ProceduralGenerator {
 
         for (Long entity : objectStack) {
 
-            physics = (Physics) componentManager.getEntityComponent(entity, Physics.class.getSimpleName());
+            Physics physics = (Physics) componentManager.getEntityComponent(entity, Physics.class.getSimpleName());
 
             if (physics.isBlocking || !physics.isTraversable) {
                 return true;
@@ -2398,16 +2576,25 @@ public class ProceduralGenerator {
         return false;
     }
 
+    private boolean isBlocking(String tile) {
+        if (TileCategorySorter.isWall(tile)) return true;
+
+        return false;
+    }
+
+    private boolean isTraversable(String tile) {
+        if (TileCategorySorter.isWall(tile)) return false;
+
+        return true;
+    }
+
     private boolean canBuildPath(Vector position) {
         int x = position.x();
         int y = position.y();
 
-        long terrainEntity = terrainEntities[x][y];
-        Physics physics = (Physics) componentManager.getEntityComponent(terrainEntity, Physics.class.getSimpleName());
-
-        if (!physics.isTraversable && !physics.isDestructable) {
+        /*if (!physics.isTraversable && !physics.isDestructable) {
             return false;
-        }
+        }*/
 
         ArrayList<Long> objectStack = objectEntities[x][y];
 
@@ -2418,7 +2605,7 @@ public class ProceduralGenerator {
         }
 
         for (Long entity : objectStack) {
-            physics = (Physics) componentManager.getEntityComponent(entity, Physics.class.getSimpleName());
+            Physics physics = (Physics) componentManager.getEntityComponent(entity, Physics.class.getSimpleName());
 
             if (!physics.isTraversable && !physics.isDestructable) {
                 return false;
@@ -2447,7 +2634,7 @@ public class ProceduralGenerator {
             for (int y = 1; y < chunk.height - 1; y++) {
                 if (cavern[x][y]) {
                     // Note: as cell map origin is 0,0, we have to translate coordinates
-                    setTerrain(new Vector(x + chunk.x, y + chunk.y), FLOOR, RuinsTileset.FLOOR);
+                    setTerrain(x + chunk.x, y + chunk.y, RuinsTileset.FLOOR);
                 }
             }
         }
@@ -2476,9 +2663,7 @@ public class ProceduralGenerator {
         for (Vector direction : Directions.Cardinal.values()) {
             Vector adjacent = cell.add(direction);
             if (inBounds(adjacent)) {
-                long entity = terrainEntities[adjacent.x][adjacent.y];
-                Terrain adjacentTerrain = (Terrain) componentManager.getEntityComponent(entity, Terrain.class.getSimpleName());
-                if (adjacentTerrain.type == Terrain.FLOOR) {
+                if (TileCategorySorter.isFloor(terrainTiles[adjacent.x][adjacent.y])) {
                     adjacentFloorTiles++;
                 }
             }
@@ -2490,7 +2675,7 @@ public class ProceduralGenerator {
             return;
         }
 
-        setTerrain(cell, DOORWAY, BuildingTileset.WOOD_FLOOR_1);
+        setTerrain(cell.x, cell.y, BuildingTileset.WOOD_FLOOR_1);
 
         Component[] door = BlueprintParser.getComponentArrayForBlueprint(furnitureBlueprints, "door");
 
@@ -2520,13 +2705,8 @@ public class ProceduralGenerator {
                 Vector cell = new Vector(x, y);
 
                 if (!checked.containsKey(cell.toString())) {
-                    long entity = terrainEntities[cell.x][cell.y];
-                    Terrain stat = (Terrain) componentManager.getEntityComponent(entity, Terrain.class.getSimpleName());
-
-                    if (stat == null) continue;
-
-                    if (stat.type == Terrain.FLOOR && cellIsInaccessible(cell)) {
-                        setTerrain(cell, WALL, BuildingTileset.WALL);
+                    if (TileCategorySorter.isFloor(terrainTiles[cell.x][cell.y]) && cellIsInaccessible(cell)) {
+                        setTerrain(cell.x, cell.y, BuildingTileset.WALL);
                         checked.put(cell.toString(), true);
                         HashMap<String, Vector> adjacentCells = getAdjacentCells(cell, 1, true);
                         for (Vector adjacentCell : adjacentCells.values()) {
@@ -2552,13 +2732,8 @@ public class ProceduralGenerator {
 
                 if (!checked.contains(cell.toString())) {
 
-                    long entity = terrainEntities[cell.x][cell.y];
-                    Terrain stat = (Terrain) componentManager.getEntityComponent(entity, Terrain.class.getSimpleName());
-
-                    if (stat == null) continue;
-
-                    if (stat.type == Terrain.WALL && cellIsInaccessible(cell)) {
-                        setTerrain(cell, BORDER, GenericTileset.TRANSPARENT);
+                    if (TileCategorySorter.isWall(terrainTiles[cell.x][cell.y]) && cellIsInaccessible(cell)) {
+                        setTerrain(cell.x, cell.y, GenericTileset.TRANSPARENT);
                         checked.add(cell.toString());
                     }
                 }
@@ -2572,89 +2747,21 @@ public class ProceduralGenerator {
     ---------------------------------------------
 */
 
-    private final int FLOOR = 0;
-    private final int WALL = 1;
-    private final int DOORWAY = 2;
-    private final int BORDER = 3;
-    private final int BACKGROUND = 4;
-    private final int OBJECT = 5;
-
-
     private void startRegion() {
         currentRegion++;
     }
 
-    private void carveRegion(Vector cell, int type, String texture) {
+    private void carveRegion(Vector cell, String texture) {
         mapRegions[cell.x][cell.y] = currentRegion;
-        setTerrain(cell, type, texture);
+        setTerrain(cell.x, cell.y, texture);
     }
 
-    private void setTerrain(Vector cell, int type, String texture) {
-        // Make sure that we remove any existing components before adding new terrain tile
-        componentManager.removeEntityComponents(terrainEntities[cell.x][cell.y]);
-
-        Component[] tile;
-
-        switch (type) {
-            case FLOOR:
-                tile = TerrainFactory.createFloor(cell.x, cell.y, texture);
-                terrainEntities[cell.x][cell.y] = tile[0].id;
-                break;
-
-            case WALL:
-                tile = TerrainFactory.createWall(cell.x, cell.y, texture);
-                terrainEntities[cell.x][cell.y] = tile[0].id;
-                break;
-
-            case DOORWAY:
-                tile = TerrainFactory.createDoorway(cell.x, cell.y, texture);
-                terrainEntities[cell.x][cell.y] = tile[0].id;
-                break;
-
-            case BORDER:
-                tile = TerrainFactory.createBorder(cell.x, cell.y, texture);
-                terrainEntities[cell.x][cell.y] = tile[0].id;
-                break;
-
-            case BACKGROUND:
-                tile = TerrainFactory.createBackground(cell.x, cell.y, texture);
-                terrainEntities[cell.x][cell.y] = tile[0].id;
-                break;
-
-            default:
-                Log.w(LOG_TAG, "Couldn't find specified type (" + type + "), setting as floor tile ");
-                tile = TerrainFactory.createFloor(cell.x, cell.y, texture);
-        }
-
-        componentManager.sortComponentArray(tile);
+    private void setTerrain(int x, int y, String texture) {
+        terrainTiles[x][y] = texture;
     }
 
-    private void copyTerrain(Vector from, Vector to) {
-        long targetEntity = terrainEntities[from.x][from.y];
-        Sprite target = (Sprite) componentManager.getEntityComponent(targetEntity, Sprite.class.getSimpleName());
-        Terrain targetType = (Terrain) componentManager.getEntityComponent(targetEntity, Terrain.class.getSimpleName());
-        
-        switch (targetType.type) {
-            case Terrain.FLOOR:
-                setTerrain(to, FLOOR, target.path);
-                break;
-                
-            case Terrain.WALL:
-                setTerrain(to, WALL, target.path);
-                break;
-                
-            case Terrain.BORDER:
-                setTerrain(to, BORDER, target.path);
-                break;
-                
-            case Terrain.DOORWAY:
-                setTerrain(to, DOORWAY, target.path);
-                break;
-                
-            case Terrain.DEFAULT:
-                setTerrain(to, FLOOR, target.path);
-                break;
-        }
+    private void copyTerrain(int srcX, int srcY, int destX, int destY) {
+        terrainTiles[srcX][srcY] = terrainTiles[destX][destY];
     }
     
     private void addObject(Vector cell, Component[] tile, boolean replace) {
@@ -2673,39 +2780,39 @@ public class ProceduralGenerator {
         objectEntities[x][y].clear();
     }
 
-    private void addBorderToChunk(Chunk chunk, int type, String[] borderTiles) {
+    private void addBorderToChunk(Chunk chunk, String[] borderTiles) {
         // Todo: for now we can just remove water regions, but need to keep this in mind when adding water borders?
 
         for (int x = chunk.x; x < chunk.x + chunk.width - 1; x++) {
-            setTerrain(new Vector(x, chunk.y + chunk.height - 1), type, borderTiles[NORTH]);
+            setTerrain(x, chunk.y + chunk.height - 1, borderTiles[NORTH]);
             waterRegions[x][chunk.y + chunk.height - 1] = false;
         }
 
-        setTerrain(new Vector(chunk.x + chunk.width - 1, chunk.y + chunk.height - 1), type, borderTiles[NORTH_EAST]);
+        setTerrain(chunk.x + chunk.width - 1, chunk.y + chunk.height - 1, borderTiles[NORTH_EAST]);
         waterRegions[chunk.x + chunk.width - 1][chunk.y + chunk.height - 1] = false;
 
         for (int y = chunk.y + chunk.height - 2; y > chunk.y; y--) {
-            setTerrain(new Vector(chunk.x + chunk.width - 1, y), type, borderTiles[EAST]);
+            setTerrain(chunk.x + chunk.width - 1, y, borderTiles[EAST]);
             waterRegions[chunk.x + chunk.width - 1][y] = false;
         }
 
-        setTerrain(new Vector(chunk.x + chunk.width - 1, chunk.y), type, borderTiles[SOUTH_EAST]);
+        setTerrain(chunk.x + chunk.width - 1, chunk.y, borderTiles[SOUTH_EAST]);
         waterRegions[chunk.x + chunk.width - 1][chunk.y] = false;
 
         for (int x = chunk.x + chunk.width - 2; x > chunk.x; x--) {
-            setTerrain(new Vector(x, chunk.y), type, borderTiles[SOUTH]);
+            setTerrain(x, chunk.y, borderTiles[SOUTH]);
             waterRegions[x][chunk.y] = false;
         }
 
-        setTerrain(new Vector(chunk.x, chunk.y), type, borderTiles[SOUTH_WEST]);
+        setTerrain(chunk.x, chunk.y, borderTiles[SOUTH_WEST]);
         waterRegions[chunk.x][chunk.y] = false;
 
         for (int y = chunk.y + 1; y < chunk.y + chunk.height - 1; y++) {
-            setTerrain(new Vector(chunk.x, y), type, borderTiles[WEST]);
+            setTerrain(chunk.x, y, borderTiles[WEST]);
             waterRegions[chunk.x][y] = false;
         }
 
-        setTerrain(new Vector(chunk.x, chunk.y + chunk.height - 1), type, borderTiles[NORTH_WEST]);
+        setTerrain(chunk.x, chunk.y + chunk.height - 1, borderTiles[NORTH_WEST]);
         waterRegions[chunk.x][chunk.y + chunk.height - 1] = false;
     }
 
@@ -2754,12 +2861,12 @@ public class ProceduralGenerator {
         }
     }
 
-    private void addBorderToChunk(Chunk chunk, int type, String tile) {
+    private void addBorderToChunk(Chunk chunk, String tile) {
         for (int x = chunk.x; x < chunk.x + chunk.width; x++) {
             for (int y = chunk.y; y < chunk.y + chunk.height; y++) {
 
                 if (x == chunk.x || x == chunk.x + chunk.width - 1 || y == chunk.y || y == chunk.y + chunk.height - 1) {
-                    setTerrain(new Vector(x, y), type, tile);
+                    setTerrain(x, y, tile);
                 }
             }
         }
@@ -2836,10 +2943,7 @@ public class ProceduralGenerator {
         for (Vector adjacent : adjacentCells.values()) {
 
             if (inBounds(adjacent)) {
-                long entity = terrainEntities[adjacent.x][adjacent.y];
-                Terrain stat = (Terrain) componentManager.getEntityComponent(entity, Terrain.class.getSimpleName());
-
-                if (stat.type != Terrain.WALL) {
+                if (!TileCategorySorter.isWall(terrainTiles[adjacent.x][adjacent.y])) {
                     return false;
                 }
             }
@@ -2860,10 +2964,9 @@ public class ProceduralGenerator {
                 continue;
             }
 
-            long entity = terrainEntities[direction.x][direction.y];
-            Terrain stat = (Terrain) componentManager.getEntityComponent(entity, Terrain.class.getSimpleName());
+            String tile = terrainTiles[direction.x][direction.y];
 
-            if (stat.type != Terrain.WALL && stat.type != Terrain.BORDER) {
+            if (!TileCategorySorter.isWall(tile) && !TileCategorySorter.isBorder(tile)) {
                 return false;
             }
         }

@@ -4,6 +4,7 @@ import android.util.Log;
 
 import com.sonicmax.bloodrogue.GameInterface;
 import com.sonicmax.bloodrogue.audio.FxFilePaths;
+import com.sonicmax.bloodrogue.engine.ai.ActorTurn;
 import com.sonicmax.bloodrogue.engine.ai.AffinityManager;
 import com.sonicmax.bloodrogue.engine.ai.EnemyState;
 import com.sonicmax.bloodrogue.engine.collisions.FieldOfVisionCalculator;
@@ -54,6 +55,7 @@ import com.sonicmax.bloodrogue.utils.Array2DHelper;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.concurrent.DelayQueue;
 
@@ -94,7 +96,7 @@ public class GameEngine {
     private ArrayList<Animation> animations;
 
     // ECS storage and management
-    private long [][] terrainEntities;
+    private int[][] terrainEntities;
     private ArrayList<Long>[][] objectEntities;
     private ArrayList<Long> treeEntities;
     private ArrayList<Long> aiEntities;
@@ -117,8 +119,8 @@ public class GameEngine {
         this.footstepAlternator = true;
 
         this.sightRadius = 10;
-        this.mapWidth = 64;
-        this.mapHeight = 64;
+        this.mapWidth = 128;
+        this.mapHeight = 128;
         this.currentFloor = 1;
 
         this.gameInterface = gameInterface;
@@ -142,11 +144,11 @@ public class GameEngine {
     }
 
     public Frame getCurrentFrameData() {
-        return new Frame(currentFloor, terrainSpriteGrid, objectSpriteGrid, animations,
-                fieldOfVision, fovCalculator.getVisitedTiles(), indoorRegions, waterRegions, snowCover, player);
+        return new Frame(currentFloor, terrainEntities, objectSpriteGrid, animations,
+                fieldOfVision, fovCalculator.getVisitedTiles(), indoorRegions, waterRegions, snowCover, heightMap, player);
     }
 
-    public FloorData getCurrentFloorData(Component[][][] rawTerrainComponents, ArrayList<Component[]>[][] rawObjectComponents) {
+    public FloorData getCurrentFloorData(int[][] rawTerrainComponents, ArrayList<Component[]>[][] rawObjectComponents) {
         return new FloorData(currentFloor, rawTerrainComponents, rawObjectComponents, player);
     }
 
@@ -176,7 +178,7 @@ public class GameEngine {
         animations = new ArrayList<>();
         snowCover = Array2DHelper.fillIntArray(mapWidth, mapHeight, -1);
 
-        terrainEntities = new long[mapWidth][mapHeight];
+        terrainEntities = new int[mapWidth][mapHeight];
         aiEntities = new ArrayList<>();
         treeEntities = new ArrayList<>();
         objectEntities = Array2DHelper.create2dLongStack(mapWidth, mapHeight);
@@ -210,10 +212,20 @@ public class GameEngine {
         advanceFrame();
     }
 
+    private HashMap<String, Integer> spriteIndexes;
+
+    public void setSpriteIndexes(HashMap<String, Integer> spriteIndexes) {
+        this.spriteIndexes = spriteIndexes;
+    }
+
     /**
      * Generates terrain/objects/enemies/etc for a new floor and instantiates a new GameState object
      * to hold components + any other data required for gameplay.
      */
+
+    private ProceduralGenerator proceduralGenerator;
+
+    private float[][] heightMap;
 
     private void generateNewFloor(int floorIndex) {
         // Retrieve player equipment from component manager and remove components from previous floor.
@@ -222,18 +234,20 @@ public class GameEngine {
         initCollections();
 
         // Generate data for new floor
-        ProceduralGenerator generator = new ProceduralGenerator(mapWidth, mapHeight, gameInterface.getAssets());
-        generator.setFloor(floorIndex);
-        generator.generate(ProceduralGenerator.EXTERIOR);
+        proceduralGenerator = new ProceduralGenerator(mapWidth, mapHeight, gameInterface.getAssets());
+        proceduralGenerator.setFloor(floorIndex);
+        proceduralGenerator.setSpriteIndexes(spriteIndexes);
+        proceduralGenerator.generate(ProceduralGenerator.EXTERIOR);
 
         // Generated data has already been sorted into ComponentManager instance, so we just have to
         // grab the arrays of terrainSpriteGrid/object entities
-        MapData mapData = generator.getMapData();
+        MapData mapData = proceduralGenerator.getMapData();
         terrainEntities = mapData.getTerrainEntities();
         objectEntities = mapData.getObjectEntities();
-        indoorRegions = generator.getIndoorRegions();
-        waterRegions = generator.getWaterRegions();
-        treeEntities = generator.getTreeEntities();
+        indoorRegions = proceduralGenerator.getIndoorRegions();
+        waterRegions = proceduralGenerator.getWaterRegions();
+        treeEntities = proceduralGenerator.getTreeEntities();
+        heightMap = proceduralGenerator.getHeightMap();
 
         // Now we need to either create new player entity (if this was the first floor) or
         // sort the existing components and move player to new start position
@@ -261,6 +275,8 @@ public class GameEngine {
 
         weatherManager.setWeatherState(WeatherManager.SNOWING,
                 gameInterface.getTimeManager().getTotalTimeInMinutes());
+
+        proceduralGenerator = null;
     }
 
     private void addPlayer(Vector startPosition) {
@@ -374,7 +390,7 @@ public class GameEngine {
         }
 
         // Now we can update floor data
-        FloorData floor = getCurrentFloorData(rawTerrainComponents, rawObjectComponents);
+        FloorData floor = getCurrentFloorData(terrainEntities, rawObjectComponents);
 
         FloorData existingFloor = gameState.getCurrentFloor();
 
@@ -421,7 +437,7 @@ public class GameEngine {
         }
 
         // Get raw components from floor data
-        Component[][][] rawTerrainComponents = floor.getTerrain();
+        int[][] rawTerrainComponents = floor.getTerrain();
         ArrayList<Component[]>[][] rawObjectComponents = floor.getObjects();
 
         int width = rawTerrainComponents.length;
@@ -429,8 +445,6 @@ public class GameEngine {
 
         for (int x = 0; x < width; x++) {
             for (int y = 0; y < height; y++) {
-                sortComponentsAndStoreEntities(rawTerrainComponents[x][y]);
-
                 for (Component[] object : rawObjectComponents[x][y]) {
                     sortComponentsAndStoreEntities(object);
                 }
@@ -1249,10 +1263,13 @@ public class GameEngine {
         int y = defenderPosition.y;
 
         Blood blood = (Blood) componentManager.getEntityComponent(victim, Blood.class.getSimpleName());
-        Component[] splat = DecalFactory.createBloodSplat(defenderPosition, blood, terrainEntities);
+
+        // Todo: fix DecalFactory methods
+
+        /*Component[] splat = DecalFactory.createBloodSplat(defenderPosition, blood, terrainEntities);
         if (splat != null) {
             objectQueue.add(splat);
-        }
+        }*/
 
         gameInterface.displayStatus(defenderPosition, Integer.toString(damageDealt), TextColours.STATUS_RED);
 
@@ -1261,10 +1278,10 @@ public class GameEngine {
 
             animations.add(AnimationFactory.getDeathAnimation(blood, x, y));
 
-            ArrayList<Component[]> spray = DecalFactory.createBloodSpray(defenderPosition, blood, terrainEntities);
+            /*ArrayList<Component[]> spray = DecalFactory.createBloodSpray(defenderPosition, blood, terrainEntities);
             for (Component[] components : spray) {
                 sortComponentsAndStoreEntities(components);
-            }
+            }*/
 
             gameInterface.addNarration(defenderName.value + " killed by trap!", TextColours.RED);
 
@@ -1760,10 +1777,11 @@ public class GameEngine {
         int y = defenderPosition.y;
 
         Blood blood = (Blood) componentManager.getEntityComponent(defender, Blood.class.getSimpleName());
-        Component[] splat = DecalFactory.createBloodSplat(defenderPosition, blood, terrainEntities);
+
+        /*Component[] splat = DecalFactory.createBloodSplat(defenderPosition, blood, terrainEntities);
         if (splat != null) {
             objectQueue.add(splat);
-        }
+        }*/
 
         entitiesTakingDamage.add(defender);
 
@@ -1780,10 +1798,12 @@ public class GameEngine {
 
             animations.add(AnimationFactory.getDeathAnimation(blood, x, y));
 
+            /*
+
             ArrayList<Component[]> spray = DecalFactory.createBloodSpray(defenderPosition, blood, terrainEntities);
             for (Component[] components : spray) {
                 sortComponentsAndStoreEntities(components);
-            }
+            }*/
 
             gameInterface.addNarration(attackerName.value + " killed " + defenderName.value + "!", TextColours.RED);
 
@@ -2038,6 +2058,10 @@ public class GameEngine {
     }
 
     private boolean entityTypeInArray(Terrain stat, int[] typesToCheck) {
+        if (stat == null) {
+            return false;
+        }
+
         for (int i = 0; i < typesToCheck.length; i++) {
             if (typesToCheck[i] == stat.type) {
                 return true;

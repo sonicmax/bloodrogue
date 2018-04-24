@@ -29,6 +29,9 @@ public class UvHelper {
                     u2, v
             };
 
+            // top left, bottom left, top right,
+            // bottom left, bottom right, top left
+
             cachedSpriteUvs[i] = uv;
         }
 
