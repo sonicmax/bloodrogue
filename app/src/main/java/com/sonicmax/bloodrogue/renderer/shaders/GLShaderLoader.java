@@ -158,9 +158,14 @@ public class GLShaderLoader {
         StringBuilder stringBuilder = new StringBuilder();
 
         String line;
+        String newline = "\n"; // Todo: use System.getProperty("line.separator") instead?
 
         while ((line = reader.readLine()) != null) {
             stringBuilder.append(line);
+
+            // Note: if we don't add newlines, then shaders with double slash style comments will break
+            // (as the specification requires a newline after the double slash).
+            stringBuilder.append(newline);
         }
 
         reader.close();
