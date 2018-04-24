@@ -2,9 +2,11 @@ precision highp float;
 
 uniform float u_Near;
 uniform float u_Far;
-uniform sampler2D u_DepthMap;
+uniform sampler2D u_Texture;
 
 varying vec2 v_texCoord;
+
+const float zoomFactor = 1.1;
 
 float linearizeDepth(float depth) {
 	float z = depth * 2.0 - 1.0;
@@ -12,6 +14,7 @@ float linearizeDepth(float depth) {
 }
 
 void main() {
-	float depthValue = texture2D(u_DepthMap, v_texCoord).r;
+	// Output the depth value to fragment. Will appear as white/grey/black texture
+	float depthValue = texture2D(u_Texture, v_texCoord).r;
     gl_FragColor = vec4(vec3(depthValue), 1.0);
 }
