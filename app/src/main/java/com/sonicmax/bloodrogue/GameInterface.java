@@ -337,8 +337,7 @@ public class GameInterface {
                 float deltaX = (x - mPreviousX) / density / 2f;
                 float deltaY = (y - mPreviousY) / density / 2f;
 
-                gameRenderer3D.setCameraRotationX(deltaX);
-                gameRenderer3D.setCameraRotationY(deltaY);
+                gameRenderer3D.setCameraRotation(deltaX, deltaY);
             }
 
             mPreviousX = x;

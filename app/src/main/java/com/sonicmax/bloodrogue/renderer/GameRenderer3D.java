@@ -143,8 +143,8 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
     public int renderState;
 
-    private volatile float deltaX;
-    private volatile float deltaY;
+    private float deltaX;
+    private float deltaY;
 
     private ExecutorService singleThreadedExecutor;
     private UserInterfaceController uiController;
@@ -189,21 +189,18 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
     private float[] sunStartingPos;
     private float[] sunPosInModelSpace;
+    private float[] sunPosInSkybox;
     private float[] sunPosInEyeSpace;
+
     private float[] cameraPosInModelSpace;
     private float[] cameraPosInEyeSpace;
-    private float[] cameraTargetInModelSpace;
-    private float[] sunPosInSkybox;
+
     private float[] moonStartingPos;
     private float[] moonPosInModelSpace;
     private float[] moonPosInEyeSpace;
     private float[] moonPosInSkybox;
 
     // Camera rotation
-    private volatile float xAngle = 0.0f;
-    private volatile float yAngle = 0f;
-    private final float fraction = 0.05f;
-
     private float elapsedTimeSeconds = 0f;
     private float elapsedTimeMs = 0f;
 
@@ -232,6 +229,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
     private float[] lightColour;
     private float[] skyColour;
+    private Camera camera;
 
     public GameRenderer3D(GameSurfaceView gameSurfaceView, Context context) {
         this.gameSurfaceView = gameSurfaceView;
@@ -266,7 +264,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         moonPosInSkybox = new float[4];
         cameraPosInModelSpace = new float[] {192f, 40f, 192f, 1f};
         cameraPosInEyeSpace = new float[4];
-        cameraTargetInModelSpace = new float[] {192f, -40f, 192f, 1f};
 
         // Near and far values for camera view frustum
         near = 1.0f;
@@ -281,6 +278,8 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         // Depth map resolution. Doesn't have to match screen resolution as we render this to a framebuffer
         depthMapWidth = 1024;
         depthMapHeight = 1024;
+
+        camera = new Camera();
     }
 
     @Override
@@ -288,7 +287,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         checkGlExtensions();
         loadShaders();
         loadResources();
-        setView();
+        calculateMatrices();
 
         cachedCubeUvs = UvHelper.precalculateCubeUvs(spriteIndexes.size());
         cachedSpriteUvs = UvHelper.precalculateSpriteUvs(spriteIndexes.size());
@@ -326,7 +325,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         scaleContent();
         calculateContentGrid();
         setGridChunkToRender();
-        setCameraProjection();
+        camera.setProjection(width, height, FOV, near, far);
         createDepthMapFBO();
         createWaterReflectionFBO(width, height);
 
@@ -562,29 +561,18 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     ------------------------------------------------------------------------------------------
     */
 
-    private void setView() {
-        float eyeX = cameraPosInModelSpace[0];
-        float eyeY = cameraPosInModelSpace[1];
-        float eyeZ = cameraPosInModelSpace[2];
+    private void calculateMatrices() {
+        Matrix.setIdentityM(modelMatrix, 0);
 
-        float lookX = eyeX + cameraTargetInModelSpace[0];
-        float lookY = eyeY + cameraTargetInModelSpace[1];
-        float lookZ = eyeZ + cameraTargetInModelSpace[2];
-
-        float upX = 0.0f;
-        float upY = 1.0f;
-        float upZ = 0.0f;
-
-        Matrix.setLookAtM(viewMatrix, 0,
-                eyeX, eyeY, eyeZ,
-                lookX, lookY, lookZ,
-                upX, upY, upZ);
-
-        float[] tempResultMatrix = new float[16];
+        cameraPosInModelSpace = camera.getPosition();
+        viewMatrix = camera.getView();
+        projectionMatrix = camera.getProjection();
 
         // Calculate model-view, model-view-projection and normal matrices
         Matrix.multiplyMM(mvMatrix, 0, viewMatrix, 0, modelMatrix, 0);
 
+        // Calculate inverted-transposed normal matrix
+        float[] tempResultMatrix = new float[16];
         Matrix.invertM(tempResultMatrix, 0, mvMatrix, 0);
         Matrix.transposeM(normalMatrix, 0, tempResultMatrix, 0);
 
@@ -595,66 +583,14 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         Matrix.multiplyMV(cameraPosInEyeSpace, 0, mvMatrix, 0, cameraPosInModelSpace, 0);
     }
 
-    private float[] rotationMatrix = new float[16];
-
-    private void setCameraProjection() {
-        Matrix.setIdentityM(modelMatrix, 0);
-
-        /*final long ticksPerDay = 5760L;
-        long rotationCounter = timeManager.getTotalTicks() % ticksPerDay;
-        float lightRotationDegree = (360.0f / 5760.0f) * ((int) rotationCounter);
-        float[] m = new float[16];
-
-        Matrix.setIdentityM(m, 0);
-
-        Matrix.setIdentityM(rotationMatrix, 0);
-        Matrix.rotateM(rotationMatrix, 0, lightRotationDegree, 1f, 0f, 0f);
-        Matrix.multiplyMM(modelMatrix, 0, rotationMatrix, 0, m, 0);*/
-
-        screenRatio = (float) screenWidth / screenHeight;
-        Matrix.perspectiveM(projectionMatrix, 0, FOV, screenRatio, near, far);
-    }
-
-    public void setCameraRotationX(float deltaX) {
-        this.deltaX = deltaX;
-        xAngle += (deltaX * fraction);
-        calculateCameraRotation();
-    }
-
-    public void setCameraRotationY(float deltaY) {
-        this.deltaY = deltaY;
-        yAngle += (deltaY * fraction);
-        calculateCameraRotation();
+    public void setCameraRotation(float deltaX, float deltaY) {
+        final float fraction = 1.0f;
+        camera.addRotation(deltaX * fraction, deltaY * fraction);
     }
 
     public void setScaleDelta(float delta) {
-        // For debugging, we use the scale delta to move the camera backwards and forwards
-        cameraPosInModelSpace[0] += cameraTargetInModelSpace[0] * (-delta);
-        cameraPosInModelSpace[1] += cameraTargetInModelSpace[1] * (-delta);
-        cameraPosInModelSpace[2] += cameraTargetInModelSpace[2] * (-delta);
-
-        calculateCameraRotation();
-    }
-
-    private void calculateCameraRotation() {
-        cameraTargetInModelSpace[0] = (float) -(Math.sin(xAngle) * Math.cos(yAngle));
-        cameraTargetInModelSpace[1] = (float) -Math.sin(yAngle);
-        cameraTargetInModelSpace[2] = (float) (Math.cos(yAngle) * Math.cos(xAngle));
-    }
-
-    private void calculateBillboardMatrix() {
-        float[] billboardModelMatrix = new float[16];
-        Matrix.setIdentityM(billboardModelMatrix, 0);
-
-        float[] billboardViewMatrix = new float[16];
-
-        Matrix.setLookAtM(billboardViewMatrix, 0,
-                0.0f, 0.0f, 0.0f,
-                -cameraTargetInModelSpace[0], -cameraTargetInModelSpace[1], -cameraTargetInModelSpace[2],
-                0.0f, 1.0f, 0.0f);
-
-        Matrix.multiplyMM(billboardMvMatrix, 0, billboardViewMatrix, 0, billboardModelMatrix, 0);
-        Matrix.multiplyMM(billboardMvpMatrix, 0, projectionMatrix, 0, skyMvMatrix, 0);
+        // Negate scale delta - we want inward movement of scale to move camera forwards
+        camera.moveForwards(-delta);
     }
 
 
@@ -726,7 +662,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
                 near, far);
 
         // Calculate model-view-proj for depth map rendering
-        Matrix.setIdentityM(modelMatrix, 0);
         float[] lightMvMatrix = new float[16];
         Matrix.multiplyMM(lightMvMatrix, 0, sunViewMatrix, 0, modelMatrix, 0);
         Matrix.multiplyMM(lightMvpMatrix, 0, sunProjMatrix, 0, lightMvMatrix, 0);
@@ -741,6 +676,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
     /**
      * Calculates geocentric coordinates for moon given current date and time.
+     * Needs to be rotated to account for rotation of Earth.
      *
      * Algorithm from http://www.stjarnhimlen.se/comp/ppcomp.html
      */
@@ -887,8 +823,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
     private void renderGameContent(float dt) {
         // Todo: after setting mvp matrices we should probably make sure camera position doesn't change
-        setCameraProjection();
-        setView();
+        calculateMatrices();
         prepareGlSurface();
         calculateSunPosition();
         calculateMoonPosition();
@@ -1009,16 +944,13 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         GLES20.glDepthMask(false);
 
         float[] skyModelMatrix = new float[16];
-        Matrix.setIdentityM(skyModelMatrix, 0);
+        System.arraycopy(modelMatrix, 0, skyModelMatrix, 0, modelMatrix.length);
 
         // Flip the x axis of model matrix otherwise texture will be mirrored (as we are inside cube)
         Matrix.scaleM(skyModelMatrix, 0, -1f, 1f, 1f);
 
         // Sky box view matrix is looking in same direction as camera, but translated to 0,0,0 (centre of sky box)
-        Matrix.setLookAtM(skyViewMatrix, 0,
-                0.0f, 0.0f, 0.0f,
-                cameraTargetInModelSpace[0], cameraTargetInModelSpace[1], cameraTargetInModelSpace[2],
-                0.0f, 1.0f, 0.0f);
+        skyViewMatrix = camera.getView(new float[] {0f, 0f, 0f});
 
         // Flip upside down for reflection
         Matrix.scaleM(skyViewMatrix, 0, 1f, -1f, 1f);
@@ -1044,9 +976,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
         //calculate MV matrix
         Matrix.multiplyMM(reflectionMvMatrix, 0, reflectionViewMatrix, 0, modelMatrix, 0);
-
-        // Create matrix for billboard sprite rendering
-        calculateBillboardMatrix();
 
         Matrix.invertM(tempResultMatrix, 0, reflectionMvMatrix, 0);
         Matrix.transposeM(reflectionNormalMatrix, 0, tempResultMatrix, 0);
@@ -1171,16 +1100,14 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         GLES20.glDepthMask(false);
 
         float[] skyModelMatrix = new float[16];
-        Matrix.setIdentityM(skyModelMatrix, 0);
+        System.arraycopy(modelMatrix, 0, skyModelMatrix, 0, modelMatrix.length);
 
         // Flip the x axis of model matrix otherwise texture will be mirrored (as we are inside cube)
         Matrix.scaleM(skyModelMatrix, 0, -1f, 1f, 1f);
 
-        // Sky box view matrix is looking in same direction as camera, but translated to 0,0,0 (centre of sky box)
-        Matrix.setLookAtM(skyViewMatrix, 0,
-                0.0f, 0.0f, 0.0f,
-                cameraTargetInModelSpace[0], cameraTargetInModelSpace[1], cameraTargetInModelSpace[2],
-                0.0f, 1.0f, 0.0f);
+        // Sky box view matrix is same as view matrix but translated to (0,0,0)
+        skyViewMatrix = camera.getView(new float[] {0f, 0f, 0f});
+        skyViewMatrix = camera.getView(new float[] {0f, 0f, 0f});
 
         Matrix.multiplyMM(skyMvMatrix, 0, skyViewMatrix, 0, skyModelMatrix, 0);
         Matrix.multiplyMM(skyMvpMatrix, 0, projectionMatrix, 0, skyMvMatrix, 0);
