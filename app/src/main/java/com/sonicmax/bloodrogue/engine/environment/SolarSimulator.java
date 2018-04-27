@@ -65,9 +65,9 @@ public class SolarSimulator {
      */
 
     public float[] getCurrentMoonPosition(TimeManager timeManager) {
-        int year = timeManager.getYear() + 1;
-        int month = timeManager.getMonth() + 1;
-        int date = timeManager.getDay() + 1;
+        int year = timeManager.getYear();
+        int month = timeManager.getMonth();
+        int date = timeManager.getDay();
 
         // Get minutes/hours as decimal of day. Note: Day 0.0 occurs at 2000 Jan 0.0 UT
         int dayComponent = (367 * year) - 7 * (year + (month + 9) / TimeManager.MONTHS_IN_YEAR) / 4 + (275 * month / 9) + date - 730530;

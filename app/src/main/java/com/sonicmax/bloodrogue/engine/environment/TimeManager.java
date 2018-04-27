@@ -14,7 +14,7 @@ public class TimeManager {
     public static final int DAYS_IN_YEAR = 360;
     public static final int SECONDS_IN_TICK = 15;
 
-    // Note: all of these are 0-indexed.
+    // Note: all of these are 0-indexed. For month/day we add 1 to internal value for external use
     private int currentYear;
     private int currentMonth;
     private int currentDay;
@@ -27,7 +27,8 @@ public class TimeManager {
     private long totalTicks;
 
     public TimeManager() {
-        currentYear = 1999;
+        // Not really any significance to the year, but it made lunar calculations simpler to debug
+        currentYear = 2000;
         currentMonth = 0;
         currentDay = 0;
         currentHour = 0;
@@ -136,7 +137,7 @@ public class TimeManager {
     }
 
     public int getMonth() {
-        return currentMonth;
+        return currentMonth + 1;
     }
 
     public int getYear() {
@@ -144,7 +145,7 @@ public class TimeManager {
     }
 
     public int getDay() {
-        return currentDay;
+        return currentDay + 1;
     }
 
     public float[] getSunlightColour() {
