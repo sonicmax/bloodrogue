@@ -18,6 +18,7 @@ import android.util.Log;
 import com.sonicmax.bloodrogue.GameInterface;
 import com.sonicmax.bloodrogue.engine.Frame;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
+import com.sonicmax.bloodrogue.engine.environment.SolarSimulator;
 import com.sonicmax.bloodrogue.engine.environment.TimeManager;
 import com.sonicmax.bloodrogue.engine.environment.WeatherManager;
 import com.sonicmax.bloodrogue.generator.Chunk;
@@ -187,18 +188,14 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     private Frame currentFloorData;
     private boolean hasGameData = false;
 
-    private float[] sunStartingPos;
     private float[] sunPosInModelSpace;
     private float[] sunPosInSkybox;
     private float[] sunPosInEyeSpace;
 
+    private float[] moonPosInSkybox;
+
     private float[] cameraPosInModelSpace;
     private float[] cameraPosInEyeSpace;
-
-    private float[] moonStartingPos;
-    private float[] moonPosInModelSpace;
-    private float[] moonPosInEyeSpace;
-    private float[] moonPosInSkybox;
 
     // Camera rotation
     private float elapsedTimeSeconds = 0f;
@@ -231,6 +228,8 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     private float[] skyColour;
     private Camera camera;
 
+    private SolarSimulator solarSimulator;
+
     public GameRenderer3D(GameSurfaceView gameSurfaceView, Context context) {
         this.gameSurfaceView = gameSurfaceView;
         this.context = context;
@@ -254,15 +253,13 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         skyMvpMatrix = new float[16];
 
         // Initialise sun, moon and camera vectors.
-        sunStartingPos = new float[] {0f, -5f, 0f, 0f};
         sunPosInModelSpace = new float[4];
         sunPosInEyeSpace = new float[4];
         sunPosInSkybox = new float[4];
-        moonStartingPos = new float[] {0f, -5f, 0f, 0f};
-        moonPosInModelSpace = new float[4];
-        moonPosInEyeSpace = new float[4];
+
         moonPosInSkybox = new float[4];
-        cameraPosInModelSpace = new float[] {192f, 40f, 192f, 1f};
+
+        cameraPosInModelSpace = new float[4];
         cameraPosInEyeSpace = new float[4];
 
         // Near and far values for camera view frustum
@@ -280,6 +277,8 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         depthMapHeight = 1024;
 
         camera = new Camera();
+
+        solarSimulator = new SolarSimulator();
     }
 
     @Override
@@ -601,33 +600,16 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     */
 
     /**
-     * Calculates geocentric coordinates for sun given current time. Not accurate at all. ¯\_(ツ)_/¯
+     *  Updates sun position in skybox and also calculates view/projection matrices required
+     *  for depth map rendering when casting shadoows
      */
 
-    private void calculateSunPosition() {
-        final long ticksPerDay = 5760L;
-
-        // One full rotation = 360 degrees / 5760 ticks (1440 minutes, 4 ticks per minute)
-        long rotationCounter = timeManager.getTotalTicks() % ticksPerDay;
-        float lightRotationDegree = (360.0f / 5760.0f) * ((int) rotationCounter);
-
-        // First, calculate position of sun in skybox:
-
-        // Rotate sun around x axis of skybox origin
-        float[] rotationMatrix = new float[16];
-        Matrix.setIdentityM(rotationMatrix, 0);
-        Matrix.translateM(rotationMatrix, 0, 0f, 5f, 0f);
-        Matrix.rotateM(rotationMatrix, 0, lightRotationDegree, 1f, 0f, 0f);
-
-        // Todo: billboarding
-
-        // Find new position of sun in skybox.
-        Matrix.multiplyMV(sunPosInSkybox, 0, rotationMatrix, 0, sunStartingPos, 0);
+    private void updateSunPosition() {
+        sunPosInSkybox = solarSimulator.getCurrentSunPosition(timeManager);
 
         // Now we can find position of sun relative to world:
 
         // Push position of sun in skybox into distance. We will use this vector for our diffuse/specular lighting calculations
-
         float[] actualSunPosition = new float[4];
         float scalar = 100000.0f;
         actualSunPosition[0] = sunPosInSkybox[0] * scalar;
@@ -646,7 +628,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         Matrix.multiplyMV(sunPosInEyeSpace, 0, mvMatrix, 0, actualSunPosition, 0);
 
         // Now we can set view and projection matrices for depth map generation:
-
         // Todo: we should calculate a bounding box for the camera view frustum and base the depth map view/proj matrices on that
 
         // Set view matrix so that translated sun position is looking at eye position of camera.
@@ -674,99 +655,17 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         }
     }
 
-    /**
-     * Calculates geocentric coordinates for moon given current date and time.
-     * Needs to be rotated to account for rotation of Earth.
-     *
-     * Algorithm from http://www.stjarnhimlen.se/comp/ppcomp.html
-     */
-
-    private void calculateMoonPosition() {
-        int year = timeManager.getYear() + 1;
-        int month = timeManager.getMonth() + 1;
-        int date = timeManager.getDay() + 1;
-
-        // Get minutes/hours as decimal of day. Note: Day 0.0 occurs at 2000 Jan 0.0 UT
-        int dayComponent = (367 * year) - 7 * (year + (month + 9) / TimeManager.MONTHS_IN_YEAR) / 4 + (275 * month / 9) + date - 730530;
-        float decimalHours = (timeManager.getTimeOfDayInMinutes() / 60f) / 24f;
-        int seconds = timeManager.getCurrentTick() * TimeManager.SECONDS_IN_TICK;
-        decimalHours += (seconds / 86400f);
-
-        float ut = dayComponent + decimalHours;
-
-        // Orbital elements of the moon:
-        double ascendingNodeLongitude = (125.1228 - 0.0529538083 * ut);
-        double perihelionArgument = (318.0634 + 0.1643573223 * ut);
-        double meanAnomaly = (115.3654 + 13.0649929509 * ut);
-        double eclipticInclination = 5.1454;
-        double semiMajorAxis = 5.0; // Distance from earth to moon. Scaled down to fit skybox
-        double eccentricity = 0.054900;
-
-        ascendingNodeLongitude = ascendingNodeLongitude % 360.0;
-        perihelionArgument = perihelionArgument % 360.0;
-        meanAnomaly = meanAnomaly % 360.0;
-
-        if (ascendingNodeLongitude < 0.0) ascendingNodeLongitude += 360.0;
-        if (perihelionArgument < 0.0) perihelionArgument += 360.0;
-        if (meanAnomaly < 0.0) meanAnomaly += 360.0;
-
-        ascendingNodeLongitude = Math.toRadians(ascendingNodeLongitude);
-        perihelionArgument = Math.toRadians(perihelionArgument);
-        meanAnomaly = Math.toRadians(meanAnomaly);
-        eccentricity = Math.toRadians(eccentricity);
-        eclipticInclination = Math.toRadians(eclipticInclination);
-
-        double eccentricAnomaly = meanAnomaly + eccentricity * Math.sin(meanAnomaly) * (1.0 + eccentricity * Math.cos(meanAnomaly));
-
-        // It's suggested to perform a second calculation to improve accuracy when eccentricity is > 0.05
-        // however in testing the difference between initial + improved calculation was typically less than 0.0001
-
-        // Compute distance and true anomaly:
-        double xv = semiMajorAxis * (Math.cos(eccentricAnomaly) - eccentricity);
-        double yv = semiMajorAxis * (Math.sqrt(1.0 - eccentricity * eccentricity) * Math.sin(eccentricAnomaly));
-        double trueAnomaly = Math.atan2(yv, xv);
-        double distance = Math.sqrt(xv*xv + yv*yv);
-
-        // Compute position in 3-dimensional space. These are already geocentric
-        double xh = distance * (Math.cos(ascendingNodeLongitude) * Math.cos(trueAnomaly+perihelionArgument)
-                - Math.sin(ascendingNodeLongitude) * Math.sin(trueAnomaly+perihelionArgument) * Math.cos(eclipticInclination));
-
-        double yh = distance * (Math.sin(ascendingNodeLongitude) * Math.cos(trueAnomaly+perihelionArgument)
-                + Math.cos(ascendingNodeLongitude) * Math.sin(trueAnomaly+perihelionArgument) * Math.cos(eclipticInclination));
-
-        double zh = distance * (Math.sin(trueAnomaly+perihelionArgument) * Math.sin(eclipticInclination));
-
-        float[] moonPosInSpace = new float[4];
-
-        moonPosInSpace[0] = (float) xh;
-        moonPosInSpace[1] = (float) yh;
-        moonPosInSpace[2] = (float) zh;
-        moonPosInSpace[3] = 1f;
-
-        final long ticksPerDay = 5760L;
-        long rotationCounter = timeManager.getTotalTicks() % ticksPerDay;
-        float lightRotationDegree = (360.0f / 5760.0f) * ((int) rotationCounter);
-        float[] rotationMatrix = new float[16];
-        Matrix.setIdentityM(rotationMatrix, 0);
-        Matrix.translateM(rotationMatrix, 0, -moonPosInSpace[0], -moonPosInSpace[1], -moonPosInSpace[2]);
-        Matrix.rotateM(rotationMatrix, 0, lightRotationDegree, 1f, 0f, 0f);
-        Matrix.translateM(rotationMatrix, 0, moonPosInSpace[0], moonPosInSpace[1], moonPosInSpace[2]);
-        Matrix.multiplyMV(moonPosInSkybox, 0, rotationMatrix, 0, moonPosInSpace, 0);
-
-        moonPosInSkybox[0] = (float) xh;
-        moonPosInSkybox[1] = (float) yh;
-        moonPosInSkybox[2] = (float) zh;
+    private void updateMoonPosition() {
+        moonPosInSkybox = solarSimulator.getCurrentMoonPosition(timeManager);
 
         // Update position of moon in VBO
         float[] newVertices = getMoonVertices();
 
+        // Todo: should we even bother rendering if not visible? Does it matter?
         if (moon != null) {
             moon.updatePosition(0, newVertices);
         }
     }
-
-    private final float SHADOW_VISIBILITY = 100f; // Todo: make configurable
-    private final float FOV = 80f; // Todo: make configurable
 
     private void calculateViewFrustumBoundingBox() {
         float farWidth = (float) (SHADOW_VISIBILITY * Math.tan(Math.toRadians(FOV)));
@@ -825,8 +724,8 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         // Todo: after setting mvp matrices we should probably make sure camera position doesn't change
         calculateMatrices();
         prepareGlSurface();
-        calculateSunPosition();
-        calculateMoonPosition();
+        updateSunPosition();
+        updateMoonPosition();
 
         lightColour = timeManager.getSunlightColour();
         skyColour = timeManager.getSkyColour();
