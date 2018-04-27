@@ -138,4 +138,38 @@ public class SolarSimulator {
 
         return moonPosInSkybox;
     }
+
+    /**
+     * Calculates the moon phase (0-7), accurate to 1 segment. 0 = > new moon. 4 => full moon.
+     * Check against MoonPhases constants to find corresponding phase for int. We can use this
+     * to determine hours that moon is visible + the texture to use.
+     *
+     * Code taken from http://www.voidware.com/moon_phase.htm
+     *
+     * @param timeManager
+     * @return
+     */
+
+    public int getCurrentMoonPhase(TimeManager timeManager) {
+        int y = timeManager.getYear();
+        int m = timeManager.getMonth();
+        int d = timeManager.getDay();
+
+        if (m < 3) {
+            y--;
+            m += 12;
+        }
+
+        ++m;
+        double c = 365.25 * y;
+        double e = 30.6 * m;
+        double jd = c + e + d - 694039.09;  /* jd is total days elapsed */
+        jd /= 29.53;                        /* divide by the moon cycle (29.53 days) */
+        int b = (int) jd;		            /* int(jd) -> b, take integer part of jd */
+        jd -= b;                            /* subtract integer part to leave fractional part of original jd */
+        b = (int) (jd * 8 + 0.5);	        /* scale fraction from 0-8 and round by adding 0.5 */
+        b = b & 7;		                    /* 0 and 8 are the same so turn 8 into 0 */
+
+        return b;
+    }
 }
