@@ -1018,8 +1018,17 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
         // We need to pass time of day in minutes as float ranging from [0, 1]
         // This makes it easier to sample our sky gradient texture
-        final int MINUTES_IN_DAY = 1440;
-        float time = (float) timeManager.getTimeOfDayInMinutes() / MINUTES_IN_DAY;
+        final float MINUTES_IN_DAY = 1440f;
+        float time = timeManager.getTimeOfDayInMinutes() / MINUTES_IN_DAY;
+
+        // For some reason, sky texture sampling gives unexpected results when time > 0.999 or time < 0.001
+        // and will display daytime colours. Todo: fix this properly
+
+        if (time > 0.999f || time < 0.001f) {
+            // Change to working value
+            time = 0.9986f;
+        }
+
 
         GLES20.glUniform1f(skyboxTimeUniform, time);
 
@@ -1153,8 +1162,12 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
         // We need to pass time of day in minutes as float ranging from [0, 1]
         // This makes it easier to sample our sky gradient texture
-        final int MINUTES_IN_DAY = 1440;
-        float time = (float) timeManager.getTimeOfDayInMinutes() / MINUTES_IN_DAY;
+        final float MINUTES_IN_DAY = 1440f;
+        float time = timeManager.getTimeOfDayInMinutes() / MINUTES_IN_DAY;
+
+        if (time > 0.999f || time < 0.001f) {
+            time = 0.9986f;
+        }
 
         GLES20.glUniform1f(timeOfDayUniform, time);
 
