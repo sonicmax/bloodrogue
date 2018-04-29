@@ -76,8 +76,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     private float[] sunViewMatrix;
     private float[] sunProjMatrix;
     private float[] lightMvpMatrix;
-    private float[] billboardMvMatrix;
-    private float[] billboardMvpMatrix;
     private float[] skyViewMatrix;
     private float[] skyMvMatrix;
     private float[] skyMvpMatrix;
@@ -111,7 +109,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     private int mvpMatrixUniform;
     private int mvMatrixUniform;
     private int lightPosUniform;
-    private int lightColourUniform;
     private int textureUniform;
     private int normalMatrixUniform;
     private int startFadeUniform;
@@ -126,11 +123,9 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     private int skyboxMvpMatrixUniform;
     private int skyboxSkySunColourTexUniform;
     private int skyboxSunPosUniform;
-    private int skyColourUniform;
     private int waterMvMatrixUniform;
     private int waterMvpMatrixUniform;
     private int waterLightPosUniform;
-    private int waterLightColourUniform;
     private int waterViewPosUniform;
     private int waterTimeUniform;
     private int waterReflectiveTextureUniform;
@@ -138,7 +133,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     private int waterSkyBoxMatrixUniform;
     private int waterEyePosModelUniform;
     private int waterSunPosModelUniform;
-    private int waterSkyColourUniform;
     private int waterDuDvMapUniform;
     private int waterNormalMapUniform;
 
@@ -170,7 +164,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     private int screenWidth;
     private int screenHeight;
     private float screenRatio;
-    private float zoomLevel = 1f;
 
     // Frame timing
     private long currentFrameTime;
@@ -224,8 +217,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
     private boolean renderDataReady = false;
 
-    private float[] lightColour;
-    private float[] skyColour;
     private Camera camera;
 
     private SolarSimulator solarSimulator;
@@ -246,8 +237,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         sunViewMatrix = new float[16];
         sunProjMatrix = new float[16];
         lightMvpMatrix = new float[16];
-        billboardMvMatrix = new float[16];
-        billboardMvpMatrix = new float[16];
         skyViewMatrix = new float[16];
         skyMvMatrix = new float[16];
         skyMvpMatrix = new float[16];
@@ -510,8 +499,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         mvMatrixUniform = GLES20.glGetUniformLocation(cubeProgramHandle, "u_MVMatrix");
         normalMatrixUniform = GLES20.glGetUniformLocation(cubeProgramHandle, "u_NormalMatrix");
         lightPosUniform = GLES20.glGetUniformLocation(cubeProgramHandle, "u_SunPos");
-        lightColourUniform = GLES20.glGetUniformLocation(cubeProgramHandle, "u_lightColour");
-        skyColourUniform = GLES20.glGetUniformLocation(cubeProgramHandle, "u_skyColour");
         textureUniform = GLES20.glGetUniformLocation(cubeProgramHandle, "u_Texture");
         depthMapTextureUniform = GLES20.glGetUniformLocation(cubeProgramHandle, "u_DepthMap");
         lightMvpMatrixUniform = GLES20.glGetUniformLocation(cubeProgramHandle, "u_LightMvpMatrix");
@@ -525,7 +512,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         skyColourTexUniform = GLES20.glGetUniformLocation(cubeProgramHandle, "u_SkyGradient");
         timeOfDayUniform = GLES20.glGetUniformLocation(cubeProgramHandle, "u_TimeOfDay");
         sunPosModelUniform = GLES20.glGetUniformLocation(cubeProgramHandle, "u_SunPosModel");
-
 
         depthMapMVPMatrixUniform = GLES20.glGetUniformLocation(depthMapProgramHandle, "u_MVPMatrix");
         depthMapSpriteSheetUniform = GLES20.glGetUniformLocation(depthMapProgramHandle, "u_Texture");
@@ -542,8 +528,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         waterLightPosUniform = GLES20.glGetUniformLocation(waterProgramHandle, "u_SunPos");
         waterEyePosModelUniform = GLES20.glGetUniformLocation(waterProgramHandle, "u_EyeModelPos");
         waterSunPosModelUniform = GLES20.glGetUniformLocation(waterProgramHandle, "u_SunModelPos");
-        waterLightColourUniform = GLES20.glGetUniformLocation(waterProgramHandle, "u_LightColour");
-        waterSkyColourUniform = GLES20.glGetUniformLocation(cubeProgramHandle, "u_skyColour");
         waterTimeUniform = GLES20.glGetUniformLocation(waterProgramHandle, "u_Time");
         waterReflectiveTextureUniform = GLES20.glGetUniformLocation(waterProgramHandle, "u_ReflectiveTexture");
         waterNormalMatrixUniform = GLES20.glGetUniformLocation(waterProgramHandle, "u_NormalMatrix");
@@ -727,9 +711,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         updateSunPosition();
         updateMoonPosition();
 
-        lightColour = timeManager.getSunlightColour();
-        skyColour = timeManager.getSkyColour();
-
         if (renderDataReady) {
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
 
@@ -912,10 +893,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         cameraPosInEyeSpace = new float[4];
         Matrix.multiplyMV(cameraPosInEyeSpace, 0, reflectionViewMatrix, 0, cameraPosInModelSpace, 0);
         GLES20.glUniform3f(viewPositionUniform, cameraPosInEyeSpace[0], cameraPosInEyeSpace[1], cameraPosInEyeSpace[2]);
-
-        // Pass in global light colour
-        GLES20.glUniform3f(lightColourUniform, lightColour[0], lightColour[1], lightColour[2]);
-        GLES20.glUniform3f(skyColourUniform, skyColour[0], skyColour[1], skyColour[2]);
 
         // Pass in texture handles
         GLES20.glUniform1i(textureUniform, 0);
@@ -1147,9 +1124,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         GLES20.glUniform3f(lightPosUniform, sunPosInEyeSpace[0], sunPosInEyeSpace[1], sunPosInEyeSpace[2]);
         GLES20.glUniform3f(sunPosModelUniform, sunPosInSkybox[0], sunPosInSkybox[1], sunPosInSkybox[2]);
 
-        GLES20.glUniform3f(lightColourUniform, lightColour[0], lightColour[1], lightColour[2]);
-        GLES20.glUniform3f(skyColourUniform, skyColour[0], skyColour[1], skyColour[2]);
-
         GLES20.glUniform1i(textureUniform, 0);
         GLES20.glUniform1i(depthMapTextureUniform, 3);
 
@@ -1193,9 +1167,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
         GLES20.glUniform3f(waterViewPosUniform, cameraPosInEyeSpace[0], cameraPosInEyeSpace[1], cameraPosInEyeSpace[2]);
         GLES20.glUniform3f(waterLightPosUniform, sunPosInEyeSpace[0], sunPosInEyeSpace[1], sunPosInEyeSpace[2]);
-
-        GLES20.glUniform3f(waterLightColourUniform, lightColour[0], lightColour[1], lightColour[2]);
-        GLES20.glUniform3f(waterSkyColourUniform, skyColour[0], skyColour[1], skyColour[2]);
     }
 
     /*
@@ -2168,10 +2139,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         }
 
         gridSize = SPRITE_SIZE * scaleFactor;
-    }
-
-    public void setZoom(float zoomLevel) {
-        this.zoomLevel = zoomLevel;
     }
 
     private float[] transformCoordsToWorld(float x, float y) {

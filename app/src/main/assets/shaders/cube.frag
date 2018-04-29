@@ -2,8 +2,6 @@ precision highp float;
 
 uniform sampler2D u_Texture;
 uniform sampler2D u_DepthMap;
-uniform vec3 u_lightColour;
-uniform vec3 u_skyColour;
 uniform vec3 u_ViewPos;
 uniform vec3 u_SunPos;
 uniform vec3 u_SunPosModel;

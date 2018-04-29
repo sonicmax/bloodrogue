@@ -8,7 +8,6 @@ uniform vec3 u_EyePos;
 uniform vec3 u_SunPos;
 uniform vec3 u_EyeModelPos;
 uniform vec3 u_SunModelPos;
-uniform vec3 u_LightColour;
 uniform float u_Time;
 
 uniform mat4 u_SkyBoxMvpMatrix;
