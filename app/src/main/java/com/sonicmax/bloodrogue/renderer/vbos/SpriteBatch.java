@@ -1,7 +1,6 @@
 package com.sonicmax.bloodrogue.renderer.vbos;
 
 import android.opengl.GLES20;
-import android.opengl.GLUtils;
 import android.util.Log;
 
 import com.sonicmax.bloodrogue.renderer.shaders.ShaderAttributes;
@@ -19,7 +18,7 @@ public class SpriteBatch {
     private final String LOG_TAG = this.getClass().getSimpleName();
 
     private final int VERTICES_PER_SPRITE = 6;
-    private final int POSITION_DATA_SIZE = 3;
+    private final int VERTEX_DATA_SIZE = 3;
     private final int NORMAL_DATA_SIZE = 3;
     private final int UV_DATA_SIZE = 2;
     private final int BYTES_PER_FLOAT = 4;
@@ -29,14 +28,14 @@ public class SpriteBatch {
 
     private final int numberOfSprites;
 
-    private final FloatBuffer positionBuffer;
+    private final FloatBuffer vertexBuffer;
     private final FloatBuffer uvBuffer;
 
-    public SpriteBatch(float[] spritePositions, float[] spriteNormals, float[] spriteUvs, int numberOfSprites, int drawMode) {
+    public SpriteBatch(float[] vertices, float[] normals, float[] uvCoords, int numberOfSprites, int drawMode) {
         this.numberOfSprites = numberOfSprites;
 
         // Create interleaved buffer for VBO, and separate position/UV buffers for depth map rendering.
-        FloatBuffer spriteBuffer = createInterleavedBuffer(spritePositions, spriteNormals, spriteUvs, numberOfSprites);
+        FloatBuffer spriteBuffer = createInterleavedBuffer(vertices, normals, uvCoords, numberOfSprites);
 
         // Second, copy these buffers into OpenGL's memory.
         spriteBufferId = createVBO(spriteBuffer, drawMode);
@@ -49,8 +48,8 @@ public class SpriteBatch {
         System.gc();
 
         // Now create buffers for depth map rendering
-        positionBuffer = createFloatBuffer(spritePositions);
-        uvBuffer = createFloatBuffer(spriteUvs);
+        vertexBuffer = createFloatBuffer(vertices);
+        uvBuffer = createFloatBuffer(uvCoords);
 
         Log.v(LOG_TAG, "Sprite VBO id: " + spriteBufferId);
     }
@@ -66,24 +65,25 @@ public class SpriteBatch {
         return buffers[0];
     }
 
-    private FloatBuffer createInterleavedBuffer(float[] spritePositions, float[] spriteNormals, float[] spriteUvs, int numberOfSprites) {
+    private FloatBuffer createInterleavedBuffer(float[] vertices, float[] normals, float[] uvCoords, int numberOfSprites) {
         Log.v(LOG_TAG, "Allocating buffer for " + numberOfSprites + " sprites");
-        final int spriteDataLength = spritePositions.length + spriteNormals.length + spriteUvs.length;
+        final int spriteDataLength = vertices.length + normals.length + uvCoords.length;
 
-        int positionOffset = 0;
+        int vertexOffset = 0;
         int normalOffset = 0;
         int textureOffset = 0;
 
         final FloatBuffer spriteBuffer = ByteBuffer.allocateDirect(spriteDataLength * BYTES_PER_FLOAT)
                 .order(ByteOrder.nativeOrder()).asFloatBuffer();
 
+        // Interleave floats for each vertex in this order: {v0, v1, v2, n0, n1, n2, u, v}
         for (int i = 0; i < numberOfSprites; i++) {
             for (int v = 0; v < 6; v++) {
-                spriteBuffer.put(spritePositions, positionOffset, POSITION_DATA_SIZE);
-                positionOffset += POSITION_DATA_SIZE;
-                spriteBuffer.put(spriteNormals, normalOffset, NORMAL_DATA_SIZE);
+                spriteBuffer.put(vertices, vertexOffset, VERTEX_DATA_SIZE);
+                vertexOffset += VERTEX_DATA_SIZE;
+                spriteBuffer.put(normals, normalOffset, NORMAL_DATA_SIZE);
                 normalOffset += NORMAL_DATA_SIZE;
-                spriteBuffer.put(spriteUvs, textureOffset, UV_DATA_SIZE);
+                spriteBuffer.put(uvCoords, textureOffset, UV_DATA_SIZE);
                 textureOffset += UV_DATA_SIZE;
             }
         }
@@ -93,20 +93,71 @@ public class SpriteBatch {
         return spriteBuffer;
     }
 
-    public void updatePosition(int index, float[] newVertices) {
+    public void updateVertices(int index, float[] data) {
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, spriteBufferId);
 
+        int[] params = new int[1];
+        GLES20.glGetBufferParameteriv(GLES20.GL_ARRAY_BUFFER, GLES20.GL_BUFFER_SIZE, params, 0);
+        int bufferSize = params[0];
+
+        final int stride = (VERTEX_DATA_SIZE + NORMAL_DATA_SIZE + UV_DATA_SIZE) * BYTES_PER_FLOAT;
+        final int size = VERTEX_DATA_SIZE * BYTES_PER_FLOAT;
+
         // Find start point to modify
-        int stride = (POSITION_DATA_SIZE + NORMAL_DATA_SIZE + UV_DATA_SIZE) * BYTES_PER_FLOAT;
-        int offset = index * stride;
+        int offset = (index * VERTICES_PER_SPRITE) * stride;
 
-        FloatBuffer floatBuffer = createFloatBuffer(newVertices);
+        // Make sure that we are updating an index that exists in buffer, and make sure that our updated
+        // data does not exceed buffer capacity.
 
+        if (offset > bufferSize) {
+            Log.e(LOG_TAG, "Error: index for updateVertices() is out of range. \n\tBuffer size: " + bufferSize + "\n\tStart point: " + offset);
+            return;
+        }
+
+        int endRange = offset + (VERTICES_PER_SPRITE * VERTEX_DATA_SIZE);
+
+        if (endRange > bufferSize) {
+            Log.e(LOG_TAG, "Error: data for updateVertices() would exceed buffer capacity. \n\tBuffer size: " + bufferSize + "\n\tEnd point: " + endRange);
+            return;
+        }
+
+        FloatBuffer floatBuffer = createFloatBuffer(data);
+
+        // Vertices are stored as first piece of data in interleaved buffer.
+        // For each vertice in sprite, we copy
         for (int i = 0; i < VERTICES_PER_SPRITE; i++) {
             GLES20.glBufferSubData(GLES20.GL_ARRAY_BUFFER,
                     offset,
-                    POSITION_DATA_SIZE * BYTES_PER_FLOAT,
-                    floatBuffer.position(i * POSITION_DATA_SIZE));
+                    size,
+                    floatBuffer.position(i * VERTEX_DATA_SIZE));
+
+            offset += stride;
+        }
+
+        floatBuffer.limit(0);
+        floatBuffer = null;
+
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
+    }
+
+    public void updateUvCoords(int index, float[] newUvCoords) {
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, spriteBufferId);
+
+        // Find start point to modify
+        int stride = (VERTEX_DATA_SIZE + NORMAL_DATA_SIZE + UV_DATA_SIZE) * BYTES_PER_FLOAT;
+        int offset = index * stride;
+
+        // UV coords are stored after the position and normal data in interleaved buffer.
+        // We need to add this value to offset when using glBufferSubData
+        int uvPosition = (VERTEX_DATA_SIZE + NORMAL_DATA_SIZE) * BYTES_PER_FLOAT;
+
+        FloatBuffer floatBuffer = createFloatBuffer(newUvCoords);
+
+        for (int i = 0; i < VERTICES_PER_SPRITE; i++) {
+            GLES20.glBufferSubData(GLES20.GL_ARRAY_BUFFER,
+                    offset + uvPosition,
+                    UV_DATA_SIZE * BYTES_PER_FLOAT,
+                    floatBuffer.position(i * UV_DATA_SIZE));
 
             offset += stride;
         }
@@ -119,15 +170,15 @@ public class SpriteBatch {
 
     public void render() {
         final int count = numberOfSprites * VERTICES_PER_SPRITE;
-        final int stride = (POSITION_DATA_SIZE + NORMAL_DATA_SIZE + UV_DATA_SIZE) * BYTES_PER_FLOAT;
-        final int normalOffset = POSITION_DATA_SIZE * BYTES_PER_FLOAT;
-        final int uvOffset = (POSITION_DATA_SIZE + NORMAL_DATA_SIZE) * BYTES_PER_FLOAT;
+        final int stride = (VERTEX_DATA_SIZE + NORMAL_DATA_SIZE + UV_DATA_SIZE) * BYTES_PER_FLOAT;
+        final int normalOffset = VERTEX_DATA_SIZE * BYTES_PER_FLOAT;
+        final int uvOffset = (VERTEX_DATA_SIZE + NORMAL_DATA_SIZE) * BYTES_PER_FLOAT;
 
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, spriteBufferId);
 
         GLES20.glEnableVertexAttribArray(ShaderAttributes.POSITION);
         GLES20.glVertexAttribPointer(ShaderAttributes.POSITION,
-                POSITION_DATA_SIZE,
+                VERTEX_DATA_SIZE,
                 GLES20.GL_FLOAT,
                 false,
                 stride,
@@ -169,11 +220,11 @@ public class SpriteBatch {
         GLES20.glEnableVertexAttribArray(ShaderAttributes.SHADOW_POSITION);
         GLES20.glVertexAttribPointer(
                 ShaderAttributes.SHADOW_POSITION,
-                POSITION_DATA_SIZE,
+                VERTEX_DATA_SIZE,
                 GLES20.GL_FLOAT,
                 false,
                 stride,
-                positionBuffer);
+                vertexBuffer);
 
         // Pass in texture coord data so we can check alpha values
         GLES20.glEnableVertexAttribArray(ShaderAttributes.TEXCOORD);
