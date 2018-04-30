@@ -25,6 +25,7 @@ import com.sonicmax.bloodrogue.engine.environment.TimeManager;
 import com.sonicmax.bloodrogue.engine.environment.WeatherManager;
 import com.sonicmax.bloodrogue.generator.Chunk;
 import com.sonicmax.bloodrogue.generator.tools.SimplexNoiseGenerator;
+import com.sonicmax.bloodrogue.renderer.geometry.RayCaster;
 import com.sonicmax.bloodrogue.renderer.vbos.CubeBatch;
 import com.sonicmax.bloodrogue.renderer.geometry.ShapeBuilder;
 import com.sonicmax.bloodrogue.renderer.shaders.GLShaderLoader;
@@ -50,6 +51,9 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     private final int SPRITE_UV_SIZE = 12;
 
     private final long FRAME_TIME = 16L;
+
+    private final float SHADOW_VISIBILITY = 100f; // Todo: make configurable
+    private final float FOV = 80f; // Todo: make configurable
 
     public static final int NONE = 0; // Rendering nothing
     public static final int TITLE = 1; // Rendering title screen
@@ -183,6 +187,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     private SpriteBatch ground;
     private SpriteBatch water;
     private SpriteBatch sun;
+    private CubeBatch debugSelection;
 
     // Resolution and scaling
     private int screenWidth;
@@ -293,6 +298,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         depthMapHeight = 1024;
 
         camera = new Camera();
+        camera.setPosition(50f, 50f, 50f);
 
         solarSimulator = new SolarSimulator();
     }
@@ -337,15 +343,15 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         screenWidth = width;
         screenHeight = height;
 
+        camera.setProjection(width, height, FOV, near, far);
+
         scaleContent();
         calculateContentGrid();
         setGridChunkToRender();
-        camera.setProjection(width, height, FOV, near, far);
         createDepthMapFBO();
         createWaterReflectionFBO(width, height);
 
-        // For debugging: pass screen resolution to texture/depth map renderers so we can
-
+        // For debugging:
         texDebugger.setScaleFactor(scaleFactor);
         texDebugger.prepareFullScreenRender((float) width, (float) height);
 
@@ -1140,6 +1146,10 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
             GLES20.glCullFace(GLES20.GL_BACK);
 
             cubes.render();
+
+            if (debugSelection != null) {
+                debugSelection.render();
+            }
         }
 
         if (water != null) {
@@ -1152,11 +1162,11 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
             water.render();
         }
 
-        if (debugNormals != null) {
+        if (debugLines != null) {
             // FOR DEBUGGING ONLY!
             GLES20.glUseProgram(debugLineProgramHandle);
             GLES20.glUniformMatrix4fv(debugLineMvpMatrixUniform, 1, false, mvpMatrix, 0);
-            debugNormals.draw();
+            debugLines.draw();
         }
     }
 
@@ -1234,7 +1244,11 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     private SpriteBatch terrain;
     private int terrainCount;
 
+    private HashMap<Long, Integer> entityBufferIndices;
+
     private void generateRendererData() {
+        entityBufferIndices = new HashMap<>();
+
         try {
             // We need to iterate over grid twice - once to get size for float arrays, and then
             // a second time when we want to generate renderer data
@@ -1255,6 +1269,11 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
                         }
 
                         else {
+                            // Keep track of the order in buffer, so we can modify later.
+                            // Note that even if grid position changes, we can rely on the
+                            // buffer position and entity ID being the same. So we only
+                            // need the initial order to get this right
+                            entityBufferIndices.put(object.id, spriteCount);
                             spriteCount++;
                         }
                     }
@@ -1407,7 +1426,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
                             y2 = z + worldGridSize;
 
                             // z1 = y;
-                            z2 = y + (worldGridSize / 2f) + worldGridSize; // Move to centre of tile
+                            z2 = y + (worldGridSize / 2f); // Move to centre of tile
 
                             float[] p1 = { x1, y2, z2 };
                             float[] p2 = { x2, y2, z2 };
@@ -1593,9 +1612,17 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         System.gc();
 
         try {
+            float[] uvCoords = {
+                    0f, 0f,
+                    0f, 1f,
+                    1f, 0f,
+                    0f, 1f,
+                    1f, 1f,
+                    1f, 0f
+            };
+
             // Use GL_DYNAMIC_DRAW as we will be updating the position data in VBO each frame
-            sun = new SpriteBatch(getSunVertices(), ShapeBuilder.SPRITE_FRONT_NORMAL_DATA,
-                    cachedSpriteUvs[spriteIndexes.get("sprites/sun.png")], 1, GLES20.GL_DYNAMIC_DRAW);
+            sun = new SpriteBatch(getSunVertices(), ShapeBuilder.SPRITE_FRONT_NORMAL_DATA, uvCoords, 1, GLES20.GL_DYNAMIC_DRAW);
 
         } catch (OutOfMemoryError err) {
             if (sun != null) {
@@ -1956,13 +1983,13 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         }
     }
 
-    private LineBatch debugNormals;
+    private LineBatch debugLines;
 
     private void createDebugNormalVBO(float[] spritePositionData, float[] spriteNormalData, int count) {
-        if (debugNormals != null) {
+        if (debugLines != null) {
             Log.d(LOG_TAG, "Releasing sprites");
-            debugNormals.release();
-            debugNormals = null;
+            debugLines.release();
+            debugLines = null;
         }
 
         // Not supposed to manually call this, but Dalvik sometimes needs some additional prodding to clean up the heap.
@@ -1993,12 +2020,12 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
                 lineData[lineDataIndex++] = v3 + n3;
             }
 
-            debugNormals = new LineBatch(lineData, count);
+            debugLines = new LineBatch(lineData, count);
 
         } catch (OutOfMemoryError err) {
-            if (debugNormals != null) {
-                debugNormals.release();
-                debugNormals = null;
+            if (debugLines != null) {
+                debugLines.release();
+                debugLines = null;
             }
 
             // Not supposed to manually call this, but Dalvik sometimes needs some additional prodding to clean up the heap.
@@ -2122,6 +2149,164 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
     /*
     ------------------------------------------------------------------------------------------
+    User input
+    ------------------------------------------------------------------------------------------
+    */
+
+    public float[] getGridCoordsFromTouchEvent(float x, float y) {
+        if (currentFloorData == null) {
+            return new float[] {0f, 0f, 0f};
+        }
+
+        float[] ray = RayCaster.castRayFromTouchCoords(x, y, screenWidth, screenHeight, mvMatrix, projectionMatrix);
+        return testRayTerrainIntersection(ray);
+    }
+
+    private float[] testRayTerrainIntersection(float[] ray) {
+        final float[] noIntersection = new float[] {-1f, -1f};
+
+        float[] intersection = new float[3];
+
+        float x1, x2, z1, z2;
+
+        // Test whether ray intersects with terrain mesh (as flat plane).
+        // Todo: this isn't always accurate enough for our needs
+        float[] meshIntersection = new float[3];
+        float[] rayP0 = new float[] {ray[0], ray[1], ray[2]};
+        float[] rayP1 = new float[] {ray[3], ray[4], ray[5]};
+
+        float width = visibleGridWidth * worldGridSize;
+        float height = visibleGridHeight * worldGridSize;
+
+        float[] meshV0 = new float[] {0f, worldGridSize, height};
+        float[] meshV1 = new float[] {width, worldGridSize, height};
+        float[] meshV2 = new float[] {0f, worldGridSize, 0f};
+
+        // Todo: which method is faster? intersectRayWithPlane() or intersectRayWithTriangle()?
+        boolean intersectsWithMesh = RayCaster.intersectRayWithPlane(rayP0, rayP1, meshV0, meshV1, meshV2, meshIntersection);
+
+        if (!intersectsWithMesh) {
+            return noIntersection;
+        }
+
+        // Figure out which portion of the grid needs to be checked:
+        int approxGridX = (int) (meshIntersection[0] / worldGridSize);
+        int approxGridY = (int) (meshIntersection[2] / worldGridSize);
+
+        int startX = Math.max(approxGridX - 10, 0);
+        int startY = Math.max(approxGridY - 10, 0);
+        int endX = Math.min(approxGridX + 10, visibleGridWidth);
+        int endY = Math.min(approxGridY + 10, visibleGridHeight);
+
+        for (int gridX = startX; gridX < endX; gridX++) {
+            for (int gridY = startY; gridY < endY; gridY++) {
+                float x = gridX * worldGridSize;
+                float y = gridY * worldGridSize;
+
+                // Find heights for terrain mesh.
+                float bottomLeft = worldGridSize * (1 + currentFloorData.heightMap[gridX][gridY] * 8);
+                float bottomRight = worldGridSize * (1 + currentFloorData.heightMap[gridX + 1][gridY] * 8);
+                float topLeft = worldGridSize * (1 + currentFloorData.heightMap[gridX][gridY + 1] * 8);
+                float topRight = worldGridSize * (1 + currentFloorData.heightMap[gridX + 1][gridY + 1] * 8);
+
+                x1 = x;
+                x2 = x + worldGridSize;
+
+                z1 = y;
+                z2 = y + worldGridSize;
+
+                float[] p1 = {x1, bottomLeft, z1};
+                float[] p2 = {x2, bottomRight, z1};
+                float[] p3 = {x1, topLeft, z2};
+                float[] p4 = {x2, topRight, z2};
+
+                boolean rayIntersectsTriangle;
+
+                // Test each triangle for intersections: (p1, p3, p2) and (p3, p4, p2)
+                rayIntersectsTriangle = RayCaster.intersectRayAndTriangle(rayP0, rayP1, p1, p3, p2, intersection);
+
+                if (rayIntersectsTriangle) {
+                    Log.v(LOG_TAG, "Intersection! " + Arrays.toString(intersection));
+
+                    addSelectionHighlight(gridX, gridY);
+
+                    return new float[] {gridX, gridY};
+                }
+
+                rayIntersectsTriangle = RayCaster.intersectRayAndTriangle(rayP0, rayP1, p3, p4, p2, intersection);
+
+                if (rayIntersectsTriangle) {
+                    Log.v(LOG_TAG, "Intersection! " + Arrays.toString(intersection));
+
+                    addSelectionHighlight(gridX, gridY);
+
+                    return new float[] {gridX, gridY};
+                }
+            }
+        }
+
+        return noIntersection;
+    }
+
+    private void addSelectionHighlight(final int gridX, final int gridY) {
+        float x = gridX * worldGridSize;
+        float y = gridY * worldGridSize;
+        float z;
+
+        float averageHeight = (currentFloorData.heightMap[gridX][gridY]
+                + currentFloorData.heightMap[gridX + 1][gridY]
+                + currentFloorData.heightMap[gridX][gridY + 1]
+                + currentFloorData.heightMap[gridX + 1][gridY + 1]) / 4;
+
+        z = worldGridSize + (worldGridSize * (averageHeight * 8));
+
+        // Add to cube batch
+        float x1 = x;
+        float x2 = x + worldGridSize;
+
+        float y1 = z;
+        float y2 = z + worldGridSize;
+
+        float z1 = y;
+        float z2 = y + worldGridSize;
+
+        float[] p1 = { x1, y2, z2 };
+        float[] p2 = { x2, y2, z2 };
+
+        float[] p3 = { x1, y1, z2 };
+        float[] p4 = { x2, y1, z2 };
+
+        float[] p5 = { x1, y2, z1 };
+        float[] p6 = { x2, y2, z1 };
+
+        float[] p7 = { x1, y1, z1 };
+        float[] p8 = { x2, y1, z1 };
+
+        final float[] cubePositionData = ShapeBuilder.generateCubeData(p1, p2, p3, p4, p5, p6, p7, p8, p1.length);
+
+        // Anything relating to VBOs needs to be run on GLThread, and this method was
+        // probably called from UIThread in response to a touch event.
+
+        gameSurfaceView.queueEvent(new Runnable() {
+            @Override
+            public void run() {
+                int numberOfCubes = 1;
+
+                if (debugSelection != null) {
+                    debugSelection.updateVertices(0, cubePositionData);
+                }
+                else {
+                    debugSelection = new CubeBatch(cubePositionData,
+                            ShapeBuilder.CUBE_NORMAL_DATA,
+                            cachedCubeUvs[spriteIndexes.get("sprites/cursor_default.png")],
+                            numberOfCubes);
+                }
+            }
+        });
+    }
+
+    /*
+    ------------------------------------------------------------------------------------------
     Misc. stuff
     ------------------------------------------------------------------------------------------
     */
@@ -2136,7 +2321,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     }
 
     private void setGridChunkToRender() {
-        float[] origin = transformCoordsToWorld(0, 0);
+        float[] origin = getGridCoordsFromTouchEvent(0, 0);
 
         float spriteSize = SPRITE_SIZE * scaleFactor;
 
@@ -2197,35 +2382,84 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         gridSize = SPRITE_SIZE * scaleFactor;
     }
 
-    private float[] transformCoordsToWorld(float x, float y) {
-        float[] coords = {0.0f, 0.0f, 0.0f, 0.0f};
-
-        int[] viewPort = new int[] {0, 0, screenWidth, screenHeight};
-
-        // We need to reverse any modifications made to the zoom level using gluUnProject
-        GLU.gluUnProject(x, y, -1.0f, viewMatrix, 0, projectionMatrix, 0, viewPort, 0, coords, 0);
-
-        // Original origin is centre of screen, so we need to translate back to bottom-left
-        coords[0] += (screenWidth / 2);
-        coords[1] += (screenHeight / 2);
-
-        // Account for scrolling
-        // coords[0] += touchScrollDx;
-        // [1] += touchScrollDy;
-
-        return coords;
-    }
-
     public void setFrame(Frame floorData) {
         currentFloorData = floorData;
         hasGameData = true;
-        singleThreadedExecutor.submit(new Runnable() {
-            @Override
-            public void run() {
-                generateRendererData();
-            }
-        });
+
+        if (!renderDataReady) {
+            singleThreadedExecutor.submit(new Runnable() {
+                @Override
+                public void run() {
+                    generateRendererData();
+                }
+            });
+        }
+
+        else {
+            updateSpritePositions();
+        }
+
         renderState = GAME;
+    }
+
+    private void updateSpritePositions() {
+        float x1, x2, y1, y2, z2;
+
+        // We need to keep track of this to figure out where we need to modify vertices in buffer
+
+        for (int gridX = 0; gridX < visibleGridWidth; gridX++) {
+            for (int gridY = 0; gridY < visibleGridHeight; gridY++) {
+                float x = gridX * worldGridSize;
+                float y = gridY * worldGridSize;
+                float z;
+
+                float averageHeight = (currentFloorData.heightMap[gridX][gridY]
+                        + currentFloorData.heightMap[gridX + 1][gridY]
+                        + currentFloorData.heightMap[gridX][gridY + 1]
+                        + currentFloorData.heightMap[gridX + 1][gridY + 1]) / 4;
+
+                float elevation = worldGridSize * (averageHeight * 8);
+
+                // Todo: would be much better if we specified which objects needed to be updated in engine
+
+                // Iterate over objects and find any which need updating
+                for (Sprite object : currentFloorData.getObjects()[gridX][gridY]) {
+                    if (!object.dirty) continue;
+
+                    object.dirty = false;
+
+                    z = (object.zLayer * worldGridSize) + elevation;
+
+                    // Todo: for now, only sprites move. Cubes are too lazy
+                    if (!object.wrapToCube) {
+                        // Add to sprite batch
+
+                        x1 = x;
+                        x2 = x + worldGridSize;
+
+                        y1 = z;
+                        y2 = z + worldGridSize;
+
+                        z2 = y + (worldGridSize / 2f); // Move to centre of tile
+
+                        float[] p1 = { x1, y2, z2 };
+                        float[] p2 = { x2, y2, z2 };
+                        float[] p3 = { x1, y1, z2 };
+                        float[] p4 = { x2, y1, z2 };
+
+                        final int bufferIndex = entityBufferIndices.get(object.id);
+                        final float[] spritePositionData = ShapeBuilder.generateSpriteData(p1, p2, p3, p4, p1.length);
+
+                        gameSurfaceView.queueEvent(new Runnable() {
+                            @Override
+                            public void run() {
+                                sprites.updateVertices(bufferIndex, spritePositionData);
+                            }
+                        });
+                    }
+                }
+            }
+        }
     }
 
     /*

@@ -59,6 +59,7 @@ public class Sprite extends Component {
 
     public int zLayer;
     public boolean wrapToCube;
+    public boolean dirty;
 
     public Sprite(long id) {
         super(id);
@@ -88,6 +89,7 @@ public class Sprite extends Component {
 
         zLayer = Sprite.FOREGROUND;
         wrapToCube = true;
+        dirty = false;
     }
 
     /**

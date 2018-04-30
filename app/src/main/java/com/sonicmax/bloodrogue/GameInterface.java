@@ -27,6 +27,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 
 /**
@@ -387,16 +389,20 @@ public class GameInterface {
             mPreviousX = x;
             mPreviousY = y;
 
-            /*final long PATH_THRESHOLD = 500L; // Amount of time before we start displaying path selection nodes
-            final Vector mapTouch = gameRenderer.getGridCellForTouchCoords(x, y);
+            final float[] gridCoords = gameRenderer3D.getGridCoordsFromTouchEvent(x, y);
+            if (Arrays.equals(gridCoords, new float[] {-1.0f, -1.0f})) return;
+            final Vector2D mapTouch = new Vector2D((int) gridCoords[0], (int) gridCoords [1]);
+
+            final long PATH_THRESHOLD = 500L; // Amount of time before we start displaying path selection nodes
 
             // Reset path selection and scrolling.
-            gameRenderer.setCurrentPathSelection(null);
+            // gameRenderer3D.setCurrentPathSelection(null);
             pathSelection = false;
 
             if (eventDuration < PATH_THRESHOLD) {
                 // First, check whether player touched a UI element.
-                boolean touchCaptured = gameRenderer.checkUiTouch(x, y);
+                // boolean touchCaptured = gameRenderer3D.checkUiTouch(x, y);
+                boolean touchCaptured = false;
 
                 // If touch event wasn't consumed by renderer, pass to engine
                 if (!touchCaptured) {
@@ -407,10 +413,11 @@ public class GameInterface {
                         }
                     });
                 }
+
             } else {
-                final ArrayList<Vector> path = gameEngine.onTouchPathComplete();
+                final ArrayList<Vector2D> path = gameEngine.onTouchPathComplete();
                 // Todo: if square is adjacent then we should just move to it
-                    /*if (path.size() > 0) {
+                    if (path.size() > 0) {
                         path.add(mapTouch);
 
                         // Execute in background thread to prevent queueAndFollowPath() from blocking touch events
@@ -421,7 +428,7 @@ public class GameInterface {
                             }
                         });
                     }
-            }*/
+            }
         }
 
         else {
@@ -447,10 +454,6 @@ public class GameInterface {
         scaleFactor *= detector.getScaleFactor();
         float delta = (detector.getCurrentSpan() - detector.getPreviousSpan()) / density / 2f;
         gameRenderer3D.setScaleDelta(delta);
-
-        // Don't let the object get too small or too large.
-        // scaleFactor = Math.max(0.5f, Math.min(scaleFactor, 4.0f));
-        gameRenderer3D.setZoom(scaleFactor);
         return true;
     }
 

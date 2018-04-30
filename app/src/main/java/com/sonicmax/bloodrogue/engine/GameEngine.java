@@ -718,6 +718,7 @@ public class GameEngine {
         sprite.y = newY;
         sprite.lastX = oldX;
         sprite.lastY = oldY;
+        sprite.dirty = true;
 
         // Update sprite grid for renderer
         if (objectSpriteGrid[oldX][oldY].contains(sprite)) {

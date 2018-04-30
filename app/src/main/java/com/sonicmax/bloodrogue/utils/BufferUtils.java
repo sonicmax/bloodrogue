@@ -2,6 +2,7 @@ package com.sonicmax.bloodrogue.utils;
 
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.CharBuffer;
 import java.nio.DoubleBuffer;
 import java.nio.FloatBuffer;
@@ -16,6 +17,7 @@ import java.util.Arrays;
 
 public class BufferUtils {
     private static final String BUFFER_UTILS = "buffer-utils";
+    private static final int BYTES_PER_FLOAT = 4;
 
     static {
         System.loadLibrary(BUFFER_UTILS);
@@ -25,6 +27,11 @@ public class BufferUtils {
         float[] result = Arrays.copyOf(first, first.length + second.length);
         System.arraycopy(second, 0, result, first.length, second.length);
         return result;
+    }
+
+    public static FloatBuffer createFloatBuffer(int capacity) {
+        return ByteBuffer.allocateDirect(capacity * BYTES_PER_FLOAT)
+                .order(ByteOrder.nativeOrder()).asFloatBuffer();
     }
 
     private static int bytesToElements (Buffer dst, int bytes) {
