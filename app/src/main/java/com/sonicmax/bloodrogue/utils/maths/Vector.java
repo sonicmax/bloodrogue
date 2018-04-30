@@ -1,7 +1,8 @@
 package com.sonicmax.bloodrogue.utils.maths;
 
 /**
- * Class with some vector maths methods for use with float arrays
+ * Class with some static vector maths methods for use with float arrays.
+ * Doesn't attempt to validate any parameters, so be careful
  */
 
 public class Vector {
