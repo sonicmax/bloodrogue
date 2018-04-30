@@ -1,6 +1,7 @@
 package com.sonicmax.bloodrogue.engine.environment;
 
 import android.opengl.Matrix;
+import android.util.Log;
 
 /**
  * Contains methods to simulate various elements of the Solar System for in-game use
@@ -8,6 +9,7 @@ import android.opengl.Matrix;
  */
 
 public class SolarSimulator {
+    private final String LOG_TAG = this.getClass().getSimpleName();
     private final float[] SUN_START_POS = new float[] {0f, -5f, 0f, 0f};
 
     private float[] moonPosInSpace;
@@ -18,6 +20,8 @@ public class SolarSimulator {
 
     private float[] moonRotationMatrix;
     private float[] compassRotationMatrix;
+
+    private int currentMoonPhase;
 
     public SolarSimulator() {
         moonPosInSpace = new float[4];
@@ -170,6 +174,47 @@ public class SolarSimulator {
         b = (int) (jd * 8 + 0.5);	        /* scale fraction from 0-8 and round by adding 0.5 */
         b = b & 7;		                    /* 0 and 8 are the same so turn 8 into 0 */
 
-        return b;
+        currentMoonPhase = b;
+
+        return currentMoonPhase;
     }
+
+    /**
+     * Returns uv coordinates for texture representing current moon phase.
+     *
+     * @return UV coords as float array
+     */
+
+    public float[] getMoonPhaseUvCoords(int moonPhase) {
+        if (moonPhase < 0 || moonPhase > 7) {
+            throw new IllegalArgumentException("Error: phase < 0 || phase > 7 (phase = " + moonPhase + ")");
+        }
+
+        /*
+         * Textures are stored as a row in a sprite sheet. Each individual texture is 64x64px,
+         * and there are 8 moon phases (so total width is 512px). The images are stored
+         * in same order as they appear in MoonPhases constants (ordered from 0-7) so we can
+         * calculate the UV coords directly from the moonPhase parameter.
+         */
+
+        final float textureWidth = 0.125f; // 1 / 8 sprites per row
+        final float textureHeight = 1f;
+        final int spritesPerRow = 8;
+
+        float u = (moonPhase % spritesPerRow) * textureWidth;
+        float u2 = u + textureWidth;
+        float v = 0f;
+        float v2 = v + textureHeight;
+
+        return new float[] {
+                u, v,
+                u, v2,
+                u2, v,
+                u, v2,
+                u2, v2,
+                u2, v
+        };
+    }
+
+
 }

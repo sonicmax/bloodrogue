@@ -1,6 +1,7 @@
 package com.sonicmax.bloodrogue.renderer;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -18,6 +19,7 @@ import android.util.Log;
 import com.sonicmax.bloodrogue.GameInterface;
 import com.sonicmax.bloodrogue.engine.Frame;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
+import com.sonicmax.bloodrogue.engine.environment.MoonPhases;
 import com.sonicmax.bloodrogue.engine.environment.SolarSimulator;
 import com.sonicmax.bloodrogue.engine.environment.TimeManager;
 import com.sonicmax.bloodrogue.engine.environment.WeatherManager;
@@ -135,6 +137,26 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     private int waterSunPosModelUniform;
     private int waterDuDvMapUniform;
     private int waterNormalMapUniform;
+    private int debugLineMvpMatrixUniform;
+    private int checkBackFaceUniform;
+    private int skyboxTimeUniform;
+    private int skyboxSkyColourTexUniform;
+    private int sunPosModelUniform;
+    private int skyColourTexUniform;
+    private int skyColourWithSunTexUniform;
+    private int timeOfDayUniform;
+    private int moonMvpMatrixUniform;
+    private int moonMvMatrixUniform;
+    private int moonNormalMatrixUniform;
+    private int moonLightMvpUniform;
+    private int moonViewPosUniform;
+    private int moonSunPosUniform;
+    private int moonSunPosModelUniform;
+    private int moonTextureUniform;
+    private int moonNormalMapUniform;
+    private int moonTimeOfDayUniform;
+    private int moonSkyGradientUniform;
+    private int moonSkyGradientSunUniform;
 
     public int renderState;
 
@@ -151,6 +173,8 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     private WeatherManager weatherManager;
     private SpriteRenderer depthDebugger;
     private SpriteRenderer texDebugger;
+    private SolarSimulator solarSimulator;
+    private Camera camera;
 
     // VBOs
     private CubeBatch cubes;
@@ -217,9 +241,12 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
     private boolean renderDataReady = false;
 
-    private Camera camera;
+    private int timeInMinutes = 0;
 
-    private SolarSimulator solarSimulator;
+    private int currentMoonPhase = -1; // Set to -1 to make sure UV coords are updated on first render
+
+    private int debugLineProgramHandle;
+    private int moonProgramHandle;
 
     public GameRenderer3D(GameSurfaceView gameSurfaceView, Context context) {
         this.gameSurfaceView = gameSurfaceView;
@@ -448,8 +475,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         Log.v(LOG_TAG, "Max texture units: " + max[0]);
     }
 
-    private int debugLineProgramHandle;
-
     private void loadShaders() {
         GLShaderLoader loader = new GLShaderLoader(context);
         cubeProgramHandle = loader.compileCubeShader();
@@ -460,6 +485,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         skyboxProgramHandle = loader.compileSkyBoxShader();
         waterProgramHandle = loader.compileWaterShader();
         debugLineProgramHandle = loader.compileDebugLineShader();
+        moonProgramHandle = loader.compileMoonShader();
     }
 
     private void loadResources() {
@@ -482,17 +508,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         GLES20.glDepthRangef(0.0f, 1.0f);
         GLES20.glDepthMask(true);
     }
-
-    private int debugLineMvpMatrixUniform;
-    private int checkBackFaceUniform;
-    private int skyboxTimeUniform;
-    private int skyboxSkyColourTexUniform;
-
-    private int sunPosModelUniform;
-
-    private int skyColourTexUniform;
-    private int skyColourWithSunTexUniform;
-    private int timeOfDayUniform;
 
     private void getGlUniforms() {
         mvpMatrixUniform = GLES20.glGetUniformLocation(cubeProgramHandle, "u_MVPMatrix");
@@ -536,6 +551,19 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         waterNormalMapUniform = GLES20.glGetUniformLocation(waterProgramHandle, "u_NormalMap");
 
         debugLineMvpMatrixUniform = GLES20.glGetUniformLocation(debugLineProgramHandle, "u_MVPMatrix");
+
+        moonMvpMatrixUniform = GLES20.glGetUniformLocation(moonProgramHandle, "u_MVPMatrix");
+        moonMvMatrixUniform = GLES20.glGetUniformLocation(moonProgramHandle, "u_MVMatrix");
+        moonNormalMatrixUniform = GLES20.glGetUniformLocation(moonProgramHandle, "u_NormalMatrix");
+        moonLightMvpUniform = GLES20.glGetUniformLocation(moonProgramHandle, "u_LightMvpMatrix");
+        moonViewPosUniform = GLES20.glGetUniformLocation(moonProgramHandle, "u_ViewPos");
+        moonSunPosUniform = GLES20.glGetUniformLocation(moonProgramHandle, "u_SunPos");
+        moonSunPosModelUniform = GLES20.glGetUniformLocation(moonProgramHandle, "u_SunPosModel");
+        moonTextureUniform = GLES20.glGetUniformLocation(moonProgramHandle, "u_Texture");
+        moonNormalMapUniform = GLES20.glGetUniformLocation(moonProgramHandle, "u_NormalMap");
+        moonTimeOfDayUniform = GLES20.glGetUniformLocation(moonProgramHandle, "u_TimeOfDay");
+        moonSkyGradientSunUniform = GLES20.glGetUniformLocation(moonProgramHandle, "u_SkyGradientWithSun");
+        moonSkyGradientUniform = GLES20.glGetUniformLocation(moonProgramHandle, "u_SkyGradient");
     }
 
     /*
@@ -635,20 +663,53 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         float[] newPosition = getSunVertices();
 
         if (sun != null) {
-            sun.updatePosition(0, newPosition);
+            sun.updateVertices(0, newPosition);
         }
     }
 
     private void updateMoonPosition() {
-        moonPosInSkybox = solarSimulator.getCurrentMoonPosition(timeManager);
-
-        // Update position of moon in VBO
-        float[] newVertices = getMoonVertices();
-
         // Todo: should we even bother rendering if not visible? Does it matter?
+
         if (moon != null) {
-            moon.updatePosition(0, newVertices);
+            moonPosInSkybox = solarSimulator.getCurrentMoonPosition(timeManager);
+
+            int phase = solarSimulator.getCurrentMoonPhase(timeManager);
+
+            if (phase != currentMoonPhase) {
+                currentMoonPhase = phase;
+                moon.updateUvCoords(0, solarSimulator.getMoonPhaseUvCoords(currentMoonPhase));
+            }
+
+            moon.updateVertices(0, getMoonVertices());
         }
+    }
+
+    private void passMoonUniformsToShader() {
+        GLES20.glUniformMatrix4fv(moonMvMatrixUniform, 1, false, skyMvMatrix, 0);
+        GLES20.glUniformMatrix4fv(moonMvpMatrixUniform, 1, false, skyMvpMatrix, 0);
+        GLES20.glUniformMatrix4fv(moonNormalMatrixUniform, 1, false, normalMatrix, 0);
+
+        GLES20.glUniformMatrix4fv(moonLightMvpUniform, 1, false, lightMvpMatrix, 0);
+
+        GLES20.glUniform3f(moonViewPosUniform, cameraPosInEyeSpace[0], cameraPosInEyeSpace[1], cameraPosInEyeSpace[2]);
+        GLES20.glUniform3f(moonSunPosUniform, sunPosInEyeSpace[0], sunPosInEyeSpace[1], sunPosInEyeSpace[2]);
+        GLES20.glUniform3f(moonSunPosModelUniform, sunPosInSkybox[0], sunPosInSkybox[1], sunPosInSkybox[2]);
+
+        GLES20.glUniform1i(moonTextureUniform, 9);
+        GLES20.glUniform1i(moonNormalMapUniform, 10);
+        GLES20.glUniform1i(moonSkyGradientSunUniform, 7);
+        GLES20.glUniform1i(moonSkyGradientUniform, 8);
+
+        // We need to pass time of day in minutes as float ranging from [0, 1]
+        // This makes it easier to sample our sky gradient texture
+        final float MINUTES_IN_DAY = 1440f;
+        float time = timeManager.getTimeOfDayInMinutes() / MINUTES_IN_DAY;
+
+        if (time > 0.999f || time < 0.001f) {
+            time = 0.9986f;
+        }
+
+        GLES20.glUniform1f(moonTimeOfDayUniform, time);
     }
 
     private void calculateViewFrustumBoundingBox() {
@@ -665,8 +726,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     Main render loop
     ------------------------------------------------------------------------------------------
     */
-
-    private int timeInMinutes = 0;
 
     private void checkElapsedTime(long dt) {
         currentFrameTime += dt;
@@ -730,6 +789,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
             switch (renderMode) {
                 case FULL_RENDER:
                     renderSkybox();
+                    renderSkyObjects();
                     renderScene();
                     break;
 
@@ -1014,33 +1074,29 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         }
     }
 
-    private LineBatch lmao = null;
-
-    private void renderScene() {
-        GLES20.glUseProgram(cubeProgramHandle);
-
-        passUniformsToCubeShader();
-
-        // Note: we want to cull back faces when rendering cubes, and disable face culling when rendering sprites
-
+    private void renderSkyObjects() {
         if (sun != null && moon != null) {
+            GLES20.glUseProgram(moonProgramHandle);
+            passMoonUniformsToShader();
+
             // Make sure depth mask is disabled
             GLES20.glDepthMask(false);
-
-            // Use skybox matrices when rendering sun and moon, to give illusion of distance
-            GLES20.glUniformMatrix4fv(mvMatrixUniform, 1, false, skyMvMatrix, 0);
-            GLES20.glUniformMatrix4fv(mvpMatrixUniform, 1, false, skyMvpMatrix, 0);
-
-            GLES20.glUniform1f(clippingPlaneUniform, -10f);
-
             GLES20.glDisable(GLES20.GL_CULL_FACE);
+
+            GLES20.glUniform1i(moonTextureUniform, 11);
+            GLES20.glUniform1i(moonNormalMapUniform, 12);
             sun.render();
+
+            GLES20.glUniform1i(moonTextureUniform, 9);
+            GLES20.glUniform1i(moonNormalMapUniform, 10);
             moon.render();
         }
+    }
 
-        // Pass in normal MV/MVP matrices
-        GLES20.glUniformMatrix4fv(mvMatrixUniform, 1, false, mvMatrix, 0);
-        GLES20.glUniformMatrix4fv(mvpMatrixUniform, 1, false, mvpMatrix, 0);
+    private void renderScene() {
+        // Note: we want to cull back faces when rendering cubes, and disable face culling when rendering sprites
+        GLES20.glUseProgram(cubeProgramHandle);
+        passUniformsToCubeShader();
 
         // Make sure we render everything below water
         GLES20.glUniform1f(clippingPlaneUniform, 0f);
@@ -2210,8 +2266,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
                 break;
         }
 
-        hp = ((int) moonPosInSkybox[0]) + ", " + ((int) moonPosInSkybox[1]) + ", " + ((int) moonPosInSkybox[2]);
-        // hp = ((int) sunPosInEyeSpace[0]) + ", " + ((int) sunPosInEyeSpace[1]) + ", " + ((int) sunPosInEyeSpace[2]);
+        hp = MoonPhases.toString(solarSimulator.getCurrentMoonPhase(timeManager));
 
         String worldState = timeManager.getTimeString() + " (" + weatherManager.getWeatherString() + ")";
         String cameraPos = ((int) cameraPosInModelSpace[0]) + ", " + ((int) cameraPosInModelSpace[1]) + ", " + ((int) cameraPosInModelSpace[2]);

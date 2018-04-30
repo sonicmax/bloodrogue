@@ -90,7 +90,10 @@ public class TextureLoader {
             String waterNormalMap = GL_PATH + seaNormal;
             String skyGradientWithSun = GL_PATH + "skygradient.png";
             String skyGradient = GL_PATH + "skygradient2.png";
-            String whiteTest = GL_PATH + "white.png";
+            String moonNormalMap = GL_PATH + "moon_normal_map.png";
+            String moonSpriteSheet = SHEET_PATH + "moon.png";
+            String sun = GL_PATH + "sun.png";
+            String sunNormalMap = GL_PATH + "sun_normal_map.png";
 
             InputStream is = assetManager.open(waterDuDvMap);
             BitmapFactory.Options opts = new BitmapFactory.Options();
@@ -133,7 +136,7 @@ public class TextureLoader {
 
             textureHandles.put(skyGradient, textureHandle);
 
-            is = assetManager.open(whiteTest);
+            is = assetManager.open(moonSpriteSheet);
             opts = new BitmapFactory.Options();
             opts.inPreferredConfig = Bitmap.Config.RGB_565;
             bitmap = BitmapFactory.decodeStream(is, null, opts);
@@ -141,7 +144,37 @@ public class TextureLoader {
                     GLES20.GL_REPEAT, GLES20.GL_REPEAT,
                     GLES20.GL_NEAREST, GLES20.GL_NEAREST);
 
-            textureHandles.put(whiteTest, textureHandle);
+            textureHandles.put(moonSpriteSheet, textureHandle);
+
+            is = assetManager.open(moonNormalMap);
+            opts = new BitmapFactory.Options();
+            opts.inPreferredConfig = Bitmap.Config.RGB_565;
+            bitmap = BitmapFactory.decodeStream(is, null, opts);
+            textureHandle = loadTexture(bitmap, GLES20.GL_TEXTURE10,
+                    GLES20.GL_REPEAT, GLES20.GL_REPEAT,
+                    GLES20.GL_NEAREST, GLES20.GL_NEAREST);
+
+            textureHandles.put(moonNormalMap, textureHandle);
+
+            is = assetManager.open(sun);
+            opts = new BitmapFactory.Options();
+            opts.inPreferredConfig = Bitmap.Config.RGB_565;
+            bitmap = BitmapFactory.decodeStream(is, null, opts);
+            textureHandle = loadTexture(bitmap, GLES20.GL_TEXTURE11,
+                    GLES20.GL_REPEAT, GLES20.GL_REPEAT,
+                    GLES20.GL_NEAREST, GLES20.GL_NEAREST);
+
+            textureHandles.put(sun, textureHandle);
+
+            is = assetManager.open(sunNormalMap);
+            opts = new BitmapFactory.Options();
+            opts.inPreferredConfig = Bitmap.Config.RGB_565;
+            bitmap = BitmapFactory.decodeStream(is, null, opts);
+            textureHandle = loadTexture(bitmap, GLES20.GL_TEXTURE12,
+                    GLES20.GL_REPEAT, GLES20.GL_REPEAT,
+                    GLES20.GL_NEAREST, GLES20.GL_NEAREST);
+
+            textureHandles.put(sunNormalMap, textureHandle);
 
             // createSkyBoxTexture(assetManager);
 

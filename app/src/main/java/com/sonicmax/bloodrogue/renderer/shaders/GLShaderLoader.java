@@ -33,6 +33,7 @@ public class GLShaderLoader {
 
     private final String CUBE_VERT_PATH = "shaders/cube.vert";
     private final String CUBE_FRAG_PATH = "shaders/cube.frag";
+    private final String MOON_FRAG_PATH = "shaders/moon.frag";
 
     private final String DEPTH_MAP_VERT_PATH = "shaders/depth_map.vert";
     private final String DEPTH_MAP_FRAG_PATH = "shaders/depth_map.frag";
@@ -81,6 +82,10 @@ public class GLShaderLoader {
 
     public int compileCubeShader() {
         return compileShader(CUBE_VERT_PATH, CUBE_FRAG_PATH);
+    }
+
+    public int compileMoonShader() {
+        return compileShader(CUBE_VERT_PATH, MOON_FRAG_PATH);
     }
 
     public int compileDebugTexShader() {

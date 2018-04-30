@@ -11,7 +11,9 @@ public class TimeManager {
     public static final int DAYS_IN_MONTH = 30;
     public static final int MONTHS_IN_YEAR = 12;
     public static final int DAYS_IN_YEAR = 360;
-    public static final int SECONDS_IN_TICK = 15;
+    public static final int SECONDS_PER_TICK = 15;
+    public static final int SECONDS_PER_MINUTE = 60;
+    public static final int TICKS_PER_MINUTE = (SECONDS_PER_MINUTE / SECONDS_PER_TICK);
 
     // Note: all of these are 0-indexed. For month/day we add 1 to internal value for external use
     private int currentYear;
@@ -22,8 +24,11 @@ public class TimeManager {
 
     private int currentTick;
     private int tickRate;
+    private int tickDelta;
+    private int tickSpeed;
 
     private long totalTicks;
+
 
     public TimeManager() {
         // Not really any significance to the year, but it made lunar calculations simpler to debug
@@ -34,6 +39,7 @@ public class TimeManager {
         currentMinute = 0;
         currentTick = 0;
         totalTicks = 0;
+        tickDelta = 0;
         tickRate = 3;
     }
 
@@ -68,9 +74,16 @@ public class TimeManager {
     }
 
     public long getTotalTicks() {
-        return totalTicks;
-        // return 2160;
-        // return 1920;
+        long ticks = totalTicks;
+        // ticks = 2160;
+        // ticks = 1920;
+        ticks = 1440;
+
+        return ticks;
+    }
+
+    public void setTickSpeed(int speed) {
+        tickSpeed = speed;
     }
 
     public long getDebugTicks(int hours, int minutes) {
@@ -79,29 +92,26 @@ public class TimeManager {
         return (minutes + (hours * MINUTES_IN_HOUR)) * ticksPerMin;
     }
 
-    /**
-     * Instead of subdividing minutes into seconds, we split each minute into a number of "ticks"
-     * (default is 3 ticks per minute). Typically this method would be called once for every
-     * player turn.
-     */
-
     public void tick() {
-        currentTick++;
-        totalTicks++;
+        tickSpeed = 1;
+        currentTick += tickSpeed;
+        totalTicks += tickSpeed;
+        tickDelta += tickSpeed;
 
         if (currentTick > tickRate) {
             currentTick = 0;
-            advanceTime();
+            advanceTime(tickDelta);
+            tickDelta = 0;
         }
     }
 
 
     /**
-     * Advances time by one minute each method call.
+     * Advances time depending on how many ticks have passed.
      */
 
-    public void advanceTime() {
-        currentMinute++;
+    public void advanceTime(int tickDelta) {
+        currentMinute += tickDelta / TICKS_PER_MINUTE;
 
         // Roll back from 59 to 0
         if (currentMinute >= MINUTES_IN_HOUR) {
@@ -124,8 +134,8 @@ public class TimeManager {
             currentYear++;
         }
 
-        // currentMinute = 0;
-        // currentHour = 8;
+        currentMinute = 0;
+        currentHour = 6;
     }
 
     public int getMonth() {

@@ -33,7 +33,8 @@ public class MoonPhases {
             case WANING_CRESCENT:
                 return "Waning crescent";
             default:
-                return "You shouldn't be here";
+                // This should be unreachable, but you never know
+                return "Out of range: " + phase;
         }
     }
 }
