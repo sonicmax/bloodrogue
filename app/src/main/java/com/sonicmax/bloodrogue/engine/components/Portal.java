@@ -1,7 +1,7 @@
 package com.sonicmax.bloodrogue.engine.components;
 
 import com.sonicmax.bloodrogue.engine.Component;
-import com.sonicmax.bloodrogue.utils.maths.Vector;
+import com.sonicmax.bloodrogue.utils.maths.Vector2D;
 
 /**
  *  Portal component allows us to transport other entities to different locations - whether it's
@@ -10,7 +10,7 @@ import com.sonicmax.bloodrogue.utils.maths.Vector;
 
 public class Portal extends Component {
     public int destFloor;
-    public Vector destTile;
+    public Vector2D destTile;
     public boolean activateOnStep;
 
     public Portal(long id) {

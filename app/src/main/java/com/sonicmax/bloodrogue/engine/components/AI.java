@@ -1,7 +1,7 @@
 package com.sonicmax.bloodrogue.engine.components;
 
 import com.sonicmax.bloodrogue.engine.Component;
-import com.sonicmax.bloodrogue.utils.maths.Vector;
+import com.sonicmax.bloodrogue.utils.maths.Vector2D;
 
 import java.util.ArrayList;
 
@@ -18,7 +18,7 @@ public class AI extends Component {
     public static final int NEUTRAL = 2;
 
     public boolean computerControlled;
-    public ArrayList<Vector> path;
+    public ArrayList<Vector2D> path;
     public boolean canInteract;
     public int dijkstra;
     public int playerInterest;

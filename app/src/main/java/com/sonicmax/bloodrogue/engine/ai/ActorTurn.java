@@ -1,7 +1,7 @@
 package com.sonicmax.bloodrogue.engine.ai;
 
 import com.sonicmax.bloodrogue.engine.components.Position;
-import com.sonicmax.bloodrogue.utils.maths.Vector;
+import com.sonicmax.bloodrogue.utils.maths.Vector2D;
 
 import java.util.concurrent.Delayed;
 import java.util.concurrent.TimeUnit;
@@ -16,10 +16,10 @@ public class ActorTurn implements Delayed {
 
     private Position positionComponent;
 
-    private Vector destination;
+    private Vector2D destination;
     private boolean hasMove;
 
-    private Vector collision;
+    private Vector2D collision;
     private boolean hasCollision;
 
     public ActorTurn(Position positionComponent) {
@@ -36,12 +36,12 @@ public class ActorTurn implements Delayed {
         return this.positionComponent.id;
     }
 
-    public void setCollision(Vector collision) {
+    public void setCollision(Vector2D collision) {
         this.collision = collision;
         this.hasCollision = true;
     }
 
-    public Vector getCollision() {
+    public Vector2D getCollision() {
         return this.collision;
     }
 
@@ -49,12 +49,12 @@ public class ActorTurn implements Delayed {
         return this.hasCollision;
     }
 
-    public void setMove(Vector destination) {
+    public void setMove(Vector2D destination) {
         this.destination = destination;
         this.hasMove = true;
     }
 
-    public Vector getDestination() {
+    public Vector2D getDestination() {
         return this.destination;
     }
 

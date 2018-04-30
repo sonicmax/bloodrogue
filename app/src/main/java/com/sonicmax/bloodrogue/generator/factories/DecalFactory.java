@@ -9,7 +9,7 @@ import com.sonicmax.bloodrogue.engine.components.Physics;
 import com.sonicmax.bloodrogue.engine.components.Position;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
 import com.sonicmax.bloodrogue.engine.components.Terrain;
-import com.sonicmax.bloodrogue.utils.maths.Vector;
+import com.sonicmax.bloodrogue.utils.maths.Vector2D;
 import com.sonicmax.bloodrogue.tilesets.GenericTileset;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 
@@ -84,10 +84,10 @@ public class DecalFactory {
     }
 
     public static Component[] createBloodSplat(Position position, Blood blood, long[][] mapGrid) {
-        ArrayList<Vector> directions = new ArrayList(Directions.All.values());
+        ArrayList<Vector2D> directions = new ArrayList(Directions.All.values());
         int random = new RandomNumberGenerator().getRandomInt(0, directions.size() - 1);
-        Vector direction = directions.get(random);
-        Vector location = new Vector(position.x, position.y).add(direction);
+        Vector2D direction = directions.get(random);
+        Vector2D location = new Vector2D(position.x, position.y).add(direction);
         int x = location.x();
         int y = location.y();
 

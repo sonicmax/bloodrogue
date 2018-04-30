@@ -4,7 +4,7 @@ import com.sonicmax.bloodrogue.engine.ComponentManager;
 import com.sonicmax.bloodrogue.engine.Directions;
 import com.sonicmax.bloodrogue.engine.components.Physics;
 import com.sonicmax.bloodrogue.engine.components.Terrain;
-import com.sonicmax.bloodrogue.utils.maths.Vector;
+import com.sonicmax.bloodrogue.utils.maths.Vector2D;
 
 import java.util.ArrayList;
 
@@ -23,7 +23,7 @@ public class FieldOfVisionCalculator {
     private double[][] lightMap;
     private boolean[][] visitedTiles;
 
-    private ArrayList<Vector> directions;
+    private ArrayList<Vector2D> directions;
 
     public FieldOfVisionCalculator() {
         directions = new ArrayList<>(Directions.Diagonal.values());
@@ -57,7 +57,7 @@ public class FieldOfVisionCalculator {
         lightMap[startX][startY] = 1 * darknessFactor;
 
         for (int i = 0; i < 4; i++) {
-            Vector direction = directions.get(i);
+            Vector2D direction = directions.get(i);
             castLight(1, 1.0, 0.0, 0, direction.x(), direction.y(), 0);
             castLight(1, 1.0, 0.0, direction.x(), 0, 0, direction.y());
         }
@@ -101,7 +101,7 @@ public class FieldOfVisionCalculator {
                 }
 
                 if (blocked) { //previous cell was a blocking one
-                    if (tileBlocksFov(new Vector(currentX, currentY))) {
+                    if (tileBlocksFov(new Vector2D(currentX, currentY))) {
                         newStart = rightSlope;
                         continue;
                     } else {
@@ -109,7 +109,7 @@ public class FieldOfVisionCalculator {
                         start = newStart;
                     }
                 } else {
-                    if (tileBlocksFov(new Vector(currentX, currentY)) && distance < fovRadius) { //hit a wall within sight line
+                    if (tileBlocksFov(new Vector2D(currentX, currentY)) && distance < fovRadius) { //hit a wall within sight line
                         blocked = true;
                         castLight(distance + 1, start, leftSlope, xx, xy, yx, yy);
                         newStart = rightSlope;
@@ -141,7 +141,7 @@ public class FieldOfVisionCalculator {
      * @return Returns true if tile blocks FOV
      */
 
-    private boolean tileBlocksFov(Vector position) {
+    private boolean tileBlocksFov(Vector2D position) {
         int x = position.x();
         int y = position.y();
 

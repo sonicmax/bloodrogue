@@ -48,7 +48,7 @@ import com.sonicmax.bloodrogue.tilesets.CorpseTileset;
 import com.sonicmax.bloodrogue.tilesets.ExteriorTileset;
 import com.sonicmax.bloodrogue.utils.maths.GeometryHelper;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
-import com.sonicmax.bloodrogue.utils.maths.Vector;
+import com.sonicmax.bloodrogue.utils.maths.Vector2D;
 import com.sonicmax.bloodrogue.engine.objects.GameObject;
 import com.sonicmax.bloodrogue.generator.factories.PlayerFactory;
 import com.sonicmax.bloodrogue.utils.Array2DHelper;
@@ -89,7 +89,7 @@ public class GameEngine {
 
     private boolean playerMoveLock;
 
-    private Vector pathDestination;
+    private Vector2D pathDestination;
 
     private Sprite[][] terrainSpriteGrid;
     private ArrayList<Sprite>[][] objectSpriteGrid;
@@ -156,9 +156,9 @@ public class GameEngine {
         return (Position) componentManager.getEntityComponent(playerEntity, Position.class.getSimpleName());
     }
 
-    public Vector getPlayerVector() {
+    public Vector2D getPlayerVector() {
         Position position = (Position) componentManager.getEntityComponent(playerEntity, Position.class.getSimpleName());
-        return new Vector(position.x, position.y);
+        return new Vector2D(position.x, position.y);
     }
 
 
@@ -251,7 +251,7 @@ public class GameEngine {
 
         // Now we need to either create new player entity (if this was the first floor) or
         // sort the existing components and move player to new start position
-        Vector entrance = mapData.getEntrancePosition();
+        Vector2D entrance = mapData.getEntrancePosition();
 
         componentManager.sortComponentArray(player);
 
@@ -279,7 +279,7 @@ public class GameEngine {
         proceduralGenerator = null;
     }
 
-    private void addPlayer(Vector startPosition) {
+    private void addPlayer(Vector2D startPosition) {
         ArrayList<Long> newStack = objectEntities[startPosition.x][startPosition.y];
 
         newStack.add(playerEntity);
@@ -451,7 +451,7 @@ public class GameEngine {
             }
         }
 
-        Vector startPos;
+        Vector2D startPos;
 
         if (direction == Directions.DOWN) {
             startPos = floor.entrancePosition;
@@ -459,10 +459,10 @@ public class GameEngine {
             startPos = floor.exitPosition;
         } else {
             Position pos = getPlayerPosition();
-            startPos = new Vector(pos.x, pos.y);
+            startPos = new Vector2D(pos.x, pos.y);
         }
 
-        addPlayer(new Vector(startPos.x, startPos.y));
+        addPlayer(new Vector2D(startPos.x, startPos.y));
 
         // Sort raw components by type and filter sprite components for renderer
         prebuildSprites();
@@ -483,7 +483,7 @@ public class GameEngine {
         return player;
     }
 
-    public void setPathDestination(Vector dest) {
+    public void setPathDestination(Vector2D dest) {
         this.pathDestination = dest;
     }
 
@@ -651,9 +651,9 @@ public class GameEngine {
     ---------------------------------------------
     */
 
-    public void checkUserInput(Vector destination) {
+    public void checkUserInput(Vector2D destination) {
         Position playerPosition = (Position) componentManager.getEntityComponent(playerEntity, Position.class.getSimpleName());
-        boolean adjacent = isAdjacent(destination, new Vector(playerPosition.x, playerPosition.y));
+        boolean adjacent = isAdjacent(destination, new Vector2D(playerPosition.x, playerPosition.y));
 
         if (adjacent) {
             // Iterate through all player-controlled entities and queue movements
@@ -678,8 +678,8 @@ public class GameEngine {
         advanceFrame();
     }
 
-    private boolean isAdjacent(Vector original, Vector adjacent) {
-        Vector difference = original.subtract(adjacent);
+    private boolean isAdjacent(Vector2D original, Vector2D adjacent) {
+        Vector2D difference = original.subtract(adjacent);
         return (difference.x() >= -1 && difference.x() <= 1) && (difference.y() >= -1 && difference.y() <= 1);
     }
 
@@ -741,7 +741,7 @@ public class GameEngine {
     private void generatePlayerDesireMap() {
         int[] tilesToCheck = {Terrain.WALL, Terrain.FLOOR};
         int[][] desireGrid = Array2DHelper.fillIntArray(mapWidth, mapHeight, DIJKSTRA_MAX);
-        ArrayList<Vector> desireLocations = new ArrayList<>();
+        ArrayList<Vector2D> desireLocations = new ArrayList<>();
 
         Position playerPosition = getPlayerPosition();
         AI ai = (AI) componentManager.getEntityComponent(playerEntity, AI.class.getSimpleName());
@@ -756,26 +756,26 @@ public class GameEngine {
         }
 
         desireGrid[playerPosition.x][playerPosition.y] = dijkstra;
-        desireLocations.add(new Vector(playerPosition.x, playerPosition.y));
+        desireLocations.add(new Vector2D(playerPosition.x, playerPosition.y));
 
         playerDesireMap = populateDijkstraGrid(Directions.All.values(), desireGrid, desireLocations, tilesToCheck, false);
     }
 
-    private int[][] populateDijkstraGrid(Collection<Vector> directions, int[][] desireGrid, ArrayList<Vector> desireLocations, int[] typesToCheck, boolean ignoreCollisions) {
+    private int[][] populateDijkstraGrid(Collection<Vector2D> directions, int[][] desireGrid, ArrayList<Vector2D> desireLocations, int[] typesToCheck, boolean ignoreCollisions) {
         int desireSize = desireLocations.size();
         for (int i = 0; i < desireSize; i++) {
-            Vector desire = desireLocations.get(i);
-            ArrayList<Vector> queue = new ArrayList<>();
+            Vector2D desire = desireLocations.get(i);
+            ArrayList<Vector2D> queue = new ArrayList<>();
 
             queue.add(desire);
 
             while (queue.size() > 0) {
-                Vector cell = queue.remove(queue.size() - 1);
+                Vector2D cell = queue.remove(queue.size() - 1);
 
                 int initialValue = desireGrid[cell.x()][cell.y()];
 
-                for (Vector direction : directions) {
-                    Vector neighbour = cell.add(direction);
+                for (Vector2D direction : directions) {
+                    Vector2D neighbour = cell.add(direction);
 
                     if (!inBounds(neighbour)) continue;
                     if (fieldOfVision[neighbour.x()][neighbour.y()] == 0) continue;
@@ -809,16 +809,16 @@ public class GameEngine {
 
     private void takeAiTurn(long entity) {
         Position actorPosComp = (Position) componentManager.getEntityComponent(entity, Position.class.getSimpleName());
-        Vector position = new Vector(actorPosComp.x, actorPosComp.y);
+        Vector2D position = new Vector2D(actorPosComp.x, actorPosComp.y);
 
         Position playerPosComp = getPlayerPosition();
-        Vector playerPos = new Vector(playerPosComp.x, playerPosComp.y);
+        Vector2D playerPos = new Vector2D(playerPosComp.x, playerPosComp.y);
 
         int bestDesire = DIJKSTRA_MAX + 1;
 
         // Check adjacent tiles and find one with best desire score
-        for (Vector direction : Directions.All.values()) {
-            Vector adjacent = position.add(direction);
+        for (Vector2D direction : Directions.All.values()) {
+            Vector2D adjacent = position.add(direction);
             if (inBounds(adjacent)) {
                 int desire = playerDesireMap[adjacent.x()][adjacent.y()];
                 if (desire < bestDesire) {
@@ -854,11 +854,11 @@ public class GameEngine {
         }
 
         int bestHeuristic = Integer.MAX_VALUE;
-        Vector closestTile = null;
-        ArrayList<Vector> blockedTiles = new ArrayList<>();
+        Vector2D closestTile = null;
+        ArrayList<Vector2D> blockedTiles = new ArrayList<>();
 
-        for (Vector direction : Directions.All.values()) {
-            Vector adjacent = position.add(direction);
+        for (Vector2D direction : Directions.All.values()) {
+            Vector2D adjacent = position.add(direction);
             if (inBounds(adjacent)) {
                 int newDesire = playerDesireMap[adjacent.x()][adjacent.y()];
                 int distance = (int) GeometryHelper.getDistance(adjacent, playerPos);
@@ -882,7 +882,7 @@ public class GameEngine {
         // Todo: We should check blocked tiles to see whether any of them were closed doors.
         int blockedSize = blockedTiles.size();
         for (int i = 0; i < blockedSize; i++) {
-            Vector tile = blockedTiles.get(i);
+            Vector2D tile = blockedTiles.get(i);
             int newDesire = playerDesireMap[tile.x()][tile.y()];
             int distance = (int) GeometryHelper.getDistance(tile, playerPos);
             int heuristic = newDesire + distance;
@@ -911,7 +911,7 @@ public class GameEngine {
         Position position = (Position) componentManager.getEntityComponent(seekingEntity, Position.class.getSimpleName());
         AI ai = (AI) componentManager.getEntityComponent(seekingEntity, AI.class.getSimpleName());
 
-        ArrayList<Vector> path = ai.path;
+        ArrayList<Vector2D> path = ai.path;
 
         if (path == null || path.size() == 0) {
             ai.path = findShortestPath(seekingEntity, targetEntity);
@@ -921,15 +921,15 @@ public class GameEngine {
 
             // Todo: generate desire map for target here
 
-            Vector nextCell = path.get(0);
+            Vector2D nextCell = path.get(0);
             int nextDesire = playerDesireMap[nextCell.x()][nextCell.y()];
             int bestDesire = Integer.MAX_VALUE;
 
-            Vector posVec = new Vector(position.x, position.y);
+            Vector2D posVec = new Vector2D(position.x, position.y);
 
             // Check adjacent tiles and find one with lowest desire score
-            for (Vector direction : Directions.All.values()) {
-                Vector adjacent = posVec.add(direction);
+            for (Vector2D direction : Directions.All.values()) {
+                Vector2D adjacent = posVec.add(direction);
                 if (inBounds(adjacent)) {
                     int desire = playerDesireMap[adjacent.x()][adjacent.y()];
                     if (desire < bestDesire) {
@@ -960,9 +960,9 @@ public class GameEngine {
         }
     }
 
-    private ArrayList<Vector> findShortestPath(Vector startNode, Vector goalNode) {
-        ArrayList<Vector> optimalPath = new ArrayList<>();
-        ArrayList<Vector> openNodes = new ArrayList<>();
+    private ArrayList<Vector2D> findShortestPath(Vector2D startNode, Vector2D goalNode) {
+        ArrayList<Vector2D> optimalPath = new ArrayList<>();
+        ArrayList<Vector2D> openNodes = new ArrayList<>();
         ArrayList<String> checkedNodes = new ArrayList<>();
 
         if (startNode.equals(goalNode)) {
@@ -971,10 +971,10 @@ public class GameEngine {
 
         openNodes.add(startNode);
 
-        Vector lastNode = null;
+        Vector2D lastNode = null;
 
         while (openNodes.size() > 0) {
-            Vector currentNode = openNodes.remove(openNodes.size() - 1);
+            Vector2D currentNode = openNodes.remove(openNodes.size() - 1);
 
             if (lastNode != null && lastNode.equals(currentNode)) {
                 // This probably shouldn't happen
@@ -982,12 +982,12 @@ public class GameEngine {
                 break;
             }
 
-            Vector closestNode = null;
+            Vector2D closestNode = null;
             double bestDistance = Double.MAX_VALUE;
 
             // Find adjacent node which is closest to goal
-            for (Vector direction : Directions.All.values()) {
-                Vector adjacentNode = currentNode.add(direction);
+            for (Vector2D direction : Directions.All.values()) {
+                Vector2D adjacentNode = currentNode.add(direction);
 
                 if (checkedNodes.contains(adjacentNode.toString())) continue;
 
@@ -1016,14 +1016,14 @@ public class GameEngine {
         return optimalPath;
     }
 
-    private ArrayList<Vector> findShortestPath(long entityA, long entityB) {
+    private ArrayList<Vector2D> findShortestPath(long entityA, long entityB) {
         Position posA = (Position) componentManager.getEntityComponent(entityA, Position.class.getSimpleName());
         Position posB = (Position) componentManager.getEntityComponent(entityB, Position.class.getSimpleName());
 
-        return findShortestPath(new Vector(posA.x, posA.y), new Vector(posB.x, posB.y));
+        return findShortestPath(new Vector2D(posA.x, posA.y), new Vector2D(posB.x, posB.y));
     }
 
-    public ArrayList<Vector> onTouchPathComplete() {
+    public ArrayList<Vector2D> onTouchPathComplete() {
         if (this.pathDestination == null || !inBounds(this.pathDestination) || fieldOfVision[pathDestination.x()][pathDestination.y()] == 0
                 || detectCollisions(this.pathDestination)) {
 
@@ -1034,11 +1034,11 @@ public class GameEngine {
             Position playerPos = (Position) componentManager.getEntityComponent(player[0].id,
                     Position.class.getSimpleName());
 
-            return findShortestPath(new Vector(playerPos.x, playerPos.y), this.pathDestination);
+            return findShortestPath(new Vector2D(playerPos.x, playerPos.y), this.pathDestination);
         }
     }
 
-    public void queueAndFollowPath(ArrayList<Vector> path) {
+    public void queueAndFollowPath(ArrayList<Vector2D> path) {
         DelayQueue<ActorTurn> queue = new DelayQueue<>();
         long start = 500L;
 
@@ -1047,7 +1047,7 @@ public class GameEngine {
 
         for (int i = 0; i < path.size(); i++) {
             ActorTurn turn = new ActorTurn(playerPos);
-            Vector vector = path.get(i);
+            Vector2D vector = path.get(i);
             turn.setMove(vector);
             turn.setStart(start * (long) i);
             queue.put(turn);
@@ -1089,7 +1089,7 @@ public class GameEngine {
                 ActorTurn turn = iterator.next();
 
                 if (turn.hasMove()) {
-                    Vector destination = turn.getDestination();
+                    Vector2D destination = turn.getDestination();
                     Position actor = turn.getPositionComponent();
                     long entity = turn.getEntity();
 
@@ -1131,7 +1131,7 @@ public class GameEngine {
      * @param position Position to check
      */
 
-    private void checkForCollisions(long initiator, Vector position) {
+    private void checkForCollisions(long initiator, Vector2D position) {
         // Early exit if initator entity doesn't have collidable physics
         Physics physics = (Physics) componentManager.getEntityComponent(initiator, Physics.class.getSimpleName());
 
@@ -1365,7 +1365,7 @@ public class GameEngine {
      * traps, environment damage, etc)
      */
 
-    private void handleMovementInteractions(long entity, Vector position) {
+    private void handleMovementInteractions(long entity, Vector2D position) {
         ArrayList<Long> targetStack = objectEntities[position.x()][position.y()];
 
         Iterator<Long> it = targetStack.iterator();
@@ -2020,7 +2020,7 @@ public class GameEngine {
     ---------------------------------------------
     */
 
-    private boolean detectCollisions(Vector position) {
+    private boolean detectCollisions(Vector2D position) {
         // Map *should* be surrounded by border tiles which prevent player from moving out of bounds.
         // But just in case;
         if (!inBounds(position)) return true;
@@ -2071,7 +2071,7 @@ public class GameEngine {
         return false;
     }
 
-    private boolean inBounds(Vector position) {
+    private boolean inBounds(Vector2D position) {
         int x = position.x();
         int y = position.y();
 

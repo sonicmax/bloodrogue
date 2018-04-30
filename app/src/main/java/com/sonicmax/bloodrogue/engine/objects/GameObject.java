@@ -1,8 +1,6 @@
 package com.sonicmax.bloodrogue.engine.objects;
 
-import android.util.Log;
-
-import com.sonicmax.bloodrogue.utils.maths.Vector;
+import com.sonicmax.bloodrogue.utils.maths.Vector2D;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -32,7 +30,7 @@ public class GameObject implements Serializable {
     public int currentFrame;
     public int renderCount;
     public int movementStep;
-    public Vector lastMove;
+    public Vector2D lastMove;
 
     public boolean hasDeathAnimation;
     public GameObject deathAnimation;
@@ -65,7 +63,7 @@ public class GameObject implements Serializable {
     public int dijkstra;
     public int playerInterest;
     public int state;
-    public ArrayList<Vector> path;
+    public ArrayList<Vector2D> path;
 
     public GameObject() {
         this.id = UUID.randomUUID().toString(); // Still want unique id for cloned object
@@ -253,13 +251,13 @@ public class GameObject implements Serializable {
         return this.y;
     }
 
-    public void move(Vector newPos) {
+    public void move(Vector2D newPos) {
         this.x = newPos.x();
         this.y = newPos.y();
     }
 
-    public Vector getVector() {
-        return new Vector(this.x, this.y);
+    public Vector2D getVector() {
+        return new Vector2D(this.x, this.y);
     }
 
 
@@ -374,15 +372,15 @@ public class GameObject implements Serializable {
         return this.state;
     }
 
-    public ArrayList<Vector> getPath() {
+    public ArrayList<Vector2D> getPath() {
         return this.path;
     }
 
-    public void setPath(ArrayList<Vector> path) {
+    public void setPath(ArrayList<Vector2D> path) {
         this.path = path;
     }
 
-    public Vector removeFromPath(int i) {
+    public Vector2D removeFromPath(int i) {
         return this.path.remove(i);
     }
 
@@ -403,11 +401,11 @@ public class GameObject implements Serializable {
         this.isImmutable = !value;
     }
 
-    public void setLastMove(Vector last) {
+    public void setLastMove(Vector2D last) {
         this.lastMove = last;
     }
 
-    public Vector getlastMove() {
+    public Vector2D getlastMove() {
         return this.lastMove;
     }
 

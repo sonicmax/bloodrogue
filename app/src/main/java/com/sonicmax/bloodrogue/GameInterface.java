@@ -18,7 +18,7 @@ import com.sonicmax.bloodrogue.engine.components.Position;
 import com.sonicmax.bloodrogue.renderer.GameRenderer3D;
 import com.sonicmax.bloodrogue.renderer.text.NarrationManager;
 import com.sonicmax.bloodrogue.renderer.ui.InventoryCard;
-import com.sonicmax.bloodrogue.utils.maths.Vector;
+import com.sonicmax.bloodrogue.utils.maths.Vector2D;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -44,7 +44,7 @@ public class GameInterface {
     private WeatherManager weatherManager;
 
     // User input
-    private Vector lastMapTouch;
+    private Vector2D lastMapTouch;
     private boolean inputLock;
     private float lastTouchX;
     private float lastTouchY;

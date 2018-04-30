@@ -3,7 +3,7 @@ package com.sonicmax.bloodrogue.generator.tools;
 import com.sonicmax.bloodrogue.generator.Chunk;
 import com.sonicmax.bloodrogue.utils.Array2DHelper;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
-import com.sonicmax.bloodrogue.utils.maths.Vector;
+import com.sonicmax.bloodrogue.utils.maths.Vector2D;
 
 import java.util.ArrayList;
 
@@ -107,13 +107,13 @@ public class CellularAutomata {
         initialiseCellMap();
     }
 
-    public ArrayList<Vector> getVectors() {
-        ArrayList<Vector> vectors = new ArrayList<>();
+    public ArrayList<Vector2D> getVectors() {
+        ArrayList<Vector2D> vectors = new ArrayList<>();
 
         for (int x = 0; x < cellMap.length; x++) {
             for (int y = 0; y < cellMap[0].length; y++) {
                 if (cellMap[x][y]) {
-                    vectors.add(new Vector(x, y));
+                    vectors.add(new Vector2D(x, y));
                 }
             }
         }

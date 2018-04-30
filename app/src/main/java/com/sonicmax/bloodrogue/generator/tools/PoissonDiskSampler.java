@@ -3,7 +3,7 @@ package com.sonicmax.bloodrogue.generator.tools;
 import com.sonicmax.bloodrogue.engine.Directions;
 import com.sonicmax.bloodrogue.utils.maths.GeometryHelper;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
-import com.sonicmax.bloodrogue.utils.maths.Vector;
+import com.sonicmax.bloodrogue.utils.maths.Vector2D;
 
 import java.util.ArrayList;
 
@@ -20,8 +20,8 @@ public class PoissonDiskSampler {
         density = 10;
     }
 
-    private ArrayList<Vector>[][] initGrid(int width, int height) {
-        ArrayList<Vector>[][] grid = new ArrayList [width][height];
+    private ArrayList<Vector2D>[][] initGrid(int width, int height) {
+        ArrayList<Vector2D>[][] grid = new ArrayList [width][height];
 
         for (int x = 0; x < width; x++) {
             for (int y = 0; y < height; y++) {
@@ -48,26 +48,26 @@ public class PoissonDiskSampler {
      * @return ArrayList of Vectors for each point
      */
 
-    public ArrayList<Vector> generateNoise(int width, int height, int minDist, int pointLimit) {
+    public ArrayList<Vector2D> generateNoise(int width, int height, int minDist, int pointLimit) {
         // We want to divide the grid into squares that represent the minimum distance allowed between points
-        ArrayList<Vector>[][] grid = initGrid((width / minDist) + 1, (height / minDist) + 1);
+        ArrayList<Vector2D>[][] grid = initGrid((width / minDist) + 1, (height / minDist) + 1);
 
-        ArrayList<Vector> processList = new ArrayList<>();
-        ArrayList<Vector> samplePoints = new ArrayList<>();
-        Vector firstPoint = new Vector(rng.getRandomInt(0, width), rng.getRandomInt(0, height));
+        ArrayList<Vector2D> processList = new ArrayList<>();
+        ArrayList<Vector2D> samplePoints = new ArrayList<>();
+        Vector2D firstPoint = new Vector2D(rng.getRandomInt(0, width), rng.getRandomInt(0, height));
 
         processList.add(firstPoint);
         samplePoints.add(firstPoint);
 
-        Vector firstGrid = pointToGrid(firstPoint, minDist);
+        Vector2D firstGrid = pointToGrid(firstPoint, minDist);
         grid[firstGrid.x][firstGrid.y].add(firstPoint);
 
         // Start to generate points
         while (processList.size() > 0) {
-            Vector point = processList.remove(rng.getRandomInt(0, processList.size() - 1));
+            Vector2D point = processList.remove(rng.getRandomInt(0, processList.size() - 1));
 
             for (int i = 0; i < density; i++) {
-                Vector newPoint = generateRandomPointAround(point, minDist);
+                Vector2D newPoint = generateRandomPointAround(point, minDist);
                 // Check that points is in bounds and that no other points exist around it
                 if (inBounds(newPoint, width, height) && !pointInNeighbourhood(grid, newPoint, minDist)) {
                     samplePoints.add(newPoint);
@@ -79,7 +79,7 @@ public class PoissonDiskSampler {
                         // Add to process list and continue iterating
                         processList.add(newPoint);
 
-                        Vector gridPosition = pointToGrid(newPoint, minDist);
+                        Vector2D gridPosition = pointToGrid(newPoint, minDist);
                         grid[gridPosition.x][gridPosition.y].add(newPoint);
                     }
                 }
@@ -89,17 +89,17 @@ public class PoissonDiskSampler {
         return samplePoints;
     }
 
-    private boolean inBounds(Vector cell, int width, int height) {
+    private boolean inBounds(Vector2D cell, int width, int height) {
         return (cell.x >= 0 && cell.y >= 0 && cell.x < width && cell.y < height);
     }
 
-    private Vector pointToGrid(Vector point, int minDist) {
+    private Vector2D pointToGrid(Vector2D point, int minDist) {
         int gridX = point.x / minDist;
         int gridY = point.y / minDist;
-        return new Vector(gridX, gridY);
+        return new Vector2D(gridX, gridY);
     }
 
-    private Vector generateRandomPointAround(Vector point, int minDist) {
+    private Vector2D generateRandomPointAround(Vector2D point, int minDist) {
         //non-uniform, favours points closer to the inner ring, leads to denser packings
         double r1 = rng.getRandomFloat(0.0f, 1.0f);
         double r2 = rng.getRandomFloat(0.0f, 1.0f);
@@ -112,14 +112,14 @@ public class PoissonDiskSampler {
         double newX = point.x + radius * Math.cos(angle);
         double newY = point.y + radius * Math.sin(angle);
 
-        return new Vector((int) newX, (int) newY);
+        return new Vector2D((int) newX, (int) newY);
     }
 
-    private boolean pointInNeighbourhood(ArrayList<Vector>[][] grid, Vector point, int minDist) {
-        Vector gridPoint = pointToGrid(point, minDist);
+    private boolean pointInNeighbourhood(ArrayList<Vector2D>[][] grid, Vector2D point, int minDist) {
+        Vector2D gridPoint = pointToGrid(point, minDist);
 
-        ArrayList<Vector> cellsAroundPoint = getAdjacentCells(gridPoint, grid);
-        for (Vector cell : cellsAroundPoint) {
+        ArrayList<Vector2D> cellsAroundPoint = getAdjacentCells(gridPoint, grid);
+        for (Vector2D cell : cellsAroundPoint) {
             if (cell != null && GeometryHelper.getDistance(cell, point) < minDist) {
                 return true;
             }
@@ -128,16 +128,16 @@ public class PoissonDiskSampler {
         return false;
     }
 
-    private ArrayList<Vector> getAdjacentCells(Vector point, ArrayList<Vector>[][] grid) {
+    private ArrayList<Vector2D> getAdjacentCells(Vector2D point, ArrayList<Vector2D>[][] grid) {
         int width = grid.length;
         int height = grid[0].length;
 
-        ArrayList<Vector> cells = new ArrayList<>();
+        ArrayList<Vector2D> cells = new ArrayList<>();
 
         cells.addAll(grid[point.x][point.y]);
 
-        for (Vector direction : Directions.All.values()) {
-            Vector adjacent = point.add(direction);
+        for (Vector2D direction : Directions.All.values()) {
+            Vector2D adjacent = point.add(direction);
             if (adjacent.x >= 0 && adjacent.x < width && adjacent.y >= 0 && adjacent.y < height) {
                 cells.addAll(grid[adjacent.x][adjacent.y]);
             }

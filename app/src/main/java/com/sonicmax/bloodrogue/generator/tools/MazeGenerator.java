@@ -9,7 +9,7 @@ import com.sonicmax.bloodrogue.generator.Chunk;
 import com.sonicmax.bloodrogue.generator.MapRegion;
 import com.sonicmax.bloodrogue.utils.Array2DHelper;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
-import com.sonicmax.bloodrogue.utils.maths.Vector;
+import com.sonicmax.bloodrogue.utils.maths.Vector2D;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -39,7 +39,7 @@ public class MazeGenerator {
     private Chunk chunk;
     private boolean[][] carvedTiles;
     private boolean[][] excludedTiles;
-    private ArrayList<Vector> junctions;
+    private ArrayList<Vector2D> junctions;
 
     private RandomNumberGenerator rng;
 
@@ -91,7 +91,7 @@ public class MazeGenerator {
         else {
             for (int x = chunkToCarve.x; x < chunkToCarve.x + chunkToCarve.width; x++) {
                 for (int y = chunkToCarve.y; y < chunkToCarve.y + chunkToCarve.height; y++) {
-                    Vector cell = new Vector(x - chunk.x, y - chunk.y);
+                    Vector2D cell = new Vector2D(x - chunk.x, y - chunk.y);
                     if (inBounds(cell)) {
                         carve(cell);
                     }
@@ -103,8 +103,8 @@ public class MazeGenerator {
     public void addExistingRegion(MapRegion region) {
         startRegion();
 
-        for (Vector vector : region.getVectors()) {
-            Vector cell = new Vector(vector.x - chunk.x, vector.y - chunk.y);
+        for (Vector2D vector : region.getVectors()) {
+            Vector2D cell = new Vector2D(vector.x - chunk.x, vector.y - chunk.y);
             if (inBounds(cell)) {
                 carve(cell);
             }
@@ -132,7 +132,7 @@ public class MazeGenerator {
         }
     }
 
-    public ArrayList<Vector> getJunctions() {
+    public ArrayList<Vector2D> getJunctions() {
         return junctions;
     }
 
@@ -147,7 +147,7 @@ public class MazeGenerator {
     public boolean[][] generate() {
         for (int x = 0; x < chunk.width; x++) {
             for (int y = 0; y < chunk.height; y++) {
-                Vector tile = new Vector(x, y);
+                Vector2D tile = new Vector2D(x, y);
                 if (!carvedTiles[x][y] && !excludedTiles[x][y] && adjacentCellsAreCarvable(tile)) {
                     carveMaze(tile);
                 }
@@ -162,24 +162,24 @@ public class MazeGenerator {
         return carvedTiles;
     }
 
-    private void carveMaze(Vector start) {
-        ArrayList<Vector> cells = new ArrayList<>();
-        Vector lastCell = null;
+    private void carveMaze(Vector2D start) {
+        ArrayList<Vector2D> cells = new ArrayList<>();
+        Vector2D lastCell = null;
         startRegion();
         carve(start);
         cells.add(start);
 
         while (cells.size() > 0) {
-            Vector cell = cells.remove(cells.size() - 1);
+            Vector2D cell = cells.remove(cells.size() - 1);
 
             // See which adjacent cells are open.
-            HashMap<String, Vector> unmadeCells = new HashMap<>();
+            HashMap<String, Vector2D> unmadeCells = new HashMap<>();
 
-            HashMap<String, Vector> adjacentCells = getAdjacentCells(cell, 1, CARVABLE);
+            HashMap<String, Vector2D> adjacentCells = getAdjacentCells(cell, 1, CARVABLE);
 
             for (Map.Entry pair : adjacentCells.entrySet()) {
                 String direction = (String) pair.getKey();
-                Vector adjacentCell = (Vector) pair.getValue();
+                Vector2D adjacentCell = (Vector2D) pair.getValue();
 
                 if (canCarve(adjacentCell, getVectorForDirection(direction))) {
                     unmadeCells.put(adjacentCell.toString(), adjacentCell);
@@ -187,15 +187,15 @@ public class MazeGenerator {
             }
 
             if (unmadeCells.size() > 0) {
-                Vector firstCarve;
+                Vector2D firstCarve;
 
                 if (lastCell != null && unmadeCells.containsKey(lastCell.toString()) && rng.getRandomInt(0, 100) > windingPercent) {
                     firstCarve = lastCell;
                 } else {
-                    firstCarve = (Vector) unmadeCells.values().toArray()[rng.getRandomInt(0, unmadeCells.size() - 1)];
+                    firstCarve = (Vector2D) unmadeCells.values().toArray()[rng.getRandomInt(0, unmadeCells.size() - 1)];
                 }
 
-                Vector secondCarve = firstCarve.add(getVectorForDirection(firstCarve.getDirection()));
+                Vector2D secondCarve = firstCarve.add(getVectorForDirection(firstCarve.getDirection()));
 
                 carve(firstCarve);
                 carve(secondCarve);
@@ -218,11 +218,11 @@ public class MazeGenerator {
 
     private void connectRegions() {
         // Find all of the tiles that can connect two (or more) regions.
-        HashMap<Vector, Set> connectorRegions = new HashMap<>();
+        HashMap<Vector2D, Set> connectorRegions = new HashMap<>();
 
         for (int x = 1; x < chunk.width; x++) {
             for (int y = 1; y < chunk.height; y++) {
-                Vector cell = new Vector(x, y, "");
+                Vector2D cell = new Vector2D(x, y, "");
 
                 // Ignore everything but walls
                 if (carvedTiles[cell.x][cell.y]) continue;
@@ -230,9 +230,9 @@ public class MazeGenerator {
 
                 Set<Integer> regions = new HashSet<>();
 
-                HashMap<String, Vector> adjacentCells = getAdjacentCells(cell, 1, CARVABLE);
+                HashMap<String, Vector2D> adjacentCells = getAdjacentCells(cell, 1, CARVABLE);
 
-                for (Vector adjacentCell : adjacentCells.values()) {
+                for (Vector2D adjacentCell : adjacentCells.values()) {
                     if (!inBounds(adjacentCell)) continue;
 
                     int region = mapRegions[adjacentCell.x()][adjacentCell.y()];
@@ -248,7 +248,7 @@ public class MazeGenerator {
         }
 
         // Get array of connecting vectors from connectorRegions
-        ArrayList<Vector> connectors = new ArrayList<>(connectorRegions.keySet());
+        ArrayList<Vector2D> connectors = new ArrayList<>(connectorRegions.keySet());
 
         // Keep track of which regions have been merged. This maps an original region index to the one it has been merged to.
         SparseIntArray merged = new SparseIntArray();
@@ -261,7 +261,7 @@ public class MazeGenerator {
 
         // Keep connecting regions until we're down to one.
         while (openRegions.size() > 1 && connectors.size() > 0) {
-            Vector connector = connectors.get(rng.getRandomInt(0, connectors.size() - 1));
+            Vector2D connector = connectors.get(rng.getRandomInt(0, connectors.size() - 1));
 
             carvedTiles[connector.x][connector.y] = true;
             junctions.add(connector);
@@ -292,10 +292,10 @@ public class MazeGenerator {
             }
 
             // Remove any connectors that aren't needed anymore
-            Iterator<Vector> it = connectors.iterator();
+            Iterator<Vector2D> it = connectors.iterator();
 
             while (it.hasNext()) {
-                Vector pos = it.next();
+                Vector2D pos = it.next();
 
                 // Don't allow connectors right next to each other.
                 if (connector.subtract(pos).getMagnitude() < 2) {
@@ -333,15 +333,15 @@ public class MazeGenerator {
 
             for (int x = 1; x < chunk.width - 1; x++) {
                 for (int y = 1; y < chunk.height - 1; y++) {
-                    Vector cell = new Vector(x, y);
+                    Vector2D cell = new Vector2D(x, y);
                     if (!carvedTiles[cell.x][cell.y]) continue;
 
                     // If it only has one exit, it's a dead end.
                     int exits = 0;
 
-                    HashMap<String, Vector> adjacentCells = getAdjacentCells(cell, 1, CARVABLE);
+                    HashMap<String, Vector2D> adjacentCells = getAdjacentCells(cell, 1, CARVABLE);
 
-                    for (Vector adjacentCell : adjacentCells.values()) {
+                    for (Vector2D adjacentCell : adjacentCells.values()) {
                         if (carvedTiles[adjacentCell.x][adjacentCell.y]) {
                             exits++;
                         }
@@ -361,7 +361,7 @@ public class MazeGenerator {
         currentRegion++;
     }
 
-    private void carve(Vector pos) {
+    private void carve(Vector2D pos) {
         carvedTiles[pos.x][pos.y] = true;
         mapRegions[pos.x()][pos.y()] = currentRegion;
     }
@@ -372,11 +372,11 @@ public class MazeGenerator {
     ---------------------------------------------
     */
 
-    private HashMap<String, Vector> getAdjacentCells(Vector coords, int lookahead, boolean directlyAdjacent) {
+    private HashMap<String, Vector2D> getAdjacentCells(Vector2D coords, int lookahead, boolean directlyAdjacent) {
         int x = coords.x();
         int y = coords.y();
 
-        HashMap<String, Vector> cells = new HashMap<>();
+        HashMap<String, Vector2D> cells = new HashMap<>();
 
         cells.put("up", new Cell(x, y + lookahead, "up"));
         cells.put("right", new Cell(x + lookahead, y, "right"));
@@ -397,18 +397,18 @@ public class MazeGenerator {
         }
     }
 
-    private boolean inBounds(Vector cell) {
+    private boolean inBounds(Vector2D cell) {
         return (cell.x() >= 0 && cell.x() < chunk.width && cell.y() >= 0 && cell.y() < chunk.height);
     }
 
-    private boolean canCarve(Vector cell, Vector direction) {
+    private boolean canCarve(Vector2D cell, Vector2D direction) {
         return inBounds(cell)
                 && adjacentCellsAreCarvable(cell)
                 && adjacentCellsAreCarvable(cell.add(direction));
     }
 
-    private boolean adjacentCellsAreCarvable(Vector cell) {
-        HashMap<String, Vector> adjacentCells = getAdjacentCells(cell, 1, false);
+    private boolean adjacentCellsAreCarvable(Vector2D cell) {
+        HashMap<String, Vector2D> adjacentCells = getAdjacentCells(cell, 1, false);
 
         String[] oppositeDirections = getOppositeWithDiagonals(cell.getDirection());
 
@@ -419,7 +419,7 @@ public class MazeGenerator {
             }
         }
 
-        for (Vector adjacent : adjacentCells.values()) {
+        for (Vector2D adjacent : adjacentCells.values()) {
 
             if (inBounds(adjacent)) {
                 if (carvedTiles[adjacent.x][adjacent.y] || excludedTiles[adjacent.x][adjacent.y]) {
@@ -454,22 +454,22 @@ public class MazeGenerator {
         }
     }
 
-    private Vector getVectorForDirection(String direction) {
+    private Vector2D getVectorForDirection(String direction) {
         switch (direction) {
             case "up":
-                return new Vector(0, 1);
+                return new Vector2D(0, 1);
 
             case "right":
-                return new Vector(1, 0);
+                return new Vector2D(1, 0);
 
             case "down":
-                return new Vector(0, -1);
+                return new Vector2D(0, -1);
 
             case "left":
-                return new Vector(-1, 0);
+                return new Vector2D(-1, 0);
 
             default:
-                return new Vector(0, 0);
+                return new Vector2D(0, 0);
         }
     }
 }

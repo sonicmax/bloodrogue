@@ -14,7 +14,7 @@ import com.sonicmax.bloodrogue.renderer.sprites.SpriteRenderer;
 import com.sonicmax.bloodrogue.renderer.text.TextColours;
 import com.sonicmax.bloodrogue.renderer.text.TextRenderer;
 import com.sonicmax.bloodrogue.tilesets.UserInterfaceTileset;
-import com.sonicmax.bloodrogue.utils.maths.Vector;
+import com.sonicmax.bloodrogue.utils.maths.Vector2D;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -581,7 +581,7 @@ public class UserInterfaceRenderer {
         uiRenderer.addSpriteData(gridWidth - 2, 2, inventoryCancel, 1f);
     }
 
-    public float[] getRenderCoordsForObject(Vector objectPos, boolean withScroll) {
+    public float[] getRenderCoordsForObject(Vector2D objectPos, boolean withScroll) {
         float x = objectPos.x();
         float y = objectPos.y();
         float spriteSize = SPRITE_SIZE * scaleFactor;
@@ -602,23 +602,23 @@ public class UserInterfaceRenderer {
     public void renderDetailText(float alphaModifier) {
         float[] offset;
 
-        offset = getRenderCoordsForObject(new Vector(1, gridHeight - 3), false);
+        offset = getRenderCoordsForObject(new Vector2D(1, gridHeight - 3), false);
         uiTextRenderer.addTextData(offset[0], offset[1], DEFAULT_OFFSET_Y, 1f, itemDetailName, TextColours.WHITE, alphaModifier);
 
 
-        offset = getRenderCoordsForObject(new Vector(1, gridHeight - 6), false);
+        offset = getRenderCoordsForObject(new Vector2D(1, gridHeight - 6), false);
 
         for (int i = 0; i < itemDescriptionLines.size(); i++) {
             uiTextRenderer.addTextRowData(itemDescriptionLines.size() - i, offset[0], offset[1],  itemDescriptionLines.get(i), TextColours.YELLOW, alphaModifier);
         }
 
-        offset = getRenderCoordsForObject(new Vector(1, gridHeight - 7), false);
+        offset = getRenderCoordsForObject(new Vector2D(1, gridHeight - 7), false);
 
         if (selectedItem == equipment.weaponEntity || selectedItem == equipment.armourEntity) {
             uiTextRenderer.addTextRowData(0, offset[0], offset[1], "(equipped)", TextColours.ROYAL_BLUE, alphaModifier);
         }
 
-        offset = getRenderCoordsForObject(new Vector(1, 2), false);
+        offset = getRenderCoordsForObject(new Vector2D(1, 2), false);
         uiTextRenderer.addTextRowData(1, offset[0], offset[1],  itemDetailAttribs, TextColours.ROYAL_BLUE, alphaModifier);
         uiTextRenderer.addTextRowData(0, offset[0], offset[1],  itemDetailWeight, TextColours.WHITE, alphaModifier);
     }

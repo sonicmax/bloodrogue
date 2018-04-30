@@ -10,8 +10,6 @@ import com.sonicmax.bloodrogue.engine.Directions;
 import com.sonicmax.bloodrogue.engine.Component;
 import com.sonicmax.bloodrogue.engine.components.Physics;
 import com.sonicmax.bloodrogue.engine.components.Position;
-import com.sonicmax.bloodrogue.engine.components.Sprite;
-import com.sonicmax.bloodrogue.engine.components.Terrain;
 import com.sonicmax.bloodrogue.engine.systems.PotionSystem;
 import com.sonicmax.bloodrogue.generator.factories.DecalFactory;
 import com.sonicmax.bloodrogue.engine.systems.ComponentFinder;
@@ -21,7 +19,7 @@ import com.sonicmax.bloodrogue.tilesets.GenericTileset;
 import com.sonicmax.bloodrogue.tilesets.TileCategorySorter;
 import com.sonicmax.bloodrogue.utils.maths.GeometryHelper;
 import com.sonicmax.bloodrogue.data.JSONLoader;
-import com.sonicmax.bloodrogue.utils.maths.Vector;
+import com.sonicmax.bloodrogue.utils.maths.Vector2D;
 import com.sonicmax.bloodrogue.generator.buildings.Room;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 
@@ -180,13 +178,13 @@ public class MansionDecorator {
 
         if (boundingBox.width < 5) return;
 
-        Vector topLeft = new Vector(boundingBox.x, boundingBox.y + boundingBox.height);
-        Vector topRight = new Vector(boundingBox.x + boundingBox.width, boundingBox.y + boundingBox.height);
+        Vector2D topLeft = new Vector2D(boundingBox.x, boundingBox.y + boundingBox.height);
+        Vector2D topRight = new Vector2D(boundingBox.x + boundingBox.width, boundingBox.y + boundingBox.height);
 
         ArrayList<String> paintings = new ArrayList<>(Arrays.asList(BuildingTileset.PAINTINGS));
 
         for (int x = topLeft.x(); x < topRight.x(); x += 2) {
-            Vector cell = new Vector(x, boundingBox.y + boundingBox.height);
+            Vector2D cell = new Vector2D(x, boundingBox.y + boundingBox.height);
 
             if (TileCategorySorter.isWall(terrainTiles[cell.x][cell.y]) && paintings.size() > 0) {
                 int random = rng.getRandomInt(0, paintings.size() - 1);
@@ -197,18 +195,18 @@ public class MansionDecorator {
 
                 Component[] pedestal = DecalFactory.createDecal(x, cell.y - 1, BuildingTileset.PEDESTAL);
 
-                if (!blocksDoorway(new Vector(x, cell.y - 1))) {
+                if (!blocksDoorway(new Vector2D(x, cell.y - 1))) {
                     objectEntities[x][cell.y - 1].add(pedestal[0].id);
                     componentManager.sortComponentArray(pedestal);
                 }
             }
         }
 
-        ArrayList<Vector> corners = GridGeometryHelper.findInsideCorners(room.getVectors());
+        ArrayList<Vector2D> corners = GridGeometryHelper.findInsideCorners(room.getVectors());
 
         int statueCount = 0;
 
-        for (Vector corner : corners) {
+        for (Vector2D corner : corners) {
             if (statueCount < 3 && !detectCollisions(corner) && !blocksDoorway(corner)) {
                 String tile = BuildingTileset.STATUES[rng.getRandomInt(0, BuildingTileset.STATUES.length - 1)];
 
@@ -232,7 +230,7 @@ public class MansionDecorator {
 
     private void convertRoomToOffice(MapRegion room) {
         // Add/subtract 1 from corner to account for position of wall
-        ArrayList<Vector> corners = GridGeometryHelper.findInsideCorners(room.getVectors());
+        ArrayList<Vector2D> corners = GridGeometryHelper.findInsideCorners(room.getVectors());
 
         boolean deskAdded = false;
         boolean filingCabinetAdded = false;
@@ -240,7 +238,7 @@ public class MansionDecorator {
 
         // Iterate over each corner and attempt to place decorations in order of importance.
 
-        for (Vector corner : corners) {
+        for (Vector2D corner : corners) {
             if (!deskAdded) {
                 if (blocksDoorway(corner)) continue;
 
@@ -250,8 +248,8 @@ public class MansionDecorator {
 
                 // Find adjacent space to place office chair. Can be skipped
 
-                for (Vector direction : Directions.Cardinal.values()) {
-                    Vector adjacent = corner.add(direction);
+                for (Vector2D direction : Directions.Cardinal.values()) {
+                    Vector2D adjacent = corner.add(direction);
                     if (!detectCollisions(adjacent) && !blocksDoorway(adjacent)) {
                         Component[] chair = DecalFactory.createDecal(adjacent.x, adjacent.y, BuildingTileset.OFFICE_CHAIR);
                         objectEntities[adjacent.x][adjacent.y].add(chair[0].id);
@@ -293,7 +291,7 @@ public class MansionDecorator {
     }
 
     private void convertRoomToBedroom(MapRegion room) {
-        ArrayList<Vector> corners = GridGeometryHelper.findInsideCorners(room.getVectors());
+        ArrayList<Vector2D> corners = GridGeometryHelper.findInsideCorners(room.getVectors());
 
         boolean bedAdded = false;
         boolean wardrobeAdded = false;
@@ -301,7 +299,7 @@ public class MansionDecorator {
 
         // Iterate over each corner and attempt to place decorations in order of importance.
 
-        for (Vector corner : corners) {
+        for (Vector2D corner : corners) {
             if (!bedAdded) {
                 if (blocksDoorway(corner)) continue;
 
@@ -311,8 +309,8 @@ public class MansionDecorator {
 
                 // Find adjacent space to place bedside cabinet. Can be skipped
 
-                for (Vector direction : Directions.Cardinal.values()) {
-                    Vector adjacent = corner.add(direction);
+                for (Vector2D direction : Directions.Cardinal.values()) {
+                    Vector2D adjacent = corner.add(direction);
                     if (!detectCollisions(adjacent) && !blocksDoorway(adjacent)) {
                         Component[] cabinet = DecalFactory.createDecal(adjacent.x, adjacent.y, BuildingTileset.BEDSIDE_CABINET);
                         objectEntities[adjacent.x][adjacent.y].add(cabinet[0].id);
@@ -355,7 +353,7 @@ public class MansionDecorator {
     }
 
     private void convertRoomToBathroom(MapRegion room) {
-        ArrayList<Vector> corners = GridGeometryHelper.findInsideCorners(room.getVectors());
+        ArrayList<Vector2D> corners = GridGeometryHelper.findInsideCorners(room.getVectors());
 
         boolean toiletAdded = false;
         boolean sinkAdded = false;
@@ -363,7 +361,7 @@ public class MansionDecorator {
 
         // Iterate over each corner and attempt to place decorations in order of importance.
 
-        for (Vector corner : corners) {
+        for (Vector2D corner : corners) {
             if (!toiletAdded) {
                 if (blocksDoorway(corner)) continue;
 
@@ -404,9 +402,9 @@ public class MansionDecorator {
         bathroomCount++;
     }
 
-    private boolean blocksDoorway(Vector cell) {
-        for (Vector direction : Directions.Cardinal.values()) {
-            Vector adjacent = cell.add(direction);
+    private boolean blocksDoorway(Vector2D cell) {
+        for (Vector2D direction : Directions.Cardinal.values()) {
+            Vector2D adjacent = cell.add(direction);
             if (inBounds(adjacent)) {
 
                 if (TileCategorySorter.isDoorway(terrainTiles[adjacent.x][adjacent.y])) {
@@ -439,16 +437,16 @@ public class MansionDecorator {
      */
 
     private void decorateNorthWall(Room room) {
-        Vector topLeft = new Vector(room.x(), room.y() + room.height());
-        Vector topRight = new Vector(room.x() + room.width(), room.y() + room.height());
-        Vector doorPosition = null;
-        Vector itemCoord;
+        Vector2D topLeft = new Vector2D(room.x(), room.y() + room.height());
+        Vector2D topRight = new Vector2D(room.x() + room.width(), room.y() + room.height());
+        Vector2D doorPosition = null;
+        Vector2D itemCoord;
 
         int numberOfDoors = 0;
 
         // Check for doors
         for (int x = topLeft.x(); x < topRight.x(); x++) {
-            Vector cell = new Vector(x, room.y() + room.height());
+            Vector2D cell = new Vector2D(x, room.y() + room.height());
             if (TileCategorySorter.isDoorway(terrainTiles[cell.x][cell.y])) {
                 numberOfDoors++;
                 doorPosition = cell;
@@ -466,14 +464,14 @@ public class MansionDecorator {
             int lengthB = topRight.x() - doorPosition.x();
 
             if (lengthA > lengthB) {
-                itemCoord = new Vector(topLeft.x() + (int) Math.floor(lengthA / 2), topLeft.y());
+                itemCoord = new Vector2D(topLeft.x() + (int) Math.floor(lengthA / 2), topLeft.y());
             }
 
             else {
-                itemCoord = new Vector(doorPosition.x() + (int) Math.floor(lengthB / 2), topLeft.y());
+                itemCoord = new Vector2D(doorPosition.x() + (int) Math.floor(lengthB / 2), topLeft.y());
             }
 
-            Vector north = itemCoord.add(Directions.Cardinal.get("NORTH"));
+            Vector2D north = itemCoord.add(Directions.Cardinal.get("NORTH"));
 
             if (TileCategorySorter.isFloor(terrainTiles[north.x][north.y])) {
                 // Ignore single-tiled walls
@@ -483,7 +481,7 @@ public class MansionDecorator {
 
         else {
             // Place item in centre. TODO: multiple decorations, or multi-getSprite decorations
-            itemCoord = new Vector(room.x() + (int) Math.floor(room.width() / 2), topLeft.y());
+            itemCoord = new Vector2D(room.x() + (int) Math.floor(room.width() / 2), topLeft.y());
         }
 
         Component[] decal = DecalFactory.createDecal(itemCoord.x, itemCoord.y,
@@ -497,7 +495,7 @@ public class MansionDecorator {
      */
 
     private void retextureFloor(MapRegion room, String imgPath) {
-        for (Vector pos : room.getVectors()) {
+        for (Vector2D pos : room.getVectors()) {
             terrainTiles[pos.x][pos.y] = imgPath;
         }
     }
@@ -527,7 +525,7 @@ public class MansionDecorator {
             }
 
             for (int y = startPositionY; y < startPositionY + boundingBox.height + 1; y += 2) {
-                Vector cell = new Vector(boundingBox.x, y);
+                Vector2D cell = new Vector2D(boundingBox.x, y);
                 addBookshelfRow(cell, isEven);
             }
         }
@@ -548,7 +546,7 @@ public class MansionDecorator {
             }
 
             for (int x = startPositionX; x < startPositionX + boundingBox.width; x += 2) {
-                Vector cell = new Vector(x, boundingBox.y);
+                Vector2D cell = new Vector2D(x, boundingBox.y);
                 addBookshelfColumn(cell, isEven);
             }
         }
@@ -558,12 +556,12 @@ public class MansionDecorator {
         libraryCount++;
     }
 
-    private void addBookshelfColumn(Vector cell, boolean isEven) {
+    private void addBookshelfColumn(Vector2D cell, boolean isEven) {
         while (inBounds(cell) && TileCategorySorter.isFloor(terrainTiles[cell.x][cell.y])) {
 
             if (TileCategorySorter.isDoorway(terrainTiles[cell.x][cell.y])) return;
 
-            Vector lookahead = cell.add(Directions.Cardinal.get("NORTH"));
+            Vector2D lookahead = cell.add(Directions.Cardinal.get("NORTH"));
 
             if (inBounds(lookahead) && TileCategorySorter.isFloor(terrainTiles[lookahead.x][lookahead.y])) {
 
@@ -585,12 +583,12 @@ public class MansionDecorator {
         }
     }
 
-    private void addBookshelfRow(Vector cell, boolean isEven) {
+    private void addBookshelfRow(Vector2D cell, boolean isEven) {
         while (inBounds(cell) && TileCategorySorter.isFloor(terrainTiles[cell.x][cell.y])) {
 
             if (TileCategorySorter.isDoorway(terrainTiles[cell.x][cell.y])) return;
 
-            Vector lookahead = cell.add(Directions.Cardinal.get("EAST"));
+            Vector2D lookahead = cell.add(Directions.Cardinal.get("EAST"));
 
             if (inBounds(lookahead) && TileCategorySorter.isFloor(terrainTiles[lookahead.x][lookahead.y])) {
 
@@ -612,10 +610,10 @@ public class MansionDecorator {
         }
     }
 
-    private boolean cellBlocksDoorway(Vector cell, boolean isEven) {
+    private boolean cellBlocksDoorway(Vector2D cell, boolean isEven) {
 
-        for (Vector direction : Directions.Cardinal.values()) {
-            Vector vector = cell.add(direction);
+        for (Vector2D direction : Directions.Cardinal.values()) {
+            Vector2D vector = cell.add(direction);
 
             if (!inBounds(vector)) continue;
 
@@ -626,7 +624,7 @@ public class MansionDecorator {
             // We should check two cells ahead to make sure.
             // If cell is out of bounds we don't have to worry
 
-            Vector newCell = cell.add(direction.scale(2));
+            Vector2D newCell = cell.add(direction.scale(2));
 
             if (inBounds(newCell)) {
                 if (isEven && TileCategorySorter.isDoorway(terrainTiles[newCell.x][newCell.y])) {
@@ -641,8 +639,8 @@ public class MansionDecorator {
     private void addLightingToRoom(Room room) {
         String[] bearings = new String[] {"NORTH", "EAST", "WEST"};
         String bearing = bearings[rng.getRandomInt(0, 2)];
-        Vector direction = Directions.Cardinal.get(bearing);
-        Vector cell = room.roundedCentre();
+        Vector2D direction = Directions.Cardinal.get(bearing);
+        Vector2D cell = room.roundedCentre();
 
         while (inBounds(cell) && TileCategorySorter.isFloor(terrainTiles[cell.x][cell.y])) {
             cell = cell.add(direction);
@@ -681,8 +679,8 @@ public class MansionDecorator {
         // Attempt to place the chest 8 times.
         // If this fails, just skip it
 
-        for (Vector direction : Directions.All.values()) {
-            Vector cell = room.roundedCentre();
+        for (Vector2D direction : Directions.All.values()) {
+            Vector2D cell = room.roundedCentre();
 
             while (inBounds(cell) && TileCategorySorter.isFloor(terrainTiles[cell.x][cell.y])) {
                 cell = cell.add(direction);
@@ -727,8 +725,8 @@ public class MansionDecorator {
         // Attempt to place the chest 8 times.
         // If this fails, just skip it
 
-        for (Vector direction : Directions.All.values()) {
-            Vector cell = room.roundedCentre();
+        for (Vector2D direction : Directions.All.values()) {
+            Vector2D cell = room.roundedCentre();
 
             while (inBounds(cell) && TileCategorySorter.isFloor(terrainTiles[cell.x][cell.y])) {
                 cell = cell.add(direction);
@@ -765,30 +763,30 @@ public class MansionDecorator {
         }
     }
 
-    private boolean objectBlockingPath(Vector cell) {
+    private boolean objectBlockingPath(Vector2D cell) {
         final int PATH_LIMIT = 8;
 
         // As player can move diagonally, we only have to test two paths: north-south and east-west.
-        ArrayList<ArrayList<Vector>> paths = new ArrayList<>();
+        ArrayList<ArrayList<Vector2D>> paths = new ArrayList<>();
 
-        paths.add(new ArrayList<Vector>());
+        paths.add(new ArrayList<Vector2D>());
         paths.get(0).add(Directions.Cardinal.get("NORTH"));
         paths.get(0).add(Directions.Cardinal.get("SOUTH"));
 
-        paths.add(new ArrayList<Vector>());
+        paths.add(new ArrayList<Vector2D>());
         paths.get(1).add(Directions.Cardinal.get("EAST"));
         paths.get(1).add(Directions.Cardinal.get("WEST"));
 
         // Test paths to make sure that player can move around object.
-        for (ArrayList<Vector> path : paths) {
-            Vector start = cell.add(path.get(0));
-            Vector end = cell.add(path.get(1));
+        for (ArrayList<Vector2D> path : paths) {
+            Vector2D start = cell.add(path.get(0));
+            Vector2D end = cell.add(path.get(1));
 
             if (!inBounds(start) || !inBounds(end)) continue;
 
             if (detectCollisions(start) || detectCollisions(end)) continue;
 
-            ArrayList<Vector> bestPath = findShortestPathAroundObstacle(start, end, cell);
+            ArrayList<Vector2D> bestPath = findShortestPathAroundObstacle(start, end, cell);
 
             // If path length === 0, no safe paths were found.
             // If path length exceeds PATH_LIMIT, the object is blocking player's path in a detrimental way
@@ -800,9 +798,9 @@ public class MansionDecorator {
         return false;
     }
 
-    private ArrayList<Vector> findShortestPathAroundObstacle(Vector startNode, Vector goalNode, Vector obstacle) {
-        ArrayList<Vector> optimalPath = new ArrayList<>();
-        ArrayList<Vector> openNodes = new ArrayList<>();
+    private ArrayList<Vector2D> findShortestPathAroundObstacle(Vector2D startNode, Vector2D goalNode, Vector2D obstacle) {
+        ArrayList<Vector2D> optimalPath = new ArrayList<>();
+        ArrayList<Vector2D> openNodes = new ArrayList<>();
         ArrayList<String> checkedNodes = new ArrayList<>();
 
         if (startNode.equals(goalNode)) {
@@ -811,22 +809,22 @@ public class MansionDecorator {
 
         openNodes.add(startNode);
 
-        Vector lastNode = null;
+        Vector2D lastNode = null;
 
         while (openNodes.size() > 0) {
-            Vector currentNode = openNodes.remove(openNodes.size() - 1);
+            Vector2D currentNode = openNodes.remove(openNodes.size() - 1);
 
             if (lastNode != null && lastNode.equals(currentNode)) {
                 Log.w(LOG_TAG, "Duplicate node in findShortestPath at " + lastNode.toString());
                 break;
             }
 
-            Vector closestNode = null;
+            Vector2D closestNode = null;
             double bestDistance = Double.MAX_VALUE;
 
             // Find adjacent node which is closest to goal
-            for (Vector direction : Directions.All.values()) {
-                Vector adjacentNode = currentNode.add(direction);
+            for (Vector2D direction : Directions.All.values()) {
+                Vector2D adjacentNode = currentNode.add(direction);
 
                 if (!inBounds(adjacentNode)) continue;
 
@@ -885,13 +883,13 @@ public class MansionDecorator {
         // Iterate over each getSprite in room and find empty positions.
         // Avoid rounded centre because that is where player character would be placed
 
-        ArrayList<Vector> emptyVectors = new ArrayList<>();
-        Vector centre = room.roundedCentre();
+        ArrayList<Vector2D> emptyVectors = new ArrayList<>();
+        Vector2D centre = room.roundedCentre();
 
         for (int x = room.x() + 1; x < room.x() + room.width() - 1; x++) {
             for (int y = room.y() + 1; y < room.y() + room.height() - 1; y++) {
-                Vector pos = new Vector(x, y);
-                if (!pos.equals(centre) && !detectCollisions(new Vector(x, y))) {
+                Vector2D pos = new Vector2D(x, y);
+                if (!pos.equals(centre) && !detectCollisions(new Vector2D(x, y))) {
                     emptyVectors.add(pos);
                 }
             }
@@ -914,7 +912,7 @@ public class MansionDecorator {
 
         while (count <= numberOfEnemies && emptyVectors.size() > 0) {
             int random = rng.getRandomInt(0, emptyVectors.size() - 1);
-            Vector vector = emptyVectors.remove(random);
+            Vector2D vector = emptyVectors.remove(random);
             int type = rng.getRandomInt(0, size - 1);
             int level = rng.getRandomInt(1, maxEnemyLevel);
 
@@ -951,8 +949,8 @@ public class MansionDecorator {
         int top = room.y() + room.height();
 
         for (int x = room.x() - 1; x <= right; x++) {
-            Vector north = new Vector(x, top);
-            Vector south = new Vector(x, room.y() - 1);
+            Vector2D north = new Vector2D(x, top);
+            Vector2D south = new Vector2D(x, room.y() - 1);
 
             if (inBounds(north)) {
                 if (TileCategorySorter.isDoorway(terrainTiles[north.x][north.y])) {
@@ -968,8 +966,8 @@ public class MansionDecorator {
         }
 
         for (int y = room.y() - 1; y <= top; y++) {
-            Vector east = new Vector(room.x() - 1, y);
-            Vector west = new Vector(room.x() + room.width(), y);
+            Vector2D east = new Vector2D(room.x() - 1, y);
+            Vector2D west = new Vector2D(room.x() + room.width(), y);
 
             if (inBounds(east)) {
                 if (TileCategorySorter.isDoorway(terrainTiles[east.x][east.y])) {
@@ -1000,7 +998,7 @@ public class MansionDecorator {
      * @return True if collisions would occur
      */
 
-    private boolean detectCollisions(Vector position) {
+    private boolean detectCollisions(Vector2D position) {
         int x = position.x();
         int y = position.y();
 
@@ -1053,19 +1051,19 @@ public class MansionDecorator {
         }
     }
 
-    private boolean inBounds(Vector cell) {
+    private boolean inBounds(Vector2D cell) {
         return (cell.x() >= 0 && cell.x() < mapWidth && cell.y() >= 0 && cell.y() < mapHeight);
     }
 
-    private ArrayList<Vector> getWallVectors(Room room) {
-        ArrayList<Vector> walls = new ArrayList<>();
+    private ArrayList<Vector2D> getWallVectors(Room room) {
+        ArrayList<Vector2D> walls = new ArrayList<>();
 
         int right = room.x() + room.width() + 1;
         int top = room.y() + room.height();
 
         for (int x = room.x() - 1; x <= right; x++) {
-            Vector north = new Vector(x, top);
-            Vector south = new Vector(x, room.y() - 1);
+            Vector2D north = new Vector2D(x, top);
+            Vector2D south = new Vector2D(x, room.y() - 1);
 
             if (inBounds(north)) {
                 walls.add(north);
@@ -1077,8 +1075,8 @@ public class MansionDecorator {
         }
 
         for (int y = room.y() - 1; y <= top; y++) {
-            Vector east = new Vector(room.x() - 1, y);
-            Vector west = new Vector(room.x() + room.width(), y);
+            Vector2D east = new Vector2D(room.x() - 1, y);
+            Vector2D west = new Vector2D(room.x() + room.width(), y);
 
             if (inBounds(east)) {
                 walls.add(east);

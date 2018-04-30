@@ -1,6 +1,6 @@
 package com.sonicmax.bloodrogue.generator;
 
-import com.sonicmax.bloodrogue.utils.maths.Vector;
+import com.sonicmax.bloodrogue.utils.maths.Vector2D;
 
 import java.util.ArrayList;
 
@@ -8,11 +8,11 @@ public class MapData {
     private int[][] terrainEntities;
     private ArrayList<Long>[][] objectEntities;
 
-    private Vector entrancePosition;
-    private Vector exitPosition;
+    private Vector2D entrancePosition;
+    private Vector2D exitPosition;
     private int type;
 
-    public MapData(int[][] terrainEntities, ArrayList<Long>[][] objectEntities, Vector entrance, Vector exit, int type) {
+    public MapData(int[][] terrainEntities, ArrayList<Long>[][] objectEntities, Vector2D entrance, Vector2D exit, int type) {
 
         this.terrainEntities = terrainEntities;
         this.objectEntities = objectEntities;
@@ -30,11 +30,11 @@ public class MapData {
         return this.objectEntities;
     }
 
-    public Vector getEntrancePosition() {
+    public Vector2D getEntrancePosition() {
         return this.entrancePosition;
     }
 
-    public Vector getExitPosition() {
+    public Vector2D getExitPosition() {
         return this.exitPosition;
     }
 }

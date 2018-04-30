@@ -5,7 +5,7 @@ import android.util.Log;
 import com.sonicmax.bloodrogue.engine.Directions;
 import com.sonicmax.bloodrogue.generator.Chunk;
 import com.sonicmax.bloodrogue.generator.MapRegion;
-import com.sonicmax.bloodrogue.utils.maths.Vector;
+import com.sonicmax.bloodrogue.utils.maths.Vector2D;
 
 import java.util.ArrayList;
 
@@ -26,22 +26,22 @@ public class GridGeometryHelper {
      * @return Array of corners
      */
 
-    public static ArrayList<Vector> findCorners(ArrayList<Vector> region) {
-        ArrayList<Vector> corners = new ArrayList<>();
+    public static ArrayList<Vector2D> findCorners(ArrayList<Vector2D> region) {
+        ArrayList<Vector2D> corners = new ArrayList<>();
 
-        Vector[][] regionGrid = vectorsToGrid(region);
+        Vector2D[][] regionGrid = vectorsToGrid(region);
         int width = regionGrid.length;
         int height = regionGrid[0].length;
 
         // Iterate over tiles to find corners. Tiles with two cardinal neighbours are outer corners,
         // and tiles with a single diagonal neighbour are inner corners.
 
-        ArrayList<Vector> queue = new ArrayList<>();
-        ArrayList<Vector> checked = new ArrayList<>();
-        queue.add(new Vector(width / 2, height / 2));
+        ArrayList<Vector2D> queue = new ArrayList<>();
+        ArrayList<Vector2D> checked = new ArrayList<>();
+        queue.add(new Vector2D(width / 2, height / 2));
 
         while (queue.size() > 0) {
-            Vector cell = queue.remove(0);
+            Vector2D cell = queue.remove(0);
 
             if (checked.contains(cell)) continue;
 
@@ -52,8 +52,8 @@ public class GridGeometryHelper {
             int cardinalSpaces = 0;
             int diagonalSpaces = 0;
 
-            for (Vector direction : Directions.Cardinal.values()) {
-                Vector adjacent = cell.add(direction);
+            for (Vector2D direction : Directions.Cardinal.values()) {
+                Vector2D adjacent = cell.add(direction);
 
                 // Check if adjacent tile is empty and add to cardinal space count.
                 if (inBoundingBox(adjacent, width, height)) {
@@ -76,8 +76,8 @@ public class GridGeometryHelper {
                 continue;
             }
 
-            for (Vector direction : Directions.Diagonal.values()) {
-                Vector adjacent = cell.add(direction);
+            for (Vector2D direction : Directions.Diagonal.values()) {
+                Vector2D adjacent = cell.add(direction);
 
                 if (inBoundingBox(adjacent, width, height)) {
                     if (regionGrid[adjacent.x][adjacent.y] == null) {
@@ -107,22 +107,22 @@ public class GridGeometryHelper {
      * Finds corner tiles and returns array of inner corners (ie. inside corner of room vs. corner of wall)
      */
 
-    public static ArrayList<Vector> findInsideCorners(ArrayList<Vector> region) {
-        ArrayList<Vector> corners = new ArrayList<>();
+    public static ArrayList<Vector2D> findInsideCorners(ArrayList<Vector2D> region) {
+        ArrayList<Vector2D> corners = new ArrayList<>();
 
-        Vector[][] regionGrid = vectorsToGrid(region);
+        Vector2D[][] regionGrid = vectorsToGrid(region);
         int width = regionGrid.length;
         int height = regionGrid[0].length;
 
         // Iterate over tiles to find corners. Tiles with two cardinal neighbours are outer corners,
         // and tiles with a single diagonal neighbour are inner corners.
 
-        ArrayList<Vector> queue = new ArrayList<>();
-        ArrayList<Vector> checked = new ArrayList<>();
-        queue.add(new Vector(width / 2, height / 2));
+        ArrayList<Vector2D> queue = new ArrayList<>();
+        ArrayList<Vector2D> checked = new ArrayList<>();
+        queue.add(new Vector2D(width / 2, height / 2));
 
         while (queue.size() > 0) {
-            Vector cell = queue.remove(0);
+            Vector2D cell = queue.remove(0);
 
             if (checked.contains(cell)) continue;
 
@@ -132,10 +132,10 @@ public class GridGeometryHelper {
 
             int diagonalSpaces = 0;
 
-            ArrayList<Vector> cardinalVectors = new ArrayList<>();
+            ArrayList<Vector2D> cardinalVectors = new ArrayList<>();
 
-            for (Vector direction : Directions.Cardinal.values()) {
-                Vector adjacent = cell.add(direction);
+            for (Vector2D direction : Directions.Cardinal.values()) {
+                Vector2D adjacent = cell.add(direction);
 
                 // Check if adjacent tile is empty and add to cardinal space count.
                 if (inBoundingBox(adjacent, width, height)) {
@@ -174,8 +174,8 @@ public class GridGeometryHelper {
 
             // Inner corners have one diagonal space (and outer corners have already been filtered out)
 
-            for (Vector direction : Directions.Diagonal.values()) {
-                Vector adjacent = cell.add(direction);
+            for (Vector2D direction : Directions.Diagonal.values()) {
+                Vector2D adjacent = cell.add(direction);
 
                 if (inBoundingBox(adjacent, width, height)) {
                     if (regionGrid[adjacent.x][adjacent.y] == null) {
@@ -208,7 +208,7 @@ public class GridGeometryHelper {
         return corners;
     }
 
-    public static Vector[][] vectorsToGrid(ArrayList<Vector> vectors) {
+    public static Vector2D[][] vectorsToGrid(ArrayList<Vector2D> vectors) {
         // We need to get appropriate bounds for shape by finding smallest and largest possible
         // values for array. This will create bounding box for region.
 
@@ -217,7 +217,7 @@ public class GridGeometryHelper {
         int smallestY = Integer.MAX_VALUE;
         int largestY = Integer.MIN_VALUE;
 
-        for (Vector vector : vectors) {
+        for (Vector2D vector : vectors) {
             if (vector.x < smallestX) {
                 smallestX = vector.x;
             }
@@ -236,9 +236,9 @@ public class GridGeometryHelper {
         int width = largestX - smallestX + 1;
         int height = largestY - smallestY + 1;
 
-        Vector[][] regionGrid = new Vector[width][height];
+        Vector2D[][] regionGrid = new Vector2D[width][height];
 
-        for (Vector vector : vectors) {
+        for (Vector2D vector : vectors) {
             // Translate vectors on grid so that grid origin is 0,0
             regionGrid[vector.x - smallestX][vector.y - smallestY] = vector;
         }
@@ -246,15 +246,15 @@ public class GridGeometryHelper {
         return regionGrid;
     }
 
-    public static ArrayList<Vector> getBorderVectorsFromRegion(MapRegion region) {
-        ArrayList<Vector> borderVectors = new ArrayList<>();
-        ArrayList<Vector> regionVectors = region.getVectors();
+    public static ArrayList<Vector2D> getBorderVectorsFromRegion(MapRegion region) {
+        ArrayList<Vector2D> borderVectors = new ArrayList<>();
+        ArrayList<Vector2D> regionVectors = region.getVectors();
         Chunk boundingBox = GridGeometryHelper.getBoundingBox(regionVectors);
-        Vector[][] grid = GridGeometryHelper.vectorsToGrid(regionVectors);
+        Vector2D[][] grid = GridGeometryHelper.vectorsToGrid(regionVectors);
 
-        for (Vector vector : regionVectors) {
-            for (Vector direction : Directions.Cardinal.values()) {
-                Vector adjacent = vector.add(direction);
+        for (Vector2D vector : regionVectors) {
+            for (Vector2D direction : Directions.Cardinal.values()) {
+                Vector2D adjacent = vector.add(direction);
                 if (!inBoundingBox(adjacent, boundingBox) || grid[adjacent.x][adjacent.y] == null) {
                     borderVectors.add(adjacent);
                     break;
@@ -265,20 +265,20 @@ public class GridGeometryHelper {
         return borderVectors;
     }
 
-    private static boolean inBoundingBox(Vector vector, Chunk boundingBox) {
+    private static boolean inBoundingBox(Vector2D vector, Chunk boundingBox) {
         return (vector.x >= 0 && vector.x < boundingBox.width)
                 && (vector.y >= 0 && vector.y < boundingBox.height);
     }
 
-    public static ArrayList<Vector[]> findRectSides(ArrayList<Vector> corners) {
-        ArrayList<Vector[]> sides = new ArrayList<>();
+    public static ArrayList<Vector2D[]> findRectSides(ArrayList<Vector2D> corners) {
+        ArrayList<Vector2D[]> sides = new ArrayList<>();
 
         int lowestX = Integer.MAX_VALUE;
         int highestX = Integer.MIN_VALUE;
         int lowestY = Integer.MAX_VALUE;
         int highestY = Integer.MIN_VALUE;
 
-        for (Vector corner : corners) {
+        for (Vector2D corner : corners) {
             if (corner.x < lowestX) {
                 lowestX = corner.x;
             }
@@ -296,28 +296,28 @@ public class GridGeometryHelper {
             }
         }
 
-        Vector topLeft = new Vector(lowestX, highestY);
-        Vector topRight = new Vector(highestX, highestY);
-        Vector bottomLeft = new Vector(lowestX, lowestY);
-        Vector bottomRight = new Vector(highestX, lowestY);
+        Vector2D topLeft = new Vector2D(lowestX, highestY);
+        Vector2D topRight = new Vector2D(highestX, highestY);
+        Vector2D bottomLeft = new Vector2D(lowestX, lowestY);
+        Vector2D bottomRight = new Vector2D(highestX, lowestY);
 
-        sides.add(new Vector[] {topLeft, topRight});
-        sides.add(new Vector[] {topRight, bottomRight});
-        sides.add(new Vector[] {bottomRight, bottomLeft});
-        sides.add(new Vector[] {bottomLeft, topLeft});
+        sides.add(new Vector2D[] {topLeft, topRight});
+        sides.add(new Vector2D[] {topRight, bottomRight});
+        sides.add(new Vector2D[] {bottomRight, bottomLeft});
+        sides.add(new Vector2D[] {bottomLeft, topLeft});
 
         return sides;
     }
 
-    public static Chunk getBoundingBox(ArrayList<Vector> corners) {
-        ArrayList<Vector[]> sides = new ArrayList<>();
+    public static Chunk getBoundingBox(ArrayList<Vector2D> corners) {
+        ArrayList<Vector2D[]> sides = new ArrayList<>();
 
         int lowestX = Integer.MAX_VALUE;
         int highestX = Integer.MIN_VALUE;
         int lowestY = Integer.MAX_VALUE;
         int highestY = Integer.MIN_VALUE;
 
-        for (Vector corner : corners) {
+        for (Vector2D corner : corners) {
             if (corner.x < lowestX) {
                 lowestX = corner.x;
             }
@@ -335,7 +335,7 @@ public class GridGeometryHelper {
             }
         }
 
-        Vector bottomLeft = new Vector(lowestX, lowestY);
+        Vector2D bottomLeft = new Vector2D(lowestX, lowestY);
 
         int width = highestX - lowestX;
         int height = highestY - lowestY;
@@ -343,14 +343,14 @@ public class GridGeometryHelper {
         return new Chunk(bottomLeft.x, bottomLeft.y, width, height);
     }
 
-    public static ArrayList<Vector[]> findSides(ArrayList<Vector> region) {
-        ArrayList<Vector[]> sides = new ArrayList<>();
+    public static ArrayList<Vector2D[]> findSides(ArrayList<Vector2D> region) {
+        ArrayList<Vector2D[]> sides = new ArrayList<>();
 
-        Vector[][] grid = vectorsToGrid(region);
+        Vector2D[][] grid = vectorsToGrid(region);
         int width = grid.length;
         int height = grid[0].length;
 
-        Vector start = null;
+        Vector2D start = null;
 
         // Find a corner on the grid to start checking from. If we iterate in rows starting from
         // the bottom, we can guarantee that the first tile we find will be a corner
@@ -359,7 +359,7 @@ public class GridGeometryHelper {
             for (int x = 0; x < width; x++) {
                 if (grid[x][y] != null) {
                     // Save the grid position (not the stored vector, which refers to its world position)
-                    start = new Vector(x, y);
+                    start = new Vector2D(x, y);
                     break;
                 }
             }
@@ -374,12 +374,12 @@ public class GridGeometryHelper {
             return sides;
         }
 
-        ArrayList<Vector> checked = new ArrayList<>();
-        ArrayList<Vector> queue = new ArrayList<>();
+        ArrayList<Vector2D> checked = new ArrayList<>();
+        ArrayList<Vector2D> queue = new ArrayList<>();
         queue.add(start);
 
         while (queue.size() > 0) {
-            Vector current = queue.remove(0);
+            Vector2D current = queue.remove(0);
 
             // Make sure we don't backtrack. Handle comparisons to start separately
             if (!current.equals(start)) {
@@ -387,18 +387,18 @@ public class GridGeometryHelper {
             }
 
             // Get world position vector from grid
-            Vector[] side = new Vector[2];
+            Vector2D[] side = new Vector2D[2];
             side[0] = grid[current.x][current.y];
 
             boolean foundCorner = false;
 
             // Check in each cardinal direction until we find an edge that we can follow.
-            for (Vector direction : Directions.Cardinal.values()) {
+            for (Vector2D direction : Directions.Cardinal.values()) {
 
                 // Once we've found a corner, break out of this loop and go to the next tile
                 if (foundCorner) break;
 
-                Vector posToCheck = current.add(direction);
+                Vector2D posToCheck = current.add(direction);
 
                 // Don't check out of bounds or null tiles.
                 if (!inBoundingBox(posToCheck, width, height) || grid[posToCheck.x][posToCheck.y] == null) {
@@ -415,8 +415,8 @@ public class GridGeometryHelper {
                 int cardinalSpaces = 0;
                 int diagonalSpaces = 0;
 
-                for (Vector cardinal : Directions.Cardinal.values()) {
-                    Vector adjacent = posToCheck.add(cardinal);
+                for (Vector2D cardinal : Directions.Cardinal.values()) {
+                    Vector2D adjacent = posToCheck.add(cardinal);
                     if (inBoundingBox(adjacent, width, height)) {
                         if (grid[adjacent.x][adjacent.y] == null) {
                             // Todo: we could probably save time here by breaking from loop if we exceed 2 spaces
@@ -434,7 +434,7 @@ public class GridGeometryHelper {
                     if (!checked.contains(posToCheck) && !posToCheck.equals(start)) {
 
                         // Iterate along edge until we find the next corner
-                        Vector corner = findNextCorner(posToCheck, direction, checked, grid);
+                        Vector2D corner = findNextCorner(posToCheck, direction, checked, grid);
 
                         if (corner == null) {
                             // Technically this should be impossible
@@ -468,7 +468,7 @@ public class GridGeometryHelper {
                     // Found an outer corner
 
                     if (!checked.contains(posToCheck) && !posToCheck.equals(start)) {
-                        Vector gridPos = grid[posToCheck.x][posToCheck.y];
+                        Vector2D gridPos = grid[posToCheck.x][posToCheck.y];
                         side[1] = gridPos;
                         sides.add(side);
                         foundCorner = true;
@@ -480,8 +480,8 @@ public class GridGeometryHelper {
 
                 // Finally check diagonally adjacent tiles to see if this was an inner corner
 
-                for (Vector diagonal : Directions.Diagonal.values()) {
-                    Vector adjacent = posToCheck.add(diagonal);
+                for (Vector2D diagonal : Directions.Diagonal.values()) {
+                    Vector2D adjacent = posToCheck.add(diagonal);
                     if (inBoundingBox(adjacent, width, height)) {
                         if (grid[adjacent.x][adjacent.y] == null) {
                             diagonalSpaces++;
@@ -497,7 +497,7 @@ public class GridGeometryHelper {
 
                     // (make sure we aren't backtracking)
                     if (!checked.contains(posToCheck) && !posToCheck.equals(start)) {
-                        Vector gridPos = grid[posToCheck.x][posToCheck.y];
+                        Vector2D gridPos = grid[posToCheck.x][posToCheck.y];
                         side[1] = gridPos;
                         sides.add(side);
                         foundCorner = true;
@@ -511,22 +511,22 @@ public class GridGeometryHelper {
         return sides;
     }
 
-    private static Vector findNextCorner(Vector cell, Vector direction, ArrayList<Vector> checked, Vector[][] grid) {
+    private static Vector2D findNextCorner(Vector2D cell, Vector2D direction, ArrayList<Vector2D> checked, Vector2D[][] grid) {
         int width = grid.length;
         int height = grid[0].length;
 
-        ArrayList<Vector> queue = new ArrayList<>();
+        ArrayList<Vector2D> queue = new ArrayList<>();
         queue.add(cell);
 
         while (queue.size() > 0) {
-            Vector start = queue.remove(0);
-            Vector next = start.add(direction);
+            Vector2D start = queue.remove(0);
+            Vector2D next = start.add(direction);
 
             int cardinalSpaces = 0;
             int diagonalSpaces = 0;
 
-            for (Vector cardinal : Directions.Cardinal.values()) {
-                Vector adjacent = next.add(cardinal);
+            for (Vector2D cardinal : Directions.Cardinal.values()) {
+                Vector2D adjacent = next.add(cardinal);
                 if (inBoundingBox(adjacent, width, height)) {
                     if (grid[adjacent.x][adjacent.y] == null) {
                         cardinalSpaces++;
@@ -554,8 +554,8 @@ public class GridGeometryHelper {
                 }
             }
 
-            for (Vector diagonal : Directions.Diagonal.values()) {
-                Vector adjacent = next.add(diagonal);
+            for (Vector2D diagonal : Directions.Diagonal.values()) {
+                Vector2D adjacent = next.add(diagonal);
                 if (inBoundingBox(adjacent, width, height)) {
                     if (grid[adjacent.x][adjacent.y] == null) {
                         diagonalSpaces++;
@@ -580,7 +580,7 @@ public class GridGeometryHelper {
         return null;
     }
 
-    public static boolean inBoundingBox(Vector cell, int width, int height) {
+    public static boolean inBoundingBox(Vector2D cell, int width, int height) {
         return (cell.x >= 0 && cell.x < width && cell.y >= 0 && cell.y < height);
     }
 

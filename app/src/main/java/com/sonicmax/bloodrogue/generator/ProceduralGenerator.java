@@ -28,7 +28,7 @@ import com.sonicmax.bloodrogue.tilesets.ExteriorTileset;
 import com.sonicmax.bloodrogue.tilesets.RuinsTileset;
 import com.sonicmax.bloodrogue.tilesets.TileCategorySorter;
 import com.sonicmax.bloodrogue.utils.maths.GeometryHelper;
-import com.sonicmax.bloodrogue.utils.maths.Vector;
+import com.sonicmax.bloodrogue.utils.maths.Vector2D;
 import com.sonicmax.bloodrogue.generator.buildings.Room;
 import com.sonicmax.bloodrogue.tilesets.GenericTileset;
 import com.sonicmax.bloodrogue.utils.Array2DHelper;
@@ -67,8 +67,8 @@ public class ProceduralGenerator {
     private ArrayList<Room> rooms;
     private HashMap<String, Component[]> doors;
 
-    private Vector floorEntrance;
-    private Vector floorExit;
+    private Vector2D floorEntrance;
+    private Vector2D floorExit;
     private int type;
 
     private int mapWidth;
@@ -192,7 +192,7 @@ public class ProceduralGenerator {
             }
         }
 
-        return new MapData(terrainIndices, objectEntities, new Vector(0, 30), floorExit, type);
+        return new MapData(terrainIndices, objectEntities, new Vector2D(0, 30), floorExit, type);
     }
 
     /*
@@ -607,8 +607,8 @@ public class ProceduralGenerator {
         int treeCount = (mapWidth / minDistance) * (mapHeight / minDistance);
         treeCount *= filter;
         Log.v(LOG_TAG, "Placing " + treeCount + " trees");
-        ArrayList<Vector> treePositions = sampler.generateNoise(chunk.width, chunk.height, minDistance, treeCount);
-        for (Vector cell : treePositions) {
+        ArrayList<Vector2D> treePositions = sampler.generateNoise(chunk.width, chunk.height, minDistance, treeCount);
+        for (Vector2D cell : treePositions) {
             if (!inBounds(cell)) continue;
             if (indoorRegions[cell.x][cell.y]) continue;
 
@@ -658,18 +658,18 @@ public class ProceduralGenerator {
     }
 
     private void addRandomLakes(Chunk chunk) {
-        Vector offset = new Vector(chunk.x, chunk.y);
+        Vector2D offset = new Vector2D(chunk.x, chunk.y);
 
         automata.setParams(4, 3, 3, 0.3f);
         boolean[][] lakes = automata.generate(chunk);
 
-        ArrayList<Vector> lakeVectors = new ArrayList<>();
+        ArrayList<Vector2D> lakeVectors = new ArrayList<>();
 
         for (int x = 0; x < lakes.length; x++) {
             for (int y = 0; y < lakes[0].length; y++) {
-                Vector vector = new Vector(x, y);
+                Vector2D vector = new Vector2D(x, y);
                 // Remember to translate position on grid to position in world
-                Vector translatedVec = vector.subtract(offset);
+                Vector2D translatedVec = vector.subtract(offset);
                 if (lakes[x][y] && !detectCollisions(translatedVec)) {
                     lakeVectors.add(vector);
                 }
@@ -683,12 +683,12 @@ public class ProceduralGenerator {
         }
 
         ArrayList<MapRegion> lakeRegions = new ArrayList<>();
-        ArrayList<Vector> checkedVectors = new ArrayList<>();
+        ArrayList<Vector2D> checkedVectors = new ArrayList<>();
 
-        for (Vector vector : lakeVectors) {
+        for (Vector2D vector : lakeVectors) {
 
-            for (Vector direction : Directions.All.values()) {
-                Vector adjacent = vector.add(direction);
+            for (Vector2D direction : Directions.All.values()) {
+                Vector2D adjacent = vector.add(direction);
 
                 if (checkedVectors.contains(adjacent)) {
                     continue;
@@ -697,7 +697,7 @@ public class ProceduralGenerator {
                 if (inBounds(adjacent, 0, 0, lakes.length, lakes[0].length)) {
                     if (lakes[adjacent.x][adjacent.y]) {
                         MapRegion region = new MapRegion();
-                        ArrayList<Vector> regionVecs = getRegionVectors(adjacent, lakes);
+                        ArrayList<Vector2D> regionVecs = getRegionVectors(adjacent, lakes);
                         region.addAll(regionVecs);
                         checkedVectors.addAll(regionVecs);
                         lakeRegions.add(region);
@@ -728,21 +728,21 @@ public class ProceduralGenerator {
         }
     }
 
-    private ArrayList<Vector> translateVectors(ArrayList<Vector> vectors, Vector offset) {
-        ArrayList<Vector> translated = new ArrayList<>();
-        for (Vector vector : vectors) {
+    private ArrayList<Vector2D> translateVectors(ArrayList<Vector2D> vectors, Vector2D offset) {
+        ArrayList<Vector2D> translated = new ArrayList<>();
+        for (Vector2D vector : vectors) {
             translated.add(vector.subtract(offset));
         }
         return translated;
     }
 
-    private void fillLakeRegion(MapRegion lake, Vector offset) {
+    private void fillLakeRegion(MapRegion lake, Vector2D offset) {
         int waterTextureIndex = 0;
 
-        for (Vector vector : lake.getVectors()) {
+        for (Vector2D vector : lake.getVectors()) {
             if (indoorRegions[vector.x][vector.y]) continue;
 
-            Vector translatedVec = vector.subtract(offset);
+            Vector2D translatedVec = vector.subtract(offset);
             clearObjects(translatedVec.x, translatedVec.y);
 
             String texture = ExteriorTileset.WATER[waterTextureIndex];
@@ -762,43 +762,43 @@ public class ProceduralGenerator {
         }
     }
 
-    private void addLakeDecorations(MapRegion lake, Vector offset) {
-        ArrayList<Vector> lakeVectors = lake.getVectors();
+    private void addLakeDecorations(MapRegion lake, Vector2D offset) {
+        ArrayList<Vector2D> lakeVectors = lake.getVectors();
         if (lakeVectors.size() > 5) {
             int random = rng.getRandomInt(0, lakeVectors.size() - 1);
-            Vector location = lakeVectors.get(random).subtract(offset);
+            Vector2D location = lakeVectors.get(random).subtract(offset);
             String texture = rng.getRandomItemFromStringArray(ExteriorTileset.POND_LILIES);
             Component[] flower = DecalFactory.createTraversableDecoration(location.x, location.y, texture);
             objectEntities[location.x][location.y].add(flower[0].id);
             componentManager.sortComponentArray(flower);
         }
 
-        ArrayList<Vector> borderVectors = GridGeometryHelper.getBorderVectorsFromRegion(lake);
+        ArrayList<Vector2D> borderVectors = GridGeometryHelper.getBorderVectorsFromRegion(lake);
 
         if (borderVectors.size() > 0) {
             int random = rng.getRandomInt(0, borderVectors.size() - 1);
-            Vector location = borderVectors.get(random).subtract(offset);
+            Vector2D location = borderVectors.get(random).subtract(offset);
             if (inBounds(location) && !detectCollisions(location)) {
                 enemyPlacer.placeEnemy(location.x, location.y, EnemyBlueprintKeys.TOAD);
             }
         }
     }
 
-    private ArrayList<Vector> getRegionVectors(Vector start, boolean[][] tiles) {
-        ArrayList<Vector> region = new ArrayList<>();
-        ArrayList<Vector> queue = new ArrayList<>();
-        ArrayList<Vector> checked = new ArrayList<>();
+    private ArrayList<Vector2D> getRegionVectors(Vector2D start, boolean[][] tiles) {
+        ArrayList<Vector2D> region = new ArrayList<>();
+        ArrayList<Vector2D> queue = new ArrayList<>();
+        ArrayList<Vector2D> checked = new ArrayList<>();
 
         queue.add(start);
         region.add(start);
 
         while (queue.size() > 0) {
-            Vector vector = queue.remove(0);
+            Vector2D vector = queue.remove(0);
 
             if (checked.contains(vector)) continue;
 
-            for (Vector direction : Directions.Cardinal.values()) {
-                Vector adjacent = vector.add(direction);
+            for (Vector2D direction : Directions.Cardinal.values()) {
+                Vector2D adjacent = vector.add(direction);
 
                 if (checked.contains(adjacent)) continue;
 
@@ -817,12 +817,12 @@ public class ProceduralGenerator {
         return region;
     }
 
-    private boolean chunkContainsVector(Vector vector, Chunk chunk) {
+    private boolean chunkContainsVector(Vector2D vector, Chunk chunk) {
         return (vector.x >= chunk.x && vector.x < chunk.x + chunk.width)
                 && (vector.y >= chunk.y && vector.y < chunk.y + chunk.height);
     }
 
-    private boolean inBounds(Vector vector, int x, int y, int width, int height) {
+    private boolean inBounds(Vector2D vector, int x, int y, int width, int height) {
         return (vector.x >= x && vector.x < x + width)
                 && (vector.y >= y && vector.y < y + height);
     }
@@ -834,7 +834,7 @@ public class ProceduralGenerator {
 
         for (int x = 0; x < forest.length; x++) {
             for (int y = 0; y < forest[0].length; y++) {
-                if (forest[x][y] && !indoorRegions[x][y] && !detectCollisions(new Vector(x, y))) {
+                if (forest[x][y] && !indoorRegions[x][y] && !detectCollisions(new Vector2D(x, y))) {
 
                     Component[] tree = DecalFactory.createFovBlockingDecal(x, y, ExteriorTileset.TREES[rng.getRandomInt(0, ExteriorTileset.TREES.length - 1)]);
                     treeEntities.add(tree[0].id);
@@ -850,7 +850,7 @@ public class ProceduralGenerator {
 
         for (int x = 0; x < flowers.length; x++) {
             for (int y = 0; y < flowers[0].length; y++) {
-                if (flowers[x][y] && !indoorRegions[x][y] && !detectCollisions(new Vector(x, y))) {
+                if (flowers[x][y] && !indoorRegions[x][y] && !detectCollisions(new Vector2D(x, y))) {
                     String texture = ExteriorTileset.DECALS[rng.getRandomInt(0, ExteriorTileset.DECALS.length - 1)];
                     Component[] flower = DecalFactory.createTraversableDecoration(x, y, texture);
                     objectEntities[x][y].add(flower[0].id);
@@ -868,7 +868,7 @@ public class ProceduralGenerator {
 
         for (int x = 0; x < badGoats.length; x++) {
             for (int y = 0; y < badGoats[0].length; y++) {
-                if (badGoats[x][y] && !indoorRegions[x][y] && !detectCollisions(new Vector(x, y))) {
+                if (badGoats[x][y] && !indoorRegions[x][y] && !detectCollisions(new Vector2D(x, y))) {
                     enemyPlacer.placeEnemy(x, y, EnemyBlueprintKeys.GOAT);
                 }
             }
@@ -878,8 +878,8 @@ public class ProceduralGenerator {
         PoissonDiskSampler sampler = new PoissonDiskSampler();
         int minDistance = mapWidth / 2;
         int bearCount = 4;
-        ArrayList<Vector> treePositions = sampler.generateNoise(chunk.width, chunk.height, minDistance, bearCount);
-        for (Vector cell : treePositions) {
+        ArrayList<Vector2D> treePositions = sampler.generateNoise(chunk.width, chunk.height, minDistance, bearCount);
+        for (Vector2D cell : treePositions) {
             if (!inBounds(cell)) continue;
             if (indoorRegions[cell.x][cell.y]) continue;
 
@@ -901,7 +901,7 @@ public class ProceduralGenerator {
     private ArrayList<Chunk> debugSeedslol = new ArrayList<>();
     private ArrayList<MapRegion> debugRegionsLol = new ArrayList<>();
     private ArrayList<MapRegion> roomRegions = new ArrayList<>();
-    private ArrayList<Vector> carvedWallslol = new ArrayList<>();
+    private ArrayList<Vector2D> carvedWallslol = new ArrayList<>();
 
     private ArrayList<MapRegion> generateRoomRegions(Chunk building) {
         ArrayList<Chunk> seeds = generateRoomSeeds(building);
@@ -934,9 +934,9 @@ public class ProceduralGenerator {
         int offset = minRoomWidth / 2;
 
         // Place random room seeds in building
-        ArrayList<Vector> seedPositions = sampler.generateNoise(chunk.width - minRoomWidth, chunk.height - minRoomWidth, minDistance, roomSeedCount);
+        ArrayList<Vector2D> seedPositions = sampler.generateNoise(chunk.width - minRoomWidth, chunk.height - minRoomWidth, minDistance, roomSeedCount);
 
-        for (Vector cell : seedPositions) {
+        for (Vector2D cell : seedPositions) {
             Chunk seed = new Chunk(cell.x + chunk.x + offset, cell.y + chunk.y + offset, 1, 1);
             seeds.add(seed);
             // debugSeedslol.add(seed);
@@ -1131,9 +1131,9 @@ public class ProceduralGenerator {
 
             MapRegion region = regions.get(i);
 
-            for (Vector[] seedSide : seedRegion.getSides()) {
-                Vector seedA = seedSide[0];
-                Vector seedB = seedSide[1];
+            for (Vector2D[] seedSide : seedRegion.getSides()) {
+                Vector2D seedA = seedSide[0];
+                Vector2D seedB = seedSide[1];
 
                 int seedLeft = Math.min(seedA.x, seedB.x);
                 int seedRight = Math.max(seedA.x, seedB.x);
@@ -1143,9 +1143,9 @@ public class ProceduralGenerator {
                 // We need to check whether any sides of chunk are adjacent to an existing region
                 // so we can merge them together
 
-                for (Vector[] side : region.getSides()) {
-                    Vector pointA = side[0];
-                    Vector pointB = side[1];
+                for (Vector2D[] side : region.getSides()) {
+                    Vector2D pointA = side[0];
+                    Vector2D pointB = side[1];
 
                     int regionLeft = Math.min(pointA.x, pointB.x);
                     int regionRight = Math.max(pointA.x, pointB.x);
@@ -1167,8 +1167,8 @@ public class ProceduralGenerator {
                             // Remove separating wall and merge seed with room
                             for (int y = seedBottom; y <= seedTop; y++) {
                                 if (y < regionBottom || y > regionTop) continue;
-                                region.add(new Vector(seedLeft - 1, y));
-                                carvedWallslol.add(new Vector(seedLeft - 1, y));
+                                region.add(new Vector2D(seedLeft - 1, y));
+                                carvedWallslol.add(new Vector2D(seedLeft - 1, y));
                             }
 
                             region.addChunk(chunk);
@@ -1182,8 +1182,8 @@ public class ProceduralGenerator {
                         else if (regionLeft - 1 == seedRight + 1) {
                             for (int y = seedBottom; y <= seedTop; y++) {
                                 if (y < regionBottom || y > regionTop) continue;
-                                region.add(new Vector(regionLeft - 1, y));
-                                carvedWallslol.add(new Vector(regionLeft - 1, y));
+                                region.add(new Vector2D(regionLeft - 1, y));
+                                carvedWallslol.add(new Vector2D(regionLeft - 1, y));
                             }
                             region.addChunk(chunk);
                             debugRegionsLol.add(seedRegion);
@@ -1198,8 +1198,8 @@ public class ProceduralGenerator {
                         if (seedBottom - 1 == regionTop + 1) {
                             for (int x = seedLeft; x <= seedRight; x++) {
                                 if (x < regionLeft || x > regionRight) continue;
-                                region.add(new Vector(x, seedBottom - 1));
-                                carvedWallslol.add(new Vector(x, seedBottom - 1));
+                                region.add(new Vector2D(x, seedBottom - 1));
+                                carvedWallslol.add(new Vector2D(x, seedBottom - 1));
                             }
 
                             region.addChunk(chunk);
@@ -1211,8 +1211,8 @@ public class ProceduralGenerator {
                         else if (regionBottom - 1 == seedTop + 1) {
                             for (int x = seedLeft; x <= seedRight; x++) {
                                 if (x < regionLeft || x > regionRight) continue;
-                                region.add(new Vector(x, regionBottom - 1));
-                                carvedWallslol.add(new Vector(x, regionBottom - 1));
+                                region.add(new Vector2D(x, regionBottom - 1));
+                                carvedWallslol.add(new Vector2D(x, regionBottom - 1));
                             }
 
                             region.addChunk(chunk);
@@ -1784,7 +1784,7 @@ public class ProceduralGenerator {
         return buildings;
     }
 
-    private ArrayList<Vector> buildingEntrances = new ArrayList<>();
+    private ArrayList<Vector2D> buildingEntrances = new ArrayList<>();
 
     private void addRoomsToBuilding(HouseWithYard houseWithYard) {
         Chunk building = houseWithYard.house;
@@ -1818,7 +1818,7 @@ public class ProceduralGenerator {
         for (int x = 0; x < building.width; x++) {
             for (int y = 0; y < building.height; y++) {
                 if (carvedTiles[x][y]) {
-                    Vector translatedCell = new Vector(building.x + x, building.y + y);
+                    Vector2D translatedCell = new Vector2D(building.x + x, building.y + y);
 
                     if (TileCategorySorter.isWall(terrainTiles[translatedCell.x][translatedCell.y])) {
                         setTerrain(translatedCell.x, translatedCell.y, BuildingTileset.WOOD_FLOOR_1);
@@ -1827,8 +1827,8 @@ public class ProceduralGenerator {
             }
         }
 
-        for (Vector cell : mazeGenerator.getJunctions()) {
-            addJunction(new Vector(building.x + cell.x, building.y + cell.y));
+        for (Vector2D cell : mazeGenerator.getJunctions()) {
+            addJunction(new Vector2D(building.x + cell.x, building.y + cell.y));
         }
 
         checkForBrokenDoors();
@@ -1859,7 +1859,7 @@ public class ProceduralGenerator {
         for (int x = 0; x < building.width; x++) {
             for (int y = 0; y < building.height; y++) {
                 if (carvedTiles[x][y]) {
-                    Vector translatedCell = new Vector(building.x + x, building.y + y);
+                    Vector2D translatedCell = new Vector2D(building.x + x, building.y + y);
 
                     // We only want to carve tiles that haven't already been carved
                     if (TileCategorySorter.isWall(terrainTiles[translatedCell.x][translatedCell.y])) {
@@ -1869,8 +1869,8 @@ public class ProceduralGenerator {
             }
         }
 
-        for (Vector cell : mazeGenerator.getJunctions()) {
-            addJunction(new Vector(building.x + cell.x, building.y + cell.y));
+        for (Vector2D cell : mazeGenerator.getJunctions()) {
+            addJunction(new Vector2D(building.x + cell.x, building.y + cell.y));
         }
 
         checkForBrokenDoors();
@@ -1882,14 +1882,14 @@ public class ProceduralGenerator {
         for (MapRegion room : roomRegions) {
             int windowsInRoom = 0;
 
-            ArrayList<Vector> freeTiles = new ArrayList<>();
+            ArrayList<Vector2D> freeTiles = new ArrayList<>();
 
-            ArrayList<Vector[]> sides = GridGeometryHelper.findSides(room.getVectors());
+            ArrayList<Vector2D[]> sides = GridGeometryHelper.findSides(room.getVectors());
 
             // Iterate over each side and check if aligned with exterior wall.
-            for (Vector[] side : sides) {
-                Vector a = side[0];
-                Vector b = side[1];
+            for (Vector2D[] side : sides) {
+                Vector2D a = side[0];
+                Vector2D b = side[1];
 
                 // Vertical
                 if (a.x == b.x) {
@@ -1902,14 +1902,14 @@ public class ProceduralGenerator {
                         int x = a.x - 1;
                         int y = bottom + (height / 2);
 
-                        freeTiles.add(new Vector(x, y));
+                        freeTiles.add(new Vector2D(x, y));
                     }
                     else if (a.x == building.x + building.width - 1) {
                         // Place window on right wall
                         int x = a.x + 1;
                         int y = bottom + (height / 2);
 
-                        freeTiles.add(new Vector(x, y));
+                        freeTiles.add(new Vector2D(x, y));
                     }
 
                 }
@@ -1925,21 +1925,21 @@ public class ProceduralGenerator {
                         int x = left + (width / 2);
                         int y = a.y - 1;
 
-                        freeTiles.add(new Vector(x, y));
+                        freeTiles.add(new Vector2D(x, y));
                     }
                     else if (a.y == building.y + building.height - 1) {
                         // Place window on top wall
                         int x = left + (width / 2);
                         int y = a.y + 1;
 
-                        freeTiles.add(new Vector(x, y));
+                        freeTiles.add(new Vector2D(x, y));
                     }
                 }
             }
 
             int z = 1;
 
-            for (Vector freeTile : freeTiles) {
+            for (Vector2D freeTile : freeTiles) {
                 int x = freeTile.x;
                 int y = freeTile.y;
 
@@ -1990,8 +1990,8 @@ public class ProceduralGenerator {
         if (buildingEntrances.size() > 1) {
 
             for (int i = 0; i < buildingEntrances.size(); i++) {
-                Vector a = buildingEntrances.get(i);
-                Vector b;
+                Vector2D a = buildingEntrances.get(i);
+                Vector2D b;
 
                 if (i < buildingEntrances.size() - 1) {
                     b = buildingEntrances.get(i + 1);
@@ -2000,7 +2000,7 @@ public class ProceduralGenerator {
                     b = buildingEntrances.get(0);
                 }
 
-                for (Vector path : buildPath(a, b, blockedTiles)) {
+                for (Vector2D path : buildPath(a, b, blockedTiles)) {
                     String texture = ExteriorTileset.DIRT_PATH[rng.getRandomInt(0, ExteriorTileset.DIRT_PATH.length - 1)];
                     setTerrain(path.x, path.y, texture);
 
@@ -2018,9 +2018,9 @@ public class ProceduralGenerator {
             return window;
         }
 
-        Collection<Vector> adjacent = getAdjacentCells(new Vector(x, y), 1, false).values();
+        Collection<Vector2D> adjacent = getAdjacentCells(new Vector2D(x, y), 1, false).values();
 
-        for (Vector cell : adjacent) {
+        for (Vector2D cell : adjacent) {
             window = ExteriorTileset.getWindowForWallTile(terrainTiles[cell.x][cell.y]);
             if (window != null) {
                 return window;
@@ -2059,7 +2059,7 @@ public class ProceduralGenerator {
         // or interior tiles enter their field of vision (eg. through windows).
         
         for (int x = chunk.x; x < chunk.x + chunk.width; x++) {
-            Vector bottom = new Vector(x, chunk.y);
+            Vector2D bottom = new Vector2D(x, chunk.y);
 
             setTerrain(bottom.x, bottom.y, brickTiles[brickIndex]);
 
@@ -2075,7 +2075,7 @@ public class ProceduralGenerator {
         }
 
         for (int x = chunk.x; x < chunk.x + chunk.width; x++) {
-            Vector top = new Vector(x, chunk.y + chunk.height - 1);
+            Vector2D top = new Vector2D(x, chunk.y + chunk.height - 1);
             setTerrain(top.x, top.y, brickTiles[brickIndex]);
 
             brickIndex++;
@@ -2089,7 +2089,7 @@ public class ProceduralGenerator {
             componentManager.sortComponentArray(wall);
         }
 
-        Vector left = new Vector(chunk.x, 0);
+        Vector2D left = new Vector2D(chunk.x, 0);
 
         for (int y = chunk.y; y < chunk.y + chunk.height; y++) {
             left.y = y;
@@ -2106,7 +2106,7 @@ public class ProceduralGenerator {
             componentManager.sortComponentArray(wall);
         }
 
-        Vector right = new Vector(chunk.x + chunk.width - 1, 0);
+        Vector2D right = new Vector2D(chunk.x + chunk.width - 1, 0);
 
         for (int y = chunk.y; y < chunk.y + chunk.height; y++) {
             right.y = y;
@@ -2132,7 +2132,7 @@ public class ProceduralGenerator {
         int z = 1;
 
         for (int x = chunk.x + 1; x < chunk.x + chunk.width - 1; x++) {
-            Vector bottom = new Vector(x, chunk.y);
+            Vector2D bottom = new Vector2D(x, chunk.y);
 
             if (rng.d6(2) == 2) {
                 addObject(bottom, DecalFactory.createCubeDecal(bottom.x, bottom.y, z, rng.getRandomItemFromStringArray(damagedWall), false, false), true);
@@ -2144,7 +2144,7 @@ public class ProceduralGenerator {
         }
 
         for (int x = chunk.x + 1; x < chunk.x + chunk.width - 1; x++) {
-            Vector top = new Vector(x, chunk.y + chunk.height - 1);
+            Vector2D top = new Vector2D(x, chunk.y + chunk.height - 1);
             if (rng.d6(2) == 2) {
                 addObject(top, DecalFactory.createCubeDecal(top.x, top.y, z, rng.getRandomItemFromStringArray(damagedWall), false, false), true);
                 copyTerrain(top.x, top.y + 1, top.x, top.y);
@@ -2263,8 +2263,8 @@ public class ProceduralGenerator {
         String themedTile = tiler.getMansionWallTilePath(currentRoomTheme);
 
         for (int x = room.x - 1; x < right; x++) {
-            Vector north = new Vector(x, top);
-            Vector south = new Vector(x, room.y);
+            Vector2D north = new Vector2D(x, top);
+            Vector2D south = new Vector2D(x, room.y);
 
             if (!adjacentCellsAreCarvable(north) || !adjacentCellsAreCarvable(south)) break;
 
@@ -2278,8 +2278,8 @@ public class ProceduralGenerator {
         }
 
         for (int y = room.y - 1; y < top; y++) {
-            Vector east = new Vector(room.x - 1, y);
-            Vector west = new Vector(room.x + room.width + 1, y);
+            Vector2D east = new Vector2D(room.x - 1, y);
+            Vector2D west = new Vector2D(room.x + room.width + 1, y);
 
             if (!adjacentCellsAreCarvable(east) || !adjacentCellsAreCarvable(west)) break;
 
@@ -2303,8 +2303,8 @@ public class ProceduralGenerator {
         currentRoomTheme = rng.getRandomInt(0, 3);
         String floorTexture = tiler.getFloorTile(currentRoomTheme);
 
-        for (Vector cell : room.getVectors()) {
-            carveRegion(new Vector(cell.x, cell.y), floorTexture);
+        for (Vector2D cell : room.getVectors()) {
+            carveRegion(new Vector2D(cell.x, cell.y), floorTexture);
         }
     }
 
@@ -2321,7 +2321,7 @@ public class ProceduralGenerator {
 
             if (pComp == null) continue;
 
-            Vector position = new Vector(pComp.x, pComp.y);
+            Vector2D position = new Vector2D(pComp.x, pComp.y);
 
             if (TileCategorySorter.isWall(terrainTiles[position.x][position.y])) {
                 it.remove();
@@ -2331,8 +2331,8 @@ public class ProceduralGenerator {
 
     private void calculateGoals() {
         if (rooms.size() < 2) {
-            floorEntrance = new Vector(1, 1);
-            floorExit = new Vector(3, 3);
+            floorEntrance = new Vector2D(1, 1);
+            floorExit = new Vector2D(3, 3);
         }
         else {
             Room startRoom = rooms.get(rng.getRandomInt(0, rooms.size() - 1));
@@ -2365,11 +2365,11 @@ public class ProceduralGenerator {
             componentManager.sortComponentArray(entrance);
 
             int furthest = 0;
-            Vector furthestRoomCentre = null;
+            Vector2D furthestRoomCentre = null;
 
             for (Room room : rooms) {
-                Vector centre = room.roundedCentre();
-                ArrayList<Vector> path = findShortestPath(floorEntrance, centre);
+                Vector2D centre = room.roundedCentre();
+                ArrayList<Vector2D> path = findShortestPath(floorEntrance, centre);
                 int distance = path.size();
                 if (distance > furthest) {
                     furthestRoomCentre = centre;
@@ -2398,13 +2398,13 @@ public class ProceduralGenerator {
         }
     }
 
-    private ArrayList<Vector> findShortestPath(Vector startNode, Vector goalNode) {
+    private ArrayList<Vector2D> findShortestPath(Vector2D startNode, Vector2D goalNode) {
         return findShortestPath(startNode, goalNode, Directions.All.values(), new boolean[mapWidth][mapHeight]);
     }
 
-    private ArrayList<Vector> buildPath(Vector startNode, Vector goalNode, boolean[][] exclusions) {
-        ArrayList<Vector> optimalPath = new ArrayList<>();
-        ArrayList<Vector> openNodes = new ArrayList<>();
+    private ArrayList<Vector2D> buildPath(Vector2D startNode, Vector2D goalNode, boolean[][] exclusions) {
+        ArrayList<Vector2D> optimalPath = new ArrayList<>();
+        ArrayList<Vector2D> openNodes = new ArrayList<>();
         ArrayList<String> checkedNodes = new ArrayList<>();
 
         if (startNode.equals(goalNode)) {
@@ -2413,10 +2413,10 @@ public class ProceduralGenerator {
 
         openNodes.add(startNode);
 
-        Vector lastNode = null;
+        Vector2D lastNode = null;
 
         while (openNodes.size() > 0) {
-            Vector currentNode = openNodes.remove(openNodes.size() - 1);
+            Vector2D currentNode = openNodes.remove(openNodes.size() - 1);
 
             if (lastNode != null && lastNode.equals(currentNode)) {
                 // This probably shouldn't happen
@@ -2424,12 +2424,12 @@ public class ProceduralGenerator {
                 break;
             }
 
-            Vector closestNode = null;
+            Vector2D closestNode = null;
             double bestDistance = Double.MAX_VALUE;
 
             // Find adjacent node which is closest to goal
-            for (Vector direction : Directions.Cardinal.values()) {
-                Vector adjacentNode = currentNode.add(direction);
+            for (Vector2D direction : Directions.Cardinal.values()) {
+                Vector2D adjacentNode = currentNode.add(direction);
 
                 // Avoid checking nodes that are out of bounds, nodes that have already been checked,
                 // nodes in excluded array and nodes that contain non-traversable and indestructable entities
@@ -2480,9 +2480,9 @@ public class ProceduralGenerator {
         }
     }
 
-    private ArrayList<Vector> findShortestPath(Vector startNode, Vector goalNode, Collection<Vector> directions, boolean[][] exclusions) {
-        ArrayList<Vector> optimalPath = new ArrayList<>();
-        ArrayList<Vector> openNodes = new ArrayList<>();
+    private ArrayList<Vector2D> findShortestPath(Vector2D startNode, Vector2D goalNode, Collection<Vector2D> directions, boolean[][] exclusions) {
+        ArrayList<Vector2D> optimalPath = new ArrayList<>();
+        ArrayList<Vector2D> openNodes = new ArrayList<>();
         ArrayList<String> checkedNodes = new ArrayList<>();
 
         if (startNode.equals(goalNode)) {
@@ -2491,10 +2491,10 @@ public class ProceduralGenerator {
 
         openNodes.add(startNode);
 
-        Vector lastNode = null;
+        Vector2D lastNode = null;
 
         while (openNodes.size() > 0) {
-            Vector currentNode = openNodes.remove(openNodes.size() - 1);
+            Vector2D currentNode = openNodes.remove(openNodes.size() - 1);
 
             if (lastNode != null && lastNode.equals(currentNode)) {
                 // This probably shouldn't happen
@@ -2502,12 +2502,12 @@ public class ProceduralGenerator {
                 break;
             }
 
-            Vector closestNode = null;
+            Vector2D closestNode = null;
             double bestDistance = Double.MAX_VALUE;
 
             // Find adjacent node which is closest to goal
-            for (Vector direction : directions) {
-                Vector adjacentNode = currentNode.add(direction);
+            for (Vector2D direction : directions) {
+                Vector2D adjacentNode = currentNode.add(direction);
 
                 if (!inBounds(adjacentNode)) continue;
 
@@ -2547,7 +2547,7 @@ public class ProceduralGenerator {
         }
     }
 
-    private boolean detectCollisions(Vector position) {
+    private boolean detectCollisions(Vector2D position) {
         int x = position.x();
         int y = position.y();
 
@@ -2588,7 +2588,7 @@ public class ProceduralGenerator {
         return true;
     }
 
-    private boolean canBuildPath(Vector position) {
+    private boolean canBuildPath(Vector2D position) {
         int x = position.x();
         int y = position.y();
 
@@ -2653,15 +2653,15 @@ public class ProceduralGenerator {
      * @param cell Grid position to place door
      */
 
-    private void addJunction(Vector cell) {
+    private void addJunction(Vector2D cell) {
         // Sometimes maze generator messes up and adds junctions between regions that should not be
         // joined. We can prevent this by making sure that cell has at least two floor tiles in
         // directly adjacent spaces
 
         int adjacentFloorTiles = 0;
 
-        for (Vector direction : Directions.Cardinal.values()) {
-            Vector adjacent = cell.add(direction);
+        for (Vector2D direction : Directions.Cardinal.values()) {
+            Vector2D adjacent = cell.add(direction);
             if (inBounds(adjacent)) {
                 if (TileCategorySorter.isFloor(terrainTiles[adjacent.x][adjacent.y])) {
                     adjacentFloorTiles++;
@@ -2702,14 +2702,14 @@ public class ProceduralGenerator {
 
         for (int x = 0; x < mapWidth; x++) {
             for (int y = 0; y < mapHeight; y++) {
-                Vector cell = new Vector(x, y);
+                Vector2D cell = new Vector2D(x, y);
 
                 if (!checked.containsKey(cell.toString())) {
                     if (TileCategorySorter.isFloor(terrainTiles[cell.x][cell.y]) && cellIsInaccessible(cell)) {
                         setTerrain(cell.x, cell.y, BuildingTileset.WALL);
                         checked.put(cell.toString(), true);
-                        HashMap<String, Vector> adjacentCells = getAdjacentCells(cell, 1, true);
-                        for (Vector adjacentCell : adjacentCells.values()) {
+                        HashMap<String, Vector2D> adjacentCells = getAdjacentCells(cell, 1, true);
+                        for (Vector2D adjacentCell : adjacentCells.values()) {
                             checked.put(adjacentCell.toString(), true);
                         }
                     }
@@ -2728,7 +2728,7 @@ public class ProceduralGenerator {
 
         for (int x = 0; x < mapWidth; x++) {
             for (int y = 0; y < mapHeight; y++) {
-                Vector cell = new Vector(x, y);
+                Vector2D cell = new Vector2D(x, y);
 
                 if (!checked.contains(cell.toString())) {
 
@@ -2751,7 +2751,7 @@ public class ProceduralGenerator {
         currentRegion++;
     }
 
-    private void carveRegion(Vector cell, String texture) {
+    private void carveRegion(Vector2D cell, String texture) {
         mapRegions[cell.x][cell.y] = currentRegion;
         setTerrain(cell.x, cell.y, texture);
     }
@@ -2764,7 +2764,7 @@ public class ProceduralGenerator {
         terrainTiles[srcX][srcY] = terrainTiles[destX][destY];
     }
     
-    private void addObject(Vector cell, Component[] tile, boolean replace) {
+    private void addObject(Vector2D cell, Component[] tile, boolean replace) {
         if (replace) {
             clearObjects(cell.x, cell.y);
         }
@@ -2818,35 +2818,35 @@ public class ProceduralGenerator {
 
     private void addBorderObjectToChunk(Chunk chunk, String[] borderTiles) {
         for (int x = chunk.x; x < chunk.x + chunk.width - 1; x++) {
-            Vector position = new Vector(x, chunk.y + chunk.height - 1);
+            Vector2D position = new Vector2D(x, chunk.y + chunk.height - 1);
             addObject(position, DecalFactory.createFovBlockingDecal(position.x, position.y, borderTiles[NORTH]), true);
         }
 
-        Vector ne = new Vector(chunk.x + chunk.width - 1, chunk.y + chunk.height - 1);
+        Vector2D ne = new Vector2D(chunk.x + chunk.width - 1, chunk.y + chunk.height - 1);
         addObject(ne, DecalFactory.createFovBlockingDecal(ne.x, ne.y, borderTiles[NORTH_EAST]), true);
 
         for (int y = chunk.y + chunk.height - 2; y > chunk.y; y--) {
-            Vector position = new Vector(chunk.x + chunk.width - 1, y);
+            Vector2D position = new Vector2D(chunk.x + chunk.width - 1, y);
             addObject(position, DecalFactory.createFovBlockingDecal(position.x, position.y, borderTiles[EAST]), true);
         }
 
-        Vector se = new Vector(chunk.x + chunk.width - 1, chunk.y);
+        Vector2D se = new Vector2D(chunk.x + chunk.width - 1, chunk.y);
         addObject(se, DecalFactory.createFovBlockingDecal(se.x, se.y, borderTiles[SOUTH_EAST]), true);
 
         for (int x = chunk.x + chunk.width - 2; x > chunk.x; x--) {
-            Vector position = new Vector(x, chunk.y);
+            Vector2D position = new Vector2D(x, chunk.y);
             addObject(position, DecalFactory.createFovBlockingDecal(position.x, position.y, borderTiles[SOUTH]), true);
         }
 
-        Vector sw = new Vector(chunk.x, chunk.y);
+        Vector2D sw = new Vector2D(chunk.x, chunk.y);
         addObject(sw, DecalFactory.createFovBlockingDecal(sw.x, sw.y, borderTiles[SOUTH_WEST]), true);
 
         for (int y = chunk.y + 1; y < chunk.y + chunk.height - 1; y++) {
-            Vector position = new Vector(chunk.x, y);
+            Vector2D position = new Vector2D(chunk.x, y);
             addObject(position, DecalFactory.createFovBlockingDecal(position.x, position.y, borderTiles[WEST]), true);
         }
 
-        Vector nw = new Vector(chunk.x, chunk.y + chunk.height - 1);
+        Vector2D nw = new Vector2D(chunk.x, chunk.y + chunk.height - 1);
         addObject(nw, DecalFactory.createFovBlockingDecal(nw.x, nw.y, borderTiles[NORTH_WEST]), true);
     }
 
@@ -2855,7 +2855,7 @@ public class ProceduralGenerator {
             for (int y = chunk.y; y < chunk.y + chunk.height; y++) {
 
                 if (x == chunk.x || x == chunk.x + chunk.width - 1 || y == chunk.y || y == chunk.y + chunk.height - 1) {
-                    addObject(new Vector(x, y), DecalFactory.createFovBlockingDecal(x, y, tile), true);
+                    addObject(new Vector2D(x, y), DecalFactory.createFovBlockingDecal(x, y, tile), true);
                 }
             }
         }
@@ -2890,7 +2890,7 @@ public class ProceduralGenerator {
     ---------------------------------------------
     */
 
-    private boolean inBounds(Vector cell) {
+    private boolean inBounds(Vector2D cell) {
         return (cell.x() >= 0 && cell.x() < mapWidth && cell.y() >= 0 && cell.y() < mapHeight);
     }
 
@@ -2899,11 +2899,11 @@ public class ProceduralGenerator {
                 && chunk.y > container.y && chunk.y + chunk.height < container.y + container.height);
     }
 
-    private HashMap<String, Vector> getAdjacentCells(Vector coords, int lookahead, boolean directlyAdjacent) {
+    private HashMap<String, Vector2D> getAdjacentCells(Vector2D coords, int lookahead, boolean directlyAdjacent) {
         int x = coords.x();
         int y = coords.y();
 
-        HashMap<String, Vector> cells = new HashMap<>();
+        HashMap<String, Vector2D> cells = new HashMap<>();
 
         cells.put("up", new Cell(x, y + lookahead, "up"));
         cells.put("right", new Cell(x + lookahead, y, "right"));
@@ -2928,8 +2928,8 @@ public class ProceduralGenerator {
      * Adjacent cell is "carvable" if all adjacent cells are wall tiles (renderState == Terrain.WALL)
      */
 
-    private boolean adjacentCellsAreCarvable(Vector cell) {
-        HashMap<String, Vector> adjacentCells = getAdjacentCells(cell, 1, false);
+    private boolean adjacentCellsAreCarvable(Vector2D cell) {
+        HashMap<String, Vector2D> adjacentCells = getAdjacentCells(cell, 1, false);
 
         String[] oppositeDirections = getOppositeWithDiagonals(cell.getDirection());
 
@@ -2940,7 +2940,7 @@ public class ProceduralGenerator {
             }
         }
 
-        for (Vector adjacent : adjacentCells.values()) {
+        for (Vector2D adjacent : adjacentCells.values()) {
 
             if (inBounds(adjacent)) {
                 if (!TileCategorySorter.isWall(terrainTiles[adjacent.x][adjacent.y])) {
@@ -2956,8 +2956,8 @@ public class ProceduralGenerator {
         return true;
     }
 
-    private boolean cellIsInaccessible(Vector cell) {
-        for (Vector direction : Directions.All.values()) {
+    private boolean cellIsInaccessible(Vector2D cell) {
+        for (Vector2D direction : Directions.All.values()) {
             direction = direction.add(cell);
 
             if (!inBounds(direction)) {

@@ -1,7 +1,7 @@
 package com.sonicmax.bloodrogue.generator;
 
 import com.sonicmax.bloodrogue.generator.tools.GridGeometryHelper;
-import com.sonicmax.bloodrogue.utils.maths.Vector;
+import com.sonicmax.bloodrogue.utils.maths.Vector2D;
 
 import java.util.ArrayList;
 
@@ -12,9 +12,9 @@ import java.util.ArrayList;
 public class MapRegion {
     private final String LOG_TAG = this.getClass().getSimpleName();
 
-    private ArrayList<Vector> region;
-    private ArrayList<Vector> corners;
-    private ArrayList<Vector[]> sides;
+    private ArrayList<Vector2D> region;
+    private ArrayList<Vector2D> corners;
+    private ArrayList<Vector2D[]> sides;
 
     public MapRegion() {
         this.region = new ArrayList<>();
@@ -22,30 +22,30 @@ public class MapRegion {
         this.sides = new ArrayList<>();
     }
 
-    public ArrayList<Vector> getVectors() {
+    public ArrayList<Vector2D> getVectors() {
         return this.region;
     }
 
-    public ArrayList<Vector> getCorners() {
+    public ArrayList<Vector2D> getCorners() {
         return this.corners;
     }
 
-    public ArrayList<Vector[]> getSides() {
+    public ArrayList<Vector2D[]> getSides() {
         return this.sides;
     }
 
-    public void set(ArrayList<Vector> region) {
+    public void set(ArrayList<Vector2D> region) {
         this.region = region;
     }
 
-    public void add(Vector vector) {
+    public void add(Vector2D vector) {
         this.region.add(vector);
     }
 
     public void addChunk(Chunk chunk) {
         for (int x = chunk.x; x < chunk.x + chunk.width; x++) {
             for (int y = chunk.y; y < chunk.y + chunk.height; y++) {
-                this.region.add(new Vector(x, y));
+                this.region.add(new Vector2D(x, y));
             }
         }
 
@@ -59,19 +59,19 @@ public class MapRegion {
         }
     }
 
-    public void remove(Vector vector) {
+    public void remove(Vector2D vector) {
         this.region.remove(vector);
     }
 
     public void remove(Chunk chunk) {
         for (int x = chunk.x; x < chunk.x + chunk.width; x++) {
             for (int y = chunk.y; y < chunk.y + chunk.height; y++) {
-                this.region.remove(new Vector(x, y));
+                this.region.remove(new Vector2D(x, y));
             }
         }
     }
 
-    public void addAll(ArrayList<Vector> vectors) {
+    public void addAll(ArrayList<Vector2D> vectors) {
         this.region.addAll(vectors);
     }
 
@@ -82,7 +82,7 @@ public class MapRegion {
      * @return True if region contains Vector
      */
 
-    public boolean contains(Vector vector) {
+    public boolean contains(Vector2D vector) {
         // Note that Vector class implements its own equals() method
         return this.region.contains(vector);
     }

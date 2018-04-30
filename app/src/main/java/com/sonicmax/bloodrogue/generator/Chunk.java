@@ -1,6 +1,6 @@
 package com.sonicmax.bloodrogue.generator;
 
-import com.sonicmax.bloodrogue.utils.maths.Vector;
+import com.sonicmax.bloodrogue.utils.maths.Vector2D;
 
 /**
  *  Defines a square/rectangle space of the map area.
@@ -78,11 +78,11 @@ public class Chunk {
                 && this.width == comparator.width && this.height == comparator.height);
     }
 
-    public Vector roundedCentre() {
+    public Vector2D roundedCentre() {
         int x = Math.round(this.x + (this.width / 2));
         int y = Math.round(this.y + (this.height / 2));
 
-        return new Vector(x, y);
+        return new Vector2D(x, y);
     }
 
     // For debugging lol
