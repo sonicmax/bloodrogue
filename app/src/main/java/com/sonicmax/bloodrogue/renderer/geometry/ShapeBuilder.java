@@ -7,6 +7,14 @@ import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 
 public class ShapeBuilder {
+    public static final int CUBE_POSITION_SIZE = 108;
+    public static final int CUBE_NORMAL_SIZE = 108;
+    public static final int CUBE_UV_SIZE = 72;
+    public static final int SPRITE_POSITION_SIZE = 18;
+    public static final int SPRITE_BILLBOARD_DATA_SIZE = 24;
+    public static final int SPRITE_NORMAL_SIZE = 18;
+    public static final int SPRITE_UV_SIZE = 12;
+
     public static final float[] CUBE_NORMAL_DATA = {
             // Front face
             0.0f, 0.0f, 1.0f,

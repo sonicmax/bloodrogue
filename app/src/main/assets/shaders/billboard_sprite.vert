@@ -10,7 +10,7 @@ uniform vec3 u_SunPos;
 uniform vec3 u_SunPosModel;
 uniform float u_TimeOfDay;
 uniform vec3 u_ViewPosModelSpace;
-uniform mat4 u_ProjMatrix;
+uniform vec2 u_BillboardCorners[4];
 
 attribute vec4 a_BillboardData;
 attribute vec3 a_Normal;
@@ -41,9 +41,11 @@ void main() {
 	corners[2] = vec2(-8.0, -8.0);
 	corners[3] = vec2(8.0, -8.0);
 	
-	// Billboard data is packed vec4 containing centre position and corner index
+	// Billboard data is packed vec4 containing centre position and corner index.
+	// Scale for quad is passed with u_BillboardCorners
 	vec3 centre = a_BillboardData.xyz;
-	vec2 corner = corners[int(a_BillboardData.w)];
+	int index = int(a_BillboardData.w);
+	vec2 corner = u_BillboardCorners[index];
 	
 	// Calculate the position for each vertex using the centre position, corner, and camera position.
 	vec3 bbUp = vec3(0.0, 1.0, 0.0);

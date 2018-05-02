@@ -86,7 +86,7 @@ public class GLShaderLoader {
     }
 
     public int compileMoonShader() {
-        return compileShader(CUBE_VERT_PATH, MOON_FRAG_PATH);
+        return compileShader(BILLBOARD_SPRITE_VERT_PATH, MOON_FRAG_PATH);
     }
 
     public int compileBillboardShader() {

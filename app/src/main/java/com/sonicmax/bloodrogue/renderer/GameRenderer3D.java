@@ -43,37 +43,53 @@ import com.sonicmax.bloodrogue.ui.UserInterfaceController;
 import com.sonicmax.bloodrogue.utils.maths.RandomNumberGenerator;
 
 public class GameRenderer3D implements GLSurfaceView.Renderer {
+    // Todo: too many variables?!
     private final String LOG_TAG = this.getClass().getSimpleName();
 
-    private final int CUBE_POSITION_SIZE = 108;
-    private final int CUBE_NORMAL_SIZE = 108;
-    private final int CUBE_UV_SIZE = 72;
-    private final int SPRITE_POSITION_SIZE = 18;
-    private final int SPRITE_BILLBOARD_DATA_SIZE = 24;
-    private final int SPRITE_NORMAL_SIZE = 18;
-    private final int SPRITE_UV_SIZE = 12;
+    public static final int NONE = 0;
+    public static final int TITLE = 1;
+    public static final int MENU = 2;
+    public static final int SPLASH = 3;
+    public static final int GAME = 4;
 
-    private final long FRAME_TIME = 16L;
+    private final float SPRITE_SIZE = 64f;
 
-    private final float SHADOW_VISIBILITY = 100f; // Todo: make configurable
-    private final float FOV = 80f; // Todo: make configurable
+    private ExecutorService singleThreadedExecutor;
+    private UserInterfaceController uiController;
+    private GLSurfaceView gameSurfaceView;
+    private Context context;
+    private GameInterface gameInterface;
+    private TextureLoader textureLoader;
+    private TimeManager timeManager;
+    private WeatherManager weatherManager;
+    private SpriteRenderer depthDebugger;
+    private SpriteRenderer texDebugger;
+    private SolarSimulator solarSimulator;
+    private Camera camera;
+    private GameRenderOptions renderOptions;
 
-    public static final int NONE = 0; // Rendering nothing
-    public static final int TITLE = 1; // Rendering title screen
-    public static final int MENU = 2; // Rendering main menu
-    public static final int SPLASH = 3; // Rendering splash screen, waiting for operation to finish
-    public static final int GAME = 4; // Rendering game content
+    // VBOs
+    private CubeBatch cubes;
+    private SpriteBatch terrain;
+    private SpriteBatch distantTerrain;
+    private BillboardSpriteBatch sprites;
+    private CubeBatch skyBox;
+    private SpriteBatch ground;
+    private SpriteBatch water;
+    private BillboardSpriteBatch sun;
+    private BillboardSpriteBatch moon;
+    private LineBatch debugLines;
+    private CubeBatch debugSelection;
 
-    // For debugging - switches between full render and FBO contents
-    private final int FULL_RENDER = 0;
-    private final int REFLECTION_TEX = 1;
-    private final int DEPTH_MAP = 2;
-    private final int MAX_RENDER_MODES = 2;
-
+    // Renderer data
     private HashMap<String, Integer> textureHandles; // Texture handles for loaded textures
     private HashMap<String, Integer> spriteIndexes; // Index on sprite sheet for particular texture
     private float[][] cachedCubeUvs;
     private float[][] cachedSpriteUvs;
+    private HashMap<Long, Integer> entityBufferIndices; // Positions of entities in buffer
+    private int terrainCount;
+    private int cubeCount;
+    private int spriteCount;
 
     // Matrices for OpenGL rendering
     private float[] modelMatrix;
@@ -89,6 +105,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     private float[] skyMvMatrix;
     private float[] skyMvpMatrix;
 
+    // Map chunk
     private int chunkStartX;
     private int chunkStartY;
     private int chunkEndX;
@@ -99,11 +116,8 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     private int visibleGridHeight;
     private int mapGridWidth;
     private int mapGridHeight;
-
     private float scaleFactor;
     private float gridSize;
-    private final float SPRITE_SIZE = 64f;
-    private float targetWidth = 640f; // This should be multiple of 64
 
     // Shader handles
     private int cubeProgramHandle;
@@ -113,86 +127,42 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     private int skyboxProgramHandle;
     private int waterProgramHandle;
     private int debugTexProgramHandle;
+    private int debugLineProgramHandle;
+    private int skyObjectProgramHandle;
+    private int billboardSpriteProgramHandle;
 
-    // Uniform handles
-    private int mvpMatrixUniform;
-    private int mvMatrixUniform;
-    private int lightPosUniform;
-    private int textureUniform;
-    private int normalMatrixUniform;
-    private int startFadeUniform;
-    private int endFadeUniform;
-    private int farUniform;
-    private int clippingPlaneUniform;
-    private int lightMvpMatrixUniform;
-    private int depthMapTextureUniform;
-    private int depthMapMVPMatrixUniform;
-    private int viewPositionUniform;
-    private int checkBackFaceUniform;
-    private int skyboxTimeUniform;
-    private int skyboxSkyColourTexUniform;
-    private int sunPosModelUniform;
-    private int skyColourTexUniform;
-    private int skyColourWithSunTexUniform;
-    private int timeOfDayUniform;
+    // Cube uniforms
+    private int mvpMatrixUniform, mvMatrixUniform, lightPosUniform, textureUniform, normalMatrixUniform, startFadeUniform,
+            endFadeUniform, farUniform, clippingPlaneUniform, lightMvpMatrixUniform, depthMapTextureUniform, depthMapMVPMatrixUniform,
+            viewPositionUniform, checkBackFaceUniform, skyboxTimeUniform, skyboxSkyColourTexUniform, sunPosModelUniform,
+            skyColourTexUniform, skyColourWithSunTexUniform, timeOfDayUniform;
 
-    private int depthMapSpriteSheetUniform;
+    // Skybox uniforms
+    private int skyboxMvpMatrixUniform, skyboxSkySunColourTexUniform, skyboxSunPosUniform;
 
-    private int skyboxMvpMatrixUniform;
-    private int skyboxSkySunColourTexUniform;
-    private int skyboxSunPosUniform;
+    // Water uniforms
+    private int waterMvMatrixUniform, waterMvpMatrixUniform, waterLightPosUniform, waterViewPosUniform, waterTimeUniform, waterReflectiveTextureUniform,
+            waterNormalMatrixUniform, waterSkyBoxMatrixUniform, waterEyePosModelUniform, waterSunPosModelUniform, waterDuDvMapUniform, waterNormalMapUniform;
 
-    private int waterMvMatrixUniform;
-    private int waterMvpMatrixUniform;
-    private int waterLightPosUniform;
-    private int waterViewPosUniform;
-    private int waterTimeUniform;
-    private int waterReflectiveTextureUniform;
-    private int waterNormalMatrixUniform;
-    private int waterSkyBoxMatrixUniform;
-    private int waterEyePosModelUniform;
-    private int waterSunPosModelUniform;
-    private int waterDuDvMapUniform;
-    private int waterNormalMapUniform;
-    private int debugLineMvpMatrixUniform;
+    // Skybox object uniforms
+    private int skyObjMvpMatrixUniform, skyObjMvMatrixUniform, skyObjNormalMatrixUniform, skyObjLightMvpUniform, skyObjViewPosUniform, skyObjSunPosUniform,
+            skyObjSunPosModelUniform, skyObjTextureUniform, skyObjNormalMapUniform, skyObjTimeOfDayUniform, skyObjSkyGradientUniform, skyObjSkyGradientSunUniform,
+            skyObjCameraModelSpace, skyObjBillboardCorners0, skyObjBillboardCorners1, skyObjBillboardCorners2, skyObjBillboardCorners3;
 
-    // Moon/sun shader handles
-    private int moonMvpMatrixUniform, moonMvMatrixUniform, moonNormalMatrixUniform, moonLightMvpUniform, moonViewPosUniform, moonSunPosUniform,
-            moonSunPosModelUniform, moonTextureUniform, moonNormalMapUniform, moonTimeOfDayUniform, moonSkyGradientUniform, moonSkyGradientSunUniform;
-
-    // Billboard shader uniform handles
+    // Billboard uniforms
     private int bbMvpMatrixUniform, bbMvMatrixUniform, bbNormalMatrixUniform, bbLightPosUniform, bbTextureUniform, bbDepthMapTextureUniform,
             bbLightMvpMatrixUniform, bbViewPositionUniform, bbStartFadeUniform, bbEndFadeUniform, bbFarUniform, bbClippingPlaneUniform,
-            bbCheckBackFaceUniform, bbSkyColourWithSunTexUniform, bbSkyColourTexUniform, bbTimeOfDayUniform, bbSunPosModelUniform;
+            bbCheckBackFaceUniform, bbSkyColourWithSunTexUniform, bbSkyColourTexUniform, bbTimeOfDayUniform, bbSunPosModelUniform,
+            bbCameraModelSpace, bbCorners0, bbCorners1, bbCorners2, bbCorners3;
+
+    private int depthMapSpriteSheetUniform;
+    private int debugLineMvpMatrixUniform;
 
     public int renderState;
-
-    private ExecutorService singleThreadedExecutor;
-    private UserInterfaceController uiController;
-    private GLSurfaceView gameSurfaceView;
-    private Context context;
-    private GameInterface gameInterface;
-    private TextureLoader textureLoader;
-    private TimeManager timeManager;
-    private WeatherManager weatherManager;
-    private SpriteRenderer depthDebugger;
-    private SpriteRenderer texDebugger;
-    private SolarSimulator solarSimulator;
-    private Camera camera;
-
-    // VBOs
-    private CubeBatch cubes;
-    private BillboardSpriteBatch sprites;
-    private CubeBatch skyBox;
-    private SpriteBatch ground;
-    private SpriteBatch water;
-    private SpriteBatch sun;
-    private CubeBatch debugSelection;
 
     // Resolution and scaling
     private int screenWidth;
     private int screenHeight;
-    private float screenRatio;
 
     // Frame timing
     private long currentFrameTime;
@@ -201,37 +171,28 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     private int frameCount;
     private boolean halfSecPassed;
     private int fpsCount;
+    private float elapsedTimeSeconds;
+    private float elapsedTimeMs;
 
+    // FBOs
     private int depthMapWidth;
     private int depthMapHeight;
     private int depthMapTextureId;
     private int depthMapFrameBufferId;
 
     private Frame currentFloorData;
-    private boolean hasGameData = false;
+    private boolean hasGameData;
 
+    // Frequently used vectors
     private float[] sunPosInModelSpace;
     private float[] sunPosInSkybox;
     private float[] sunPosInEyeSpace;
-
     private float[] moonPosInSkybox;
-
     private float[] cameraPosInModelSpace;
     private float[] cameraPosInEyeSpace;
 
-    // Camera rotation
-    private float elapsedTimeSeconds = 0f;
-    private float elapsedTimeMs = 0f;
-
-    private boolean hasDepthTextureExtension;
-
     private final float near;
     private final float far;
-
-    private int cubeCount = 0;
-    private int spriteCount = 0;
-
-    private int renderMode = 0;
 
     private int reflectionFrameBufferId;
     private int reflectionTextureId;
@@ -240,24 +201,31 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
     private final float worldGridSize;
     private float seaLevel;
+    private int currentMoonPhase;
 
-    private final float WAVE_SPEED = 0.001f;
-    private float waterMoveFactor = 0.0f;
+    private float waterMoveFactor;
 
-    private boolean renderDataReady = false;
+    private boolean renderDataReady;
 
-    private int timeInMinutes = 0;
-
-    private int currentMoonPhase = -1; // Set to -1 to make sure UV coords are updated on first render
-
-    private int debugLineProgramHandle;
-    private int moonProgramHandle;
+    private int timeInMinutes;
 
     public GameRenderer3D(GameSurfaceView gameSurfaceView, Context context) {
         this.gameSurfaceView = gameSurfaceView;
         this.context = context;
         singleThreadedExecutor = Executors.newSingleThreadExecutor();
-        hasDepthTextureExtension = false;
+        solarSimulator = new SolarSimulator();
+        renderOptions = new GameRenderOptions();
+
+        // The size of a cell in world space
+        worldGridSize = 16f;
+
+        camera = new Camera();
+        camera.setViewDistance(worldGridSize * 7f);
+        camera.addRotation(0f, 30f);
+        camera.setMode(Camera.THIRD_PERSON);
+
+        hasGameData = false;
+        renderDataReady = false;
         renderState = NONE;
 
         modelMatrix = new float[16];
@@ -283,12 +251,12 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         cameraPosInModelSpace = new float[4];
         cameraPosInEyeSpace = new float[4];
 
+        elapsedTimeSeconds = 0f;
+        elapsedTimeMs = 0f;
+
         // Near and far values for camera view frustum
         near = 1.0f;
         far = 10000.0f;
-
-        // The size of a cell in world space
-        worldGridSize = 16f;
 
         // Height to render our water quad
         seaLevel = worldGridSize * 3f;
@@ -297,12 +265,10 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         depthMapWidth = 1024;
         depthMapHeight = 1024;
 
-        camera = new Camera();
-        camera.setViewDistance(worldGridSize * 7f);
-        camera.addRotation(0f, 30f);
-        camera.setMode(Camera.THIRD_PERSON);
-
-        solarSimulator = new SolarSimulator();
+        // Set moon phase to -1 to make sure UV coords are updated on first render
+        currentMoonPhase = -1;
+        waterMoveFactor = 0f;
+        timeInMinutes = 0;
     }
 
     @Override
@@ -345,7 +311,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         screenWidth = width;
         screenHeight = height;
 
-        camera.setProjection(width, height, FOV, near, far);
+        camera.setProjection(width, height, renderOptions.getFov(), near, far);
 
         scaleContent();
         calculateContentGrid();
@@ -363,6 +329,8 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
     @Override
     public void onDrawFrame(GL10 glUnused) {
+        final long FRAME_TIME = 16L;
+
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
 
         switch (renderState) {
@@ -444,46 +412,22 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     private void checkGlExtensions() {
         String extensions = GLES20.glGetString(GLES20.GL_EXTENSIONS);
 
+        renderOptions.setGlExtensions(extensions);
+
         if (extensions.contains("OES_depth_texture")) {
-            hasDepthTextureExtension = true;
+            renderOptions.setHasDepthTex(true);
         }
         else {
+            renderOptions.setHasDepthTex(false);
+
             // Todo: create depth map shader for platforms without OES_depth_texture extension
             throw new RuntimeException("Didn't have OES_depth_texture extension");
         }
 
-        if (extensions.contains("GL_EXT_shadow_samplers")) {
-            // Todo: separate shader using this extension? + figure out coverage to see if it's worth it
-            Log.v(LOG_TAG, "Supports shadow samplers");
-        }
-        else {
-            Log.v(LOG_TAG, "Doesn't support shadow samplers");
-        }
-
-        if (extensions.contains("GL_IMG_texture_compression_pvrtc")){
-            //Use PVR compressed textures
-            Log.v(LOG_TAG, "Supports PVR compression");
-        }
-
-        else if (extensions.contains("GL_AMD_compressed_ATC_texture") || extensions.contains("GL_ATI_texture_compression_atitc")){
-            Log.v(LOG_TAG, "Supports ATI compression");
-        }
-
-        else if (extensions.contains("GL_OES_texture_compression_S3TC") || extensions.contains("GL_EXT_texture_compression_s3tc")){
-            Log.v(LOG_TAG, "Supports DTX compression");
-        }
-
-        else {
-            Log.v(LOG_TAG, "Doesn't support texture compression");
-        }
-
         int[] max = new int[1];
         GLES20.glGetIntegerv(GLES20.GL_MAX_TEXTURE_IMAGE_UNITS, max, 0);
-
-        Log.v(LOG_TAG, "Max texture units: " + max[0]);
+        renderOptions.setMaxTextureUnits(max[0]);
     }
-
-    private int billboardSpriteProgramHandle;
 
     private void loadShaders() {
         GLShaderLoader loader = new GLShaderLoader(context);
@@ -495,7 +439,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         skyboxProgramHandle = loader.compileSkyBoxShader();
         waterProgramHandle = loader.compileWaterShader();
         debugLineProgramHandle = loader.compileDebugLineShader();
-        moonProgramHandle = loader.compileMoonShader();
+        skyObjectProgramHandle = loader.compileMoonShader();
         billboardSpriteProgramHandle = loader.compileBillboardShader();
     }
 
@@ -506,8 +450,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         textureHandles = textureLoader.getTextureHandles();
         gameInterface.setSpriteIndexes(spriteIndexes);
     }
-
-    private int bbCameraModelSpace, bbProjMatrix;
 
     private void prepareGlSurface() {
         GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -559,7 +501,10 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         bbTimeOfDayUniform = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_TimeOfDay");
         bbSunPosModelUniform = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_SunPosModel");
         bbCameraModelSpace = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_ViewPosModelSpace");
-        bbProjMatrix = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_ProjMatrix");
+        bbCorners0 = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_BillboardCorners[0]");
+        bbCorners1 = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_BillboardCorners[1]");
+        bbCorners2 = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_BillboardCorners[2]");
+        bbCorners3 = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_BillboardCorners[3]");
 
         depthMapMVPMatrixUniform = GLES20.glGetUniformLocation(depthMapProgramHandle, "u_MVPMatrix");
         depthMapSpriteSheetUniform = GLES20.glGetUniformLocation(depthMapProgramHandle, "u_Texture");
@@ -585,18 +530,23 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
         debugLineMvpMatrixUniform = GLES20.glGetUniformLocation(debugLineProgramHandle, "u_MVPMatrix");
 
-        moonMvpMatrixUniform = GLES20.glGetUniformLocation(moonProgramHandle, "u_MVPMatrix");
-        moonMvMatrixUniform = GLES20.glGetUniformLocation(moonProgramHandle, "u_MVMatrix");
-        moonNormalMatrixUniform = GLES20.glGetUniformLocation(moonProgramHandle, "u_NormalMatrix");
-        moonLightMvpUniform = GLES20.glGetUniformLocation(moonProgramHandle, "u_LightMvpMatrix");
-        moonViewPosUniform = GLES20.glGetUniformLocation(moonProgramHandle, "u_ViewPos");
-        moonSunPosUniform = GLES20.glGetUniformLocation(moonProgramHandle, "u_SunPos");
-        moonSunPosModelUniform = GLES20.glGetUniformLocation(moonProgramHandle, "u_SunPosModel");
-        moonTextureUniform = GLES20.glGetUniformLocation(moonProgramHandle, "u_Texture");
-        moonNormalMapUniform = GLES20.glGetUniformLocation(moonProgramHandle, "u_NormalMap");
-        moonTimeOfDayUniform = GLES20.glGetUniformLocation(moonProgramHandle, "u_TimeOfDay");
-        moonSkyGradientSunUniform = GLES20.glGetUniformLocation(moonProgramHandle, "u_SkyGradientWithSun");
-        moonSkyGradientUniform = GLES20.glGetUniformLocation(moonProgramHandle, "u_SkyGradient");
+        skyObjMvpMatrixUniform = GLES20.glGetUniformLocation(skyObjectProgramHandle, "u_MVPMatrix");
+        skyObjMvMatrixUniform = GLES20.glGetUniformLocation(skyObjectProgramHandle, "u_MVMatrix");
+        skyObjNormalMatrixUniform = GLES20.glGetUniformLocation(skyObjectProgramHandle, "u_NormalMatrix");
+        skyObjLightMvpUniform = GLES20.glGetUniformLocation(skyObjectProgramHandle, "u_LightMvpMatrix");
+        skyObjViewPosUniform = GLES20.glGetUniformLocation(skyObjectProgramHandle, "u_ViewPos");
+        skyObjSunPosUniform = GLES20.glGetUniformLocation(skyObjectProgramHandle, "u_SunPos");
+        skyObjSunPosModelUniform = GLES20.glGetUniformLocation(skyObjectProgramHandle, "u_SunPosModel");
+        skyObjTextureUniform = GLES20.glGetUniformLocation(skyObjectProgramHandle, "u_Texture");
+        skyObjNormalMapUniform = GLES20.glGetUniformLocation(skyObjectProgramHandle, "u_NormalMap");
+        skyObjTimeOfDayUniform = GLES20.glGetUniformLocation(skyObjectProgramHandle, "u_TimeOfDay");
+        skyObjSkyGradientSunUniform = GLES20.glGetUniformLocation(skyObjectProgramHandle, "u_SkyGradientWithSun");
+        skyObjSkyGradientUniform = GLES20.glGetUniformLocation(skyObjectProgramHandle, "u_SkyGradient");
+        skyObjCameraModelSpace = GLES20.glGetUniformLocation(skyObjectProgramHandle, "u_ViewPosModelSpace");
+        skyObjBillboardCorners0 = GLES20.glGetUniformLocation(skyObjectProgramHandle, "u_BillboardCorners[0]");
+        skyObjBillboardCorners1 = GLES20.glGetUniformLocation(skyObjectProgramHandle, "u_BillboardCorners[1]");
+        skyObjBillboardCorners2 = GLES20.glGetUniformLocation(skyObjectProgramHandle, "u_BillboardCorners[2]");
+        skyObjBillboardCorners3 = GLES20.glGetUniformLocation(skyObjectProgramHandle, "u_BillboardCorners[3]");
     }
 
     /*
@@ -697,11 +647,10 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         Matrix.multiplyMM(lightMvMatrix, 0, sunViewMatrix, 0, modelMatrix, 0);
         Matrix.multiplyMM(lightMvpMatrix, 0, sunProjMatrix, 0, lightMvMatrix, 0);
 
-        // Update position of sun in VBO
-        float[] newPosition = getSunVertices();
-
         if (sun != null) {
-            sun.updateVertices(0, newPosition);
+            // Update position of sun in VBO
+            float[] newPosition = getQuadBillboardData(sunPosInSkybox[0], sunPosInSkybox[1], sunPosInSkybox[2]);
+            sun.updateBillboardData(0, newPosition);
         }
     }
 
@@ -718,25 +667,37 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
                 moon.updateUvCoords(0, solarSimulator.getMoonPhaseUvCoords(currentMoonPhase));
             }
 
-            moon.updateVertices(0, getMoonVertices());
+            // Update position of sun in VBO
+            float[] newPosition = getQuadBillboardData(moonPosInSkybox[0], moonPosInSkybox[1], moonPosInSkybox[2]);
+            moon.updateBillboardData(0, newPosition);
         }
     }
 
-    private void passMoonUniformsToShader() {
-        GLES20.glUniformMatrix4fv(moonMvMatrixUniform, 1, false, skyMvMatrix, 0);
-        GLES20.glUniformMatrix4fv(moonMvpMatrixUniform, 1, false, skyMvpMatrix, 0);
-        GLES20.glUniformMatrix4fv(moonNormalMatrixUniform, 1, false, normalMatrix, 0);
+    private void passSkyObjectUniformsToShader() {
+        GLES20.glUniformMatrix4fv(skyObjMvMatrixUniform, 1, false, skyMvMatrix, 0);
+        GLES20.glUniformMatrix4fv(skyObjMvpMatrixUniform, 1, false, skyMvpMatrix, 0);
+        GLES20.glUniformMatrix4fv(skyObjNormalMatrixUniform, 1, false, normalMatrix, 0);
 
-        GLES20.glUniformMatrix4fv(moonLightMvpUniform, 1, false, lightMvpMatrix, 0);
+        GLES20.glUniformMatrix4fv(skyObjLightMvpUniform, 1, false, lightMvpMatrix, 0);
 
-        GLES20.glUniform3f(moonViewPosUniform, cameraPosInEyeSpace[0], cameraPosInEyeSpace[1], cameraPosInEyeSpace[2]);
-        GLES20.glUniform3f(moonSunPosUniform, sunPosInEyeSpace[0], sunPosInEyeSpace[1], sunPosInEyeSpace[2]);
-        GLES20.glUniform3f(moonSunPosModelUniform, sunPosInSkybox[0], sunPosInSkybox[1], sunPosInSkybox[2]);
+        GLES20.glUniform3f(skyObjViewPosUniform, cameraPosInEyeSpace[0], cameraPosInEyeSpace[1], cameraPosInEyeSpace[2]);
+        GLES20.glUniform3f(skyObjSunPosUniform, sunPosInEyeSpace[0], sunPosInEyeSpace[1], sunPosInEyeSpace[2]);
+        GLES20.glUniform3f(skyObjSunPosModelUniform, sunPosInSkybox[0], sunPosInSkybox[1], sunPosInSkybox[2]);
 
-        GLES20.glUniform1i(moonTextureUniform, 9);
-        GLES20.glUniform1i(moonNormalMapUniform, 10);
-        GLES20.glUniform1i(moonSkyGradientSunUniform, 7);
-        GLES20.glUniform1i(moonSkyGradientUniform, 8);
+        GLES20.glUniform1i(skyObjTextureUniform, 9);
+        GLES20.glUniform1i(skyObjNormalMapUniform, 10);
+        GLES20.glUniform1i(skyObjSkyGradientSunUniform, 7);
+        GLES20.glUniform1i(skyObjSkyGradientUniform, 8);
+
+        // As object is in skybox, our model space camera pos is (0,0,0)
+        GLES20.glUniform3f(skyObjCameraModelSpace, 0f, 0f, 0f);
+
+        final float SKY_OBJECT_RADIUS = 0.2f;
+        float scale = SKY_OBJECT_RADIUS;
+        GLES20.glUniform2f(skyObjBillboardCorners0, -scale, scale);
+        GLES20.glUniform2f(skyObjBillboardCorners1, scale, scale);
+        GLES20.glUniform2f(skyObjBillboardCorners2, -scale, -scale);
+        GLES20.glUniform2f(skyObjBillboardCorners3, scale, -scale);
 
         // We need to pass time of day in minutes as float ranging from [0, 1]
         // This makes it easier to sample our sky gradient texture
@@ -747,16 +708,16 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
             time = 0.9986f;
         }
 
-        GLES20.glUniform1f(moonTimeOfDayUniform, time);
+        GLES20.glUniform1f(skyObjTimeOfDayUniform, time);
     }
 
     private void calculateViewFrustumBoundingBox() {
-        float farWidth = (float) (SHADOW_VISIBILITY * Math.tan(Math.toRadians(FOV)));
-        float nearWidth = (float) (near * Math.tan(Math.toRadians(FOV)));
-        float farHeight = farWidth / screenRatio;
-        float nearHeight = nearWidth / screenRatio;
+        float fov = renderOptions.getFov();
 
-
+        float farWidth = (float) (far * Math.tan(Math.toRadians(fov)));
+        float nearWidth = (float) (near * Math.tan(Math.toRadians(fov)));
+        // float farHeight = farWidth / screenRatio;
+        // float nearHeight = nearWidth / screenRatio;
     }
 
     /*
@@ -824,26 +785,16 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
             // Now we are actually rendering to screen, so we can set viewport to screen resolution
             GLES20.glViewport(0, 0, screenWidth, screenHeight);
 
-            switch (renderMode) {
-                case FULL_RENDER:
-                    renderSkybox();
-                    renderSkyObjects();
-                    renderScene();
-                    break;
+            renderSkybox();
+            renderSkyObjects();
+            renderScene();
 
-                // For debugging:
-                case REFLECTION_TEX:
-                    texDebugger.renderTexture(4);
-                    break;
-
-                case DEPTH_MAP:
-                    depthDebugger.renderDepthMap(near, far);
-                    break;
-            }
+            // For debugging
+            // texDebugger.renderTexture(4);
+            // depthDebugger.renderDepthMap(near, far);
 
         } else {
             // Technically in-game but waiting for VBOs
-            // Todo: this is probably bad?
             uiController.addSplashText("Loading...");
         }
     }
@@ -1097,19 +1048,19 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
     private void renderSkyObjects() {
         if (sun != null && moon != null) {
-            GLES20.glUseProgram(moonProgramHandle);
-            passMoonUniformsToShader();
+            GLES20.glUseProgram(skyObjectProgramHandle);
+            passSkyObjectUniformsToShader();
 
             // Make sure depth mask is disabled
             GLES20.glDepthMask(false);
             GLES20.glDisable(GLES20.GL_CULL_FACE);
 
-            GLES20.glUniform1i(moonTextureUniform, 11);
-            GLES20.glUniform1i(moonNormalMapUniform, 12);
+            GLES20.glUniform1i(skyObjTextureUniform, 11);
+            GLES20.glUniform1i(skyObjNormalMapUniform, 12);
             sun.render();
 
-            GLES20.glUniform1i(moonTextureUniform, 9);
-            GLES20.glUniform1i(moonNormalMapUniform, 10);
+            GLES20.glUniform1i(skyObjTextureUniform, 9);
+            GLES20.glUniform1i(skyObjNormalMapUniform, 10);
             moon.render();
         }
     }
@@ -1184,6 +1135,8 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     }
 
     private void advanceWaterMovement() {
+        final float WAVE_SPEED = 0.001f;
+
         waterMoveFactor += WAVE_SPEED;
 
         if (waterMoveFactor >= 1) {
@@ -1210,8 +1163,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         GLES20.glUniform1f(bbEndFadeUniform, 1500f);
         GLES20.glUniform1f(bbFarUniform, far);
 
-        GLES20.glUniformMatrix4fv(bbProjMatrix, 1, false, projectionMatrix, 0);
-
         GLES20.glUniform1i(bbSkyColourWithSunTexUniform, 7);
         GLES20.glUniform1i(bbSkyColourTexUniform, 8);
 
@@ -1226,6 +1177,12 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         if (time > 0.999f || time < 0.001f) {
             time = 0.9986f;
         }
+
+        float scale = worldGridSize / 2f;
+        GLES20.glUniform2f(bbCorners0, -scale, scale);
+        GLES20.glUniform2f(bbCorners1, scale, scale);
+        GLES20.glUniform2f(bbCorners2, -scale, -scale);
+        GLES20.glUniform2f(bbCorners3, scale, -scale);
 
         GLES20.glUniform1f(bbTimeOfDayUniform, time);
 
@@ -1290,17 +1247,15 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
     /*
     ------------------------------------------------------------------------------------------
-    World geometry calculation
+    World geometry generation
     ------------------------------------------------------------------------------------------
     */
 
-    private SpriteBatch terrain;
-    private int terrainCount;
-
-    private HashMap<Long, Integer> entityBufferIndices;
-
     private void generateRendererData() {
         entityBufferIndices = new HashMap<>();
+        terrainCount = 0;
+        cubeCount = 0;
+        spriteCount = 0;
 
         try {
             // We need to iterate over grid twice - once to get size for float arrays, and then
@@ -1336,17 +1291,17 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
             Log.v(LOG_TAG, "Counted " + cubeCount + " cubes and " + spriteCount + " sprites");
 
             // Init float arrays
-            int cubePositionSize = cubeCount * CUBE_POSITION_SIZE;
-            int cubeNormalSize = cubeCount * CUBE_NORMAL_SIZE;
-            int cubeUvSize = cubeCount * CUBE_UV_SIZE;
+            int cubePositionSize = cubeCount * ShapeBuilder.CUBE_POSITION_SIZE;
+            int cubeNormalSize = cubeCount * ShapeBuilder.CUBE_NORMAL_SIZE;
+            int cubeUvSize = cubeCount * ShapeBuilder.CUBE_UV_SIZE;
 
-            int terrainPositionSize = terrainCount * SPRITE_POSITION_SIZE;
-            int terrainNormalSize = terrainCount * SPRITE_NORMAL_SIZE;
-            int terrainUvSize = terrainCount * SPRITE_UV_SIZE;
+            int terrainPositionSize = terrainCount * ShapeBuilder.SPRITE_POSITION_SIZE;
+            int terrainNormalSize = terrainCount * ShapeBuilder.SPRITE_NORMAL_SIZE;
+            int terrainUvSize = terrainCount * ShapeBuilder.SPRITE_UV_SIZE;
 
-            int spriteBillboardDataSize = spriteCount * SPRITE_BILLBOARD_DATA_SIZE;
-            int spriteNormalSize = spriteCount * SPRITE_NORMAL_SIZE;
-            int spriteUvSize = spriteCount * SPRITE_UV_SIZE;
+            int spriteBillboardDataSize = spriteCount * ShapeBuilder.SPRITE_BILLBOARD_DATA_SIZE;
+            int spriteNormalSize = spriteCount * ShapeBuilder.SPRITE_NORMAL_SIZE;
+            int spriteUvSize = spriteCount * ShapeBuilder.SPRITE_UV_SIZE;
 
             final float[] cubePositionData = new float[cubePositionSize];
             final float[] cubeNormalData = new float[cubeNormalSize];
@@ -1471,11 +1426,8 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
                         else {
                             // Add to billboard sprite batch
-                            x1 = x;
-                            y1 = z;
-                            z1 = y;
-
-                            float[] billboardData = getQuadBillboardData(x1, y1, z1);
+                            float halfGrid = worldGridSize / 2f;
+                            float[] billboardData = getQuadBillboardData(x + halfGrid, z + halfGrid, y + halfGrid);
                             System.arraycopy(billboardData, 0, spriteBillboardData, spriteBillboardDataOffset, billboardData.length);
                             spriteBillboardDataOffset += billboardData.length;
 
@@ -1524,21 +1476,19 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     }
 
     private float[] getQuadBillboardData(float x, float y, float z) {
-        float halfLength = worldGridSize / 2f;
-
-        float topLeft = 0f;
-        float topRight = 1f;
-        float bottomLeft = 2f;
-        float bottomRight = 3f;
+        final float topLeft = 0f;
+        final float topRight = 1f;
+        final float bottomLeft = 2f;
+        final float bottomRight = 3f;
 
         // We need to copy centre of quad for each vertex, and let shader know which corner this was
         return new float[] {
-                x + halfLength, y + halfLength, z + halfLength, topLeft,
-                x + halfLength, y + halfLength, z + halfLength, bottomLeft,
-                x + halfLength, y + halfLength, z + halfLength, topRight,
-                x + halfLength, y + halfLength, z + halfLength, bottomLeft,
-                x + halfLength, y + halfLength, z + halfLength, bottomRight,
-                x + halfLength, y + halfLength, z + halfLength, topRight
+                x, y, z, topLeft,
+                x, y, z, bottomLeft,
+                x, y, z, topRight,
+                x, y, z, bottomLeft,
+                x, y, z, bottomRight,
+                x, y, z, topRight
         };
     }
 
@@ -1566,40 +1516,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         float[] p8 = { x2, y1, z1 };
 
         return ShapeBuilder.generateCubeData(p1, p2, p3, p4, p5, p6, p7, p8, p1.length);
-    }
-
-    // Sun is rendered relatively close to camera, so it has to be small
-    private final float SUN_RADIUS = 0.2f;
-    private final float MOON_RADIUS = 0.2f;
-
-    private float[] getSunVertices() {
-        float x1 = sunPosInSkybox[0] - SUN_RADIUS;
-        float x2 = sunPosInSkybox[0] + SUN_RADIUS;
-        float y1 = sunPosInSkybox[1] - SUN_RADIUS;
-        float y2 = sunPosInSkybox[1] + SUN_RADIUS;
-        float z2 = sunPosInSkybox[2] + SUN_RADIUS;
-
-        float[] p1 = { x1, y2, z2 };
-        float[] p2 = { x2, y2, z2 };
-        float[] p3 = { x1, y1, z2 };
-        float[] p4 = { x2, y1, z2 };
-
-        return ShapeBuilder.generateSpriteData(p1, p2, p3, p4, p1.length);
-    }
-
-    private float[] getMoonVertices() {
-        float x1 = moonPosInSkybox[0] - MOON_RADIUS;
-        float x2 = moonPosInSkybox[0] + MOON_RADIUS;
-        float y1 = moonPosInSkybox[1] - MOON_RADIUS;
-        float y2 = moonPosInSkybox[1] + MOON_RADIUS;
-        float z2 = moonPosInSkybox[2] + MOON_RADIUS;
-
-        float[] p1 = { x1, y2, z2 };
-        float[] p2 = { x2, y2, z2 };
-        float[] p3 = { x1, y1, z2 };
-        float[] p4 = { x2, y1, z2 };
-
-        return ShapeBuilder.generateSpriteData(p1, p2, p3, p4, p1.length);
     }
 
     private float[] getGroundQuadVertices() {
@@ -1659,8 +1575,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     */
 
 
-    private SpriteBatch moon;
-
     private void createSunVBO() {
         if (sun != null) {
             Log.d(LOG_TAG, "Releasing sun");
@@ -1680,8 +1594,10 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
                     1f, 0f
             };
 
+            float[] billboardData = getQuadBillboardData(sunPosInSkybox[0], sunPosInSkybox[1], sunPosInSkybox[2]);
+
             // Use GL_DYNAMIC_DRAW as we will be updating the position data in VBO each frame
-            sun = new SpriteBatch(getSunVertices(), ShapeBuilder.SPRITE_FRONT_NORMAL_DATA, uvCoords, 1, GLES20.GL_DYNAMIC_DRAW);
+            sun = new BillboardSpriteBatch(billboardData, ShapeBuilder.SPRITE_FRONT_NORMAL_DATA, uvCoords, 1, GLES20.GL_DYNAMIC_DRAW);
 
         } catch (OutOfMemoryError err) {
             if (sun != null) {
@@ -1705,8 +1621,10 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         System.gc();
 
         try {
+            float[] billboardData = getQuadBillboardData(moonPosInSkybox[0], moonPosInSkybox[1], moonPosInSkybox[2]);
+
             // Use GL_DYNAMIC_DRAW as we will be updating the position data in VBO each frame
-            moon = new SpriteBatch(getMoonVertices(), ShapeBuilder.SPRITE_FRONT_NORMAL_DATA,
+            moon = new BillboardSpriteBatch(billboardData, ShapeBuilder.SPRITE_FRONT_NORMAL_DATA,
                     cachedSpriteUvs[spriteIndexes.get("sprites/moon.png")], 1, GLES20.GL_DYNAMIC_DRAW);
 
         } catch (OutOfMemoryError err) {
@@ -1801,8 +1719,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         }
     }
 
-    private SpriteBatch distantTerrain;
-
     private void createDistantTerrainVBO() {
         long rngSeed = System.currentTimeMillis();
         RandomNumberGenerator rng = new RandomNumberGenerator(rngSeed);
@@ -1821,9 +1737,9 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
         Log.v(LOG_TAG, "Generating " + numberOfIslands + " pieces of distant terrain with " + count + " planes");
 
-        int terrainPositionSize = count * SPRITE_POSITION_SIZE;
-        int terrainNormalSize = count * SPRITE_NORMAL_SIZE;
-        int terrainUvSize = count * SPRITE_UV_SIZE;
+        int terrainPositionSize = count * ShapeBuilder.SPRITE_POSITION_SIZE;
+        int terrainNormalSize = count * ShapeBuilder.SPRITE_NORMAL_SIZE;
+        int terrainUvSize = count * ShapeBuilder.SPRITE_UV_SIZE;
 
         float[] terrainPositionData = new float[terrainPositionSize];
         float[] terrainNormalData = new float[terrainNormalSize];
@@ -2041,8 +1957,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
             Log.d(LOG_TAG, "Yikes", err);
         }
     }
-
-    private LineBatch debugLines;
 
     private void createDebugNormalVBO(float[] spritePositionData, float[] spriteNormalData, int count) {
         if (debugLines != null) {
@@ -2418,6 +2332,8 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     }
 
     private void scaleContent() {
+        final float targetWidth = 640f; // This should be multiple of 64
+
         if (screenWidth == 0 || screenHeight == 0) {
             screenWidth = ScreenSizeGetter.getWidth();
             screenHeight = ScreenSizeGetter.getHeight();
@@ -2441,8 +2357,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         gridSize = SPRITE_SIZE * scaleFactor;
     }
 
-    private Sprite playerPosition;
-
     public void setFrame(Frame floorData) {
         currentFloorData = floorData;
         hasGameData = true;
@@ -2450,7 +2364,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         // Update camera position
         ComponentManager componentManager = ComponentManager.getInstance();
         long playerEntity = floorData.player[0].id;
-        playerPosition = (Sprite) componentManager.getEntityComponent(playerEntity, Sprite.class.getSimpleName());
+        Sprite playerPosition = (Sprite) componentManager.getEntityComponent(playerEntity, Sprite.class.getSimpleName());
         float[] playerWorldPos = getWorldPosForGrid(playerPosition.x, playerPosition.y);
 
         // Centre camera on head, not feet
@@ -2521,7 +2435,8 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
                     // Todo: for now, only sprites move. Cubes are too lazy
                     if (!object.wrapToCube) {
                         final int bufferIndex = entityBufferIndices.get(object.id);
-                        final float[] billboardData = getQuadBillboardData(x, z, y);
+                        float halfGrid = worldGridSize / 2f;
+                        final float[] billboardData = getQuadBillboardData(x + halfGrid, z + halfGrid, y + halfGrid);
 
                         gameSurfaceView.queueEvent(new Runnable() {
                             @Override
@@ -2556,25 +2471,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         //  vitality = (Vitality) componentManager.getEntityComponent(entity, Vitality.class.getSimpleName());
         // String hp = "HP: " + vitality.hp;
 
-        String hp;
-
-        switch (renderMode) {
-            case FULL_RENDER:
-                hp = "Full";
-                break;
-            case REFLECTION_TEX:
-                hp = "Reflect";
-                break;
-            case DEPTH_MAP:
-                hp = "Depth";
-                break;
-            default:
-                hp = "???";
-                break;
-        }
-
-        hp = MoonPhases.toString(solarSimulator.getCurrentMoonPhase(timeManager));
-
+        String hp = MoonPhases.toString(solarSimulator.getCurrentMoonPhase(timeManager));
         String worldState = timeManager.getTimeString() + " (" + weatherManager.getWeatherString() + ")";
         String cameraPos = ((int) cameraPosInModelSpace[0]) + ", " + ((int) cameraPosInModelSpace[1]) + ", " + ((int) cameraPosInModelSpace[2]);
         String fps = fpsCount + " fps";
@@ -2582,12 +2479,16 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         uiController.setUiText(hp, worldState, cameraPos, fps);
     }
 
+    private boolean cameraDebug = true;
+
     public void cycleRenderModes() {
-        if (renderMode == MAX_RENDER_MODES) {
-            // renderMode = 0;
+        if (cameraDebug) {
+            camera.setMode(Camera.FREE_CAMERA);
         }
         else {
-            // renderMode++;
+            camera.setMode(Camera.THIRD_PERSON);
         }
+
+        cameraDebug = !cameraDebug;
     }
 }
