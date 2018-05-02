@@ -34,6 +34,7 @@ public class GLShaderLoader {
     private final String CUBE_VERT_PATH = "shaders/cube.vert";
     private final String CUBE_FRAG_PATH = "shaders/cube.frag";
     private final String MOON_FRAG_PATH = "shaders/moon.frag";
+    private final String BILLBOARD_SPRITE_VERT_PATH = "shaders/billboard_sprite.vert";
 
     private final String DEPTH_MAP_VERT_PATH = "shaders/depth_map.vert";
     private final String DEPTH_MAP_FRAG_PATH = "shaders/depth_map.frag";
@@ -88,6 +89,10 @@ public class GLShaderLoader {
         return compileShader(CUBE_VERT_PATH, MOON_FRAG_PATH);
     }
 
+    public int compileBillboardShader() {
+        return compileShader(BILLBOARD_SPRITE_VERT_PATH, CUBE_FRAG_PATH);
+    }
+
     public int compileDebugTexShader() {
         return compileShader(DEBUG_TEX_VERT_PATH, DEBUG_TEX_FRAG_PATH);
     }
@@ -133,6 +138,7 @@ public class GLShaderLoader {
             GLES20.glBindAttribLocation(shaderHandle, ShaderAttributes.COLOUR, "a_Color");
             GLES20.glBindAttribLocation(shaderHandle, ShaderAttributes.TEXCOORD, "a_texCoord");
             GLES20.glBindAttribLocation(shaderHandle, ShaderAttributes.NORMAL, "a_Normal");
+            GLES20.glBindAttribLocation(shaderHandle, ShaderAttributes.BILLBOARD_DATA, "a_BillboardData");
 
             GLES20.glLinkProgram(shaderHandle);
 

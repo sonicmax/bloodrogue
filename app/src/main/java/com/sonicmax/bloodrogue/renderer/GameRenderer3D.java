@@ -17,6 +17,7 @@ import android.opengl.Matrix;
 import android.util.Log;
 
 import com.sonicmax.bloodrogue.GameInterface;
+import com.sonicmax.bloodrogue.engine.ComponentManager;
 import com.sonicmax.bloodrogue.engine.Frame;
 import com.sonicmax.bloodrogue.engine.components.Sprite;
 import com.sonicmax.bloodrogue.engine.environment.MoonPhases;
@@ -26,6 +27,7 @@ import com.sonicmax.bloodrogue.engine.environment.WeatherManager;
 import com.sonicmax.bloodrogue.generator.Chunk;
 import com.sonicmax.bloodrogue.generator.tools.SimplexNoiseGenerator;
 import com.sonicmax.bloodrogue.renderer.geometry.RayCaster;
+import com.sonicmax.bloodrogue.renderer.vbos.BillboardSpriteBatch;
 import com.sonicmax.bloodrogue.renderer.vbos.CubeBatch;
 import com.sonicmax.bloodrogue.renderer.geometry.ShapeBuilder;
 import com.sonicmax.bloodrogue.renderer.shaders.GLShaderLoader;
@@ -47,6 +49,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     private final int CUBE_NORMAL_SIZE = 108;
     private final int CUBE_UV_SIZE = 72;
     private final int SPRITE_POSITION_SIZE = 18;
+    private final int SPRITE_BILLBOARD_DATA_SIZE = 24;
     private final int SPRITE_NORMAL_SIZE = 18;
     private final int SPRITE_UV_SIZE = 12;
 
@@ -125,10 +128,20 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     private int depthMapTextureUniform;
     private int depthMapMVPMatrixUniform;
     private int viewPositionUniform;
+    private int checkBackFaceUniform;
+    private int skyboxTimeUniform;
+    private int skyboxSkyColourTexUniform;
+    private int sunPosModelUniform;
+    private int skyColourTexUniform;
+    private int skyColourWithSunTexUniform;
+    private int timeOfDayUniform;
+
     private int depthMapSpriteSheetUniform;
+
     private int skyboxMvpMatrixUniform;
     private int skyboxSkySunColourTexUniform;
     private int skyboxSunPosUniform;
+
     private int waterMvMatrixUniform;
     private int waterMvpMatrixUniform;
     private int waterLightPosUniform;
@@ -142,30 +155,17 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     private int waterDuDvMapUniform;
     private int waterNormalMapUniform;
     private int debugLineMvpMatrixUniform;
-    private int checkBackFaceUniform;
-    private int skyboxTimeUniform;
-    private int skyboxSkyColourTexUniform;
-    private int sunPosModelUniform;
-    private int skyColourTexUniform;
-    private int skyColourWithSunTexUniform;
-    private int timeOfDayUniform;
-    private int moonMvpMatrixUniform;
-    private int moonMvMatrixUniform;
-    private int moonNormalMatrixUniform;
-    private int moonLightMvpUniform;
-    private int moonViewPosUniform;
-    private int moonSunPosUniform;
-    private int moonSunPosModelUniform;
-    private int moonTextureUniform;
-    private int moonNormalMapUniform;
-    private int moonTimeOfDayUniform;
-    private int moonSkyGradientUniform;
-    private int moonSkyGradientSunUniform;
+
+    // Moon/sun shader handles
+    private int moonMvpMatrixUniform, moonMvMatrixUniform, moonNormalMatrixUniform, moonLightMvpUniform, moonViewPosUniform, moonSunPosUniform,
+            moonSunPosModelUniform, moonTextureUniform, moonNormalMapUniform, moonTimeOfDayUniform, moonSkyGradientUniform, moonSkyGradientSunUniform;
+
+    // Billboard shader uniform handles
+    private int bbMvpMatrixUniform, bbMvMatrixUniform, bbNormalMatrixUniform, bbLightPosUniform, bbTextureUniform, bbDepthMapTextureUniform,
+            bbLightMvpMatrixUniform, bbViewPositionUniform, bbStartFadeUniform, bbEndFadeUniform, bbFarUniform, bbClippingPlaneUniform,
+            bbCheckBackFaceUniform, bbSkyColourWithSunTexUniform, bbSkyColourTexUniform, bbTimeOfDayUniform, bbSunPosModelUniform;
 
     public int renderState;
-
-    private float deltaX;
-    private float deltaY;
 
     private ExecutorService singleThreadedExecutor;
     private UserInterfaceController uiController;
@@ -182,7 +182,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
     // VBOs
     private CubeBatch cubes;
-    private SpriteBatch sprites;
+    private BillboardSpriteBatch sprites;
     private CubeBatch skyBox;
     private SpriteBatch ground;
     private SpriteBatch water;
@@ -298,7 +298,9 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         depthMapHeight = 1024;
 
         camera = new Camera();
-        camera.setPosition(50f, 50f, 50f);
+        camera.setViewDistance(worldGridSize * 7f);
+        camera.addRotation(0f, 30f);
+        camera.setMode(Camera.THIRD_PERSON);
 
         solarSimulator = new SolarSimulator();
     }
@@ -481,6 +483,8 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         Log.v(LOG_TAG, "Max texture units: " + max[0]);
     }
 
+    private int billboardSpriteProgramHandle;
+
     private void loadShaders() {
         GLShaderLoader loader = new GLShaderLoader(context);
         cubeProgramHandle = loader.compileCubeShader();
@@ -492,6 +496,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         waterProgramHandle = loader.compileWaterShader();
         debugLineProgramHandle = loader.compileDebugLineShader();
         moonProgramHandle = loader.compileMoonShader();
+        billboardSpriteProgramHandle = loader.compileBillboardShader();
     }
 
     private void loadResources() {
@@ -501,6 +506,8 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         textureHandles = textureLoader.getTextureHandles();
         gameInterface.setSpriteIndexes(spriteIndexes);
     }
+
+    private int bbCameraModelSpace, bbProjMatrix;
 
     private void prepareGlSurface() {
         GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -533,6 +540,26 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         skyColourTexUniform = GLES20.glGetUniformLocation(cubeProgramHandle, "u_SkyGradient");
         timeOfDayUniform = GLES20.glGetUniformLocation(cubeProgramHandle, "u_TimeOfDay");
         sunPosModelUniform = GLES20.glGetUniformLocation(cubeProgramHandle, "u_SunPosModel");
+
+        bbMvpMatrixUniform = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_MVPMatrix");
+        bbMvMatrixUniform = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_MVMatrix");
+        bbNormalMatrixUniform = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_NormalMatrix");
+        bbLightPosUniform = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_SunPos");
+        bbTextureUniform = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_Texture");
+        bbDepthMapTextureUniform = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_DepthMap");
+        bbLightMvpMatrixUniform = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_LightMvpMatrix");
+        bbViewPositionUniform = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_ViewPos");
+        bbStartFadeUniform = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_StartFadeDistance");
+        bbEndFadeUniform = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_EndFadeDistance");
+        bbFarUniform = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_Far");
+        bbClippingPlaneUniform = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_ClippingPlane");
+        bbCheckBackFaceUniform = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_CheckBackFace");
+        bbSkyColourWithSunTexUniform = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_SkyGradientWithSun");
+        bbSkyColourTexUniform = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_SkyGradient");
+        bbTimeOfDayUniform = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_TimeOfDay");
+        bbSunPosModelUniform = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_SunPosModel");
+        bbCameraModelSpace = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_ViewPosModelSpace");
+        bbProjMatrix = GLES20.glGetUniformLocation(billboardSpriteProgramHandle, "u_ProjMatrix");
 
         depthMapMVPMatrixUniform = GLES20.glGetUniformLocation(depthMapProgramHandle, "u_MVPMatrix");
         depthMapSpriteSheetUniform = GLES20.glGetUniformLocation(depthMapProgramHandle, "u_Texture");
@@ -582,8 +609,8 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         Matrix.setIdentityM(modelMatrix, 0);
 
         cameraPosInModelSpace = camera.getPosition();
-        viewMatrix = camera.getView();
-        projectionMatrix = camera.getProjection();
+        viewMatrix = camera.getViewMatrix();
+        projectionMatrix = camera.getProjectionMatrix();
 
         // Calculate model-view, model-view-projection and normal matrices
         Matrix.multiplyMM(mvMatrix, 0, viewMatrix, 0, modelMatrix, 0);
@@ -603,6 +630,11 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
     public void setCameraRotation(float deltaX, float deltaY) {
         final float fraction = 1.0f;
         camera.addRotation(deltaX * fraction, deltaY * fraction);
+    }
+
+    public void setCameraPan(float deltaX, float deltaY) {
+        final float fraction = 1.0f;
+        camera.pan(deltaX * fraction, deltaY * fraction);
     }
 
     public void setScaleDelta(float delta) {
@@ -837,10 +869,11 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
             cubes.renderDepthMap();
         }
 
-        if (sprites != null) {
+        // Todo: figure out how to handle billboard sprites in depth map render. For now just disable it
+        /*if (sprites != null) {
             GLES20.glDisable(GLES20.GL_CULL_FACE);
             sprites.renderDepthMap();
-        }
+        }*/
 
         if (terrain != null) {
             GLES20.glDisable(GLES20.GL_CULL_FACE);
@@ -896,7 +929,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         Matrix.scaleM(skyModelMatrix, 0, -1f, 1f, 1f);
 
         // Sky box view matrix is looking in same direction as camera, but translated to 0,0,0 (centre of sky box)
-        skyViewMatrix = camera.getView(new float[] {0f, 0f, 0f});
+        skyViewMatrix = camera.getViewMatrix(new float[] {0f, 0f, 0f});
 
         // Flip upside down for reflection
         Matrix.scaleM(skyViewMatrix, 0, 1f, -1f, 1f);
@@ -973,23 +1006,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         GLES20.glUniform1f(farUniform, far);
         GLES20.glUniform1i(checkBackFaceUniform, 0);
 
-        /*if (sun != null) {
-            GLES20.glDepthMask(false);
-
-            // Use skybox matrices when rendering sun, to give illusion of distance
-            GLES20.glUniformMatrix4fv(mvMatrixUniform, 1, false, skyMvMatrix, 0);
-            GLES20.glUniformMatrix4fv(mvpMatrixUniform, 1, false, skyMvpMatrix, 0);
-
-            // Because sun is rendered close to camera position, we need to set appropriate clipping plane
-            GLES20.glUniform1f(clippingPlaneUniform, -10f);
-
-            GLES20.glDisable(GLES20.GL_CULL_FACE);
-            sun.render();
-        }
-
-        // Set depth mask back to true after rendering sun
-        GLES20.glDepthMask(true);*/
-
         // Pass in normal MV/MVP matrices
         GLES20.glUniformMatrix4fv(mvMatrixUniform, 1, false, reflectionMvMatrix, 0);
         GLES20.glUniformMatrix4fv(mvpMatrixUniform, 1, false, reflectionMvpMatrix, 0);
@@ -1042,14 +1058,13 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         GLES20.glDepthMask(false);
 
         float[] skyModelMatrix = new float[16];
-        System.arraycopy(modelMatrix, 0, skyModelMatrix, 0, modelMatrix.length);
+        System.arraycopy(modelMatrix, 0, skyModelMatrix, 0, 16);
 
         // Flip the x axis of model matrix otherwise texture will be mirrored (as we are inside cube)
-        Matrix.scaleM(skyModelMatrix, 0, -1f, 1f, 1f);
+        // Matrix.scaleM(skyModelMatrix, 0, -1f, 1f, 1f);
 
         // Sky box view matrix is same as view matrix but translated to (0,0,0)
-        skyViewMatrix = camera.getView(new float[] {0f, 0f, 0f});
-        skyViewMatrix = camera.getView(new float[] {0f, 0f, 0f});
+        skyViewMatrix = camera.getViewMatrix(new float[] {0f, 0f, 0f});
 
         Matrix.multiplyMM(skyMvMatrix, 0, skyViewMatrix, 0, skyModelMatrix, 0);
         Matrix.multiplyMM(skyMvpMatrix, 0, projectionMatrix, 0, skyMvMatrix, 0);
@@ -1129,18 +1144,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
             distantTerrain.render();
         }
 
-        if (sprites != null) {
-            GLES20.glDisable(GLES20.GL_CULL_FACE);
-            GLES20.glUniform1f(startFadeUniform, 1250f);
-            GLES20.glUniform1f(endFadeUniform, 1500f);
-
-            // To correctly calculate lighting for sprites, we need to tell the shader to
-            // reverse the normals for back faces. Disable this check after sprites have been rendered
-            GLES20.glUniform1i(checkBackFaceUniform, 1);
-            sprites.render();
-            GLES20.glUniform1i(checkBackFaceUniform, 0);
-        }
-
         if (cubes != null) {
             GLES20.glEnable(GLES20.GL_CULL_FACE);
             GLES20.glCullFace(GLES20.GL_BACK);
@@ -1150,6 +1153,16 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
             if (debugSelection != null) {
                 debugSelection.render();
             }
+        }
+
+        /* finished with cube shader */
+
+        if (sprites != null) {
+            GLES20.glUseProgram(billboardSpriteProgramHandle);
+            passUniformsToBillboardShader();
+
+            GLES20.glDisable(GLES20.GL_CULL_FACE);
+            sprites.render();
         }
 
         if (water != null) {
@@ -1177,6 +1190,46 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
             // Wrap move factor from 0.999f (or whatever) to 0.0f
             waterMoveFactor = 0;
         }
+    }
+
+    private void passUniformsToBillboardShader() {
+        GLES20.glUniformMatrix4fv(bbMvMatrixUniform, 1, false, mvMatrix, 0);
+        GLES20.glUniformMatrix4fv(bbMvpMatrixUniform, 1, false, mvpMatrix, 0);
+        GLES20.glUniformMatrix4fv(bbNormalMatrixUniform, 1, false, normalMatrix, 0);
+
+        GLES20.glUniformMatrix4fv(bbLightMvpMatrixUniform, 1, false, lightMvpMatrix, 0);
+
+        GLES20.glUniform3f(bbViewPositionUniform, cameraPosInEyeSpace[0], cameraPosInEyeSpace[1], cameraPosInEyeSpace[2]);
+        GLES20.glUniform3f(bbLightPosUniform, sunPosInEyeSpace[0], sunPosInEyeSpace[1], sunPosInEyeSpace[2]);
+        GLES20.glUniform3f(bbSunPosModelUniform, sunPosInSkybox[0], sunPosInSkybox[1], sunPosInSkybox[2]);
+
+        GLES20.glUniform1i(bbTextureUniform, 0);
+        GLES20.glUniform1i(bbDepthMapTextureUniform, 3);
+
+        GLES20.glUniform1f(bbStartFadeUniform, 1250f);
+        GLES20.glUniform1f(bbEndFadeUniform, 1500f);
+        GLES20.glUniform1f(bbFarUniform, far);
+
+        GLES20.glUniformMatrix4fv(bbProjMatrix, 1, false, projectionMatrix, 0);
+
+        GLES20.glUniform1i(bbSkyColourWithSunTexUniform, 7);
+        GLES20.glUniform1i(bbSkyColourTexUniform, 8);
+
+        float[] cameraPos = camera.getPosition();
+        GLES20.glUniform3f(bbCameraModelSpace, cameraPos[0], cameraPos[1], cameraPos[2]);
+
+        // We need to pass time of day in minutes as float ranging from [0, 1]
+        // This makes it easier to sample our sky gradient texture
+        final float MINUTES_IN_DAY = 1440f;
+        float time = timeManager.getTimeOfDayInMinutes() / MINUTES_IN_DAY;
+
+        if (time > 0.999f || time < 0.001f) {
+            time = 0.9986f;
+        }
+
+        GLES20.glUniform1f(bbTimeOfDayUniform, time);
+
+        GLES20.glUniform1i(bbCheckBackFaceUniform, 1);
     }
 
     private void passUniformsToCubeShader() {
@@ -1291,7 +1344,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
             int terrainNormalSize = terrainCount * SPRITE_NORMAL_SIZE;
             int terrainUvSize = terrainCount * SPRITE_UV_SIZE;
 
-            int spritePositionSize = spriteCount * SPRITE_POSITION_SIZE;
+            int spriteBillboardDataSize = spriteCount * SPRITE_BILLBOARD_DATA_SIZE;
             int spriteNormalSize = spriteCount * SPRITE_NORMAL_SIZE;
             int spriteUvSize = spriteCount * SPRITE_UV_SIZE;
 
@@ -1299,7 +1352,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
             final float[] cubeNormalData = new float[cubeNormalSize];
             final float[] cubeUvData = new float[cubeUvSize];
 
-            final float[] spritePositionData = new float[spritePositionSize];
+            final float[] spriteBillboardData = new float[spriteBillboardDataSize];
             final float[] spriteNormalData = new float[spriteNormalSize];
             final float[] spriteUvData = new float[spriteUvSize];
 
@@ -1315,7 +1368,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
             int terrainNormalDataOffset = 0;
             int terrainUvDataOffset = 0;
 
-            int spritePositionDataOffset = 0;
+            int spriteBillboardDataOffset = 0;
             int spriteNormalDataOffset = 0;
             int spriteUvDataOffset = 0;
 
@@ -1417,27 +1470,14 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
                         }
 
                         else {
-                            // Add to sprite batch
-
+                            // Add to billboard sprite batch
                             x1 = x;
-                            x2 = x + worldGridSize;
-
                             y1 = z;
-                            y2 = z + worldGridSize;
+                            z1 = y;
 
-                            // z1 = y;
-                            z2 = y + (worldGridSize / 2f); // Move to centre of tile
-
-                            float[] p1 = { x1, y2, z2 };
-                            float[] p2 = { x2, y2, z2 };
-                            float[] p3 = { x1, y1, z2 };
-                            float[] p4 = { x2, y1, z2 };
-
-                            float[] thisSpritePositionData = ShapeBuilder.generateSpriteData(p1, p2, p3, p4, p1.length);
-                            System.arraycopy(thisSpritePositionData, 0, spritePositionData,
-                                    spritePositionDataOffset, thisSpritePositionData.length);
-
-                            spritePositionDataOffset += thisSpritePositionData.length;
+                            float[] billboardData = getQuadBillboardData(x1, y1, z1);
+                            System.arraycopy(billboardData, 0, spriteBillboardData, spriteBillboardDataOffset, billboardData.length);
+                            spriteBillboardDataOffset += billboardData.length;
 
                             System.arraycopy(ShapeBuilder.SPRITE_FRONT_NORMAL_DATA, 0, spriteNormalData,
                                     spriteNormalDataOffset, ShapeBuilder.SPRITE_FRONT_NORMAL_DATA.length);
@@ -1466,7 +1506,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
                     createWaterVBO();
                     createCubeVBO(cubePositionData, cubeNormalData, cubeUvData, cubeCount);
                     createTerrainVBO(terrainPositionData, terrainNormalData, terrainUvData, terrainCount);
-                    createSpriteVBO(spritePositionData, spriteNormalData, spriteUvData, spriteCount);
+                    createSpriteVBO(spriteBillboardData, spriteNormalData, spriteUvData, spriteCount);
                     // createDebugNormalVBO(spritePositionData, spriteNormalData, spriteCount);
                     createDistantTerrainVBO();
                     renderDataReady = true;
@@ -1481,6 +1521,25 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         } catch (Exception e2) {
             Log.d(LOG_TAG, "Some other yikes", e2);
         }
+    }
+
+    private float[] getQuadBillboardData(float x, float y, float z) {
+        float halfLength = worldGridSize / 2f;
+
+        float topLeft = 0f;
+        float topRight = 1f;
+        float bottomLeft = 2f;
+        float bottomRight = 3f;
+
+        // We need to copy centre of quad for each vertex, and let shader know which corner this was
+        return new float[] {
+                x + halfLength, y + halfLength, z + halfLength, topLeft,
+                x + halfLength, y + halfLength, z + halfLength, bottomLeft,
+                x + halfLength, y + halfLength, z + halfLength, topRight,
+                x + halfLength, y + halfLength, z + halfLength, bottomLeft,
+                x + halfLength, y + halfLength, z + halfLength, bottomRight,
+                x + halfLength, y + halfLength, z + halfLength, topRight
+        };
     }
 
     private float[] getSkyBoxPositions() {
@@ -1957,7 +2016,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         }
     }
 
-    private void createSpriteVBO(float[] spritePositionData, float[] spriteNormalData, float[] spriteUvData, int count) {
+    private void createSpriteVBO(float[] billboardData, float[] normals, float[] uvCoords, int count) {
         if (sprites != null) {
             Log.d(LOG_TAG, "Releasing sprites");
             sprites.release();
@@ -1968,7 +2027,7 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         System.gc();
 
         try {
-            sprites = new SpriteBatch(spritePositionData, spriteNormalData, spriteUvData, count, GLES20.GL_STATIC_DRAW);
+            sprites = new BillboardSpriteBatch(billboardData, normals, uvCoords, count, GLES20.GL_DYNAMIC_DRAW);
 
         } catch (OutOfMemoryError err) {
             if (sprites != null) {
@@ -2382,9 +2441,26 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         gridSize = SPRITE_SIZE * scaleFactor;
     }
 
+    private Sprite playerPosition;
+
     public void setFrame(Frame floorData) {
         currentFloorData = floorData;
         hasGameData = true;
+
+        // Update camera position
+        ComponentManager componentManager = ComponentManager.getInstance();
+        long playerEntity = floorData.player[0].id;
+        playerPosition = (Sprite) componentManager.getEntityComponent(playerEntity, Sprite.class.getSimpleName());
+        float[] playerWorldPos = getWorldPosForGrid(playerPosition.x, playerPosition.y);
+
+        // Centre camera on head, not feet
+        playerWorldPos[1] += worldGridSize;
+
+        // Move to centre of grid square
+        playerWorldPos[0] += (worldGridSize / 2f);
+        playerWorldPos[2] += (worldGridSize / 2f);
+
+        camera.setLookAt(playerWorldPos);
 
         if (!renderDataReady) {
             singleThreadedExecutor.submit(new Runnable() {
@@ -2402,10 +2478,24 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
         renderState = GAME;
     }
 
-    private void updateSpritePositions() {
-        float x1, x2, y1, y2, z2;
+    private float[] getWorldPosForGrid(int gridX, int gridY) {
+        float averageHeight = (currentFloorData.heightMap[gridX][gridY]
+                + currentFloorData.heightMap[gridX + 1][gridY]
+                + currentFloorData.heightMap[gridX][gridY + 1]
+                + currentFloorData.heightMap[gridX + 1][gridY + 1]) / 4;
 
-        // We need to keep track of this to figure out where we need to modify vertices in buffer
+        float elevation = worldGridSize * (averageHeight * 8);
+
+        // Remember that grid x/y correspond to OpenGL x/z.
+        float x = gridX * worldGridSize;
+        float y = elevation;
+        float z = gridY * worldGridSize;
+
+        return new float[] {x, y, z};
+    }
+
+    private void updateSpritePositions() {
+        // Todo: would be much better if we specified which objects needed to be updated in engine
 
         for (int gridX = 0; gridX < visibleGridWidth; gridX++) {
             for (int gridY = 0; gridY < visibleGridHeight; gridY++) {
@@ -2420,8 +2510,6 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
                 float elevation = worldGridSize * (averageHeight * 8);
 
-                // Todo: would be much better if we specified which objects needed to be updated in engine
-
                 // Iterate over objects and find any which need updating
                 for (Sprite object : currentFloorData.getObjects()[gridX][gridY]) {
                     if (!object.dirty) continue;
@@ -2432,28 +2520,13 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
                     // Todo: for now, only sprites move. Cubes are too lazy
                     if (!object.wrapToCube) {
-                        // Add to sprite batch
-
-                        x1 = x;
-                        x2 = x + worldGridSize;
-
-                        y1 = z;
-                        y2 = z + worldGridSize;
-
-                        z2 = y + (worldGridSize / 2f); // Move to centre of tile
-
-                        float[] p1 = { x1, y2, z2 };
-                        float[] p2 = { x2, y2, z2 };
-                        float[] p3 = { x1, y1, z2 };
-                        float[] p4 = { x2, y1, z2 };
-
                         final int bufferIndex = entityBufferIndices.get(object.id);
-                        final float[] spritePositionData = ShapeBuilder.generateSpriteData(p1, p2, p3, p4, p1.length);
+                        final float[] billboardData = getQuadBillboardData(x, z, y);
 
                         gameSurfaceView.queueEvent(new Runnable() {
                             @Override
                             public void run() {
-                                sprites.updateVertices(bufferIndex, spritePositionData);
+                                sprites.updateBillboardData(bufferIndex, billboardData);
                             }
                         });
                     }
@@ -2511,10 +2584,10 @@ public class GameRenderer3D implements GLSurfaceView.Renderer {
 
     public void cycleRenderModes() {
         if (renderMode == MAX_RENDER_MODES) {
-            renderMode = 0;
+            // renderMode = 0;
         }
         else {
-            renderMode++;
+            // renderMode++;
         }
     }
 }

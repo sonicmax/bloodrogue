@@ -13,6 +13,7 @@ public class ShaderAttributes {
     public final static int TEXCOORD = 3; // attribute vec2 a_texCoord;
     public final static int NORMAL = 4; // attribute vec3 a_Normal;
     public final static int SHADOW_POSITION = 5; // attribute vec4 a_ShadowPosition;
+    public final static int BILLBOARD_DATA = 6; // attribute vec4 a_BillboardData
 
     // Frag
 }
