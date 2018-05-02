@@ -1,22 +1,33 @@
 package com.sonicmax.bloodrogue.renderer;
 
 import android.opengl.Matrix;
+import android.util.Log;
 
 /**
- * Class which allows us to define a camera view based on position vector and yaw/pitch angles,
- * instead of using Matrix.setLookAtM() method. Provides methods to modify position, change rotation
- * and move along up/right/forward vectors. Use getView() and getProjection() methods
- * to get matrices for rendering.
+ * Class which allows us to define a camera view with various different modes of control.
+ * Use getViewMatrix() and getProjectionMatrix() methods to get matrices for rendering.
  */
 
 public class Camera {
-    private final float[] upVector = {0f, 1f, 0f, 1f};
-    private final float[] rightVector = {1f, 0f, 0f, 1f};
-    private final float[] forwardVector = {0f, 0f, -1f, 1f};
+    private final String LOG_TAG = this.getClass().getSimpleName();
+
+    public static final int FREE_CAMERA = 0;
+    public static final int THIRD_PERSON = 1;
+    public static final int FIRST_PERSON = 2;
+
+    private final float[] UP_VECTOR = {0f, 1f, 0f, 1f};
+    private final float[] RIGHT_VECTOR = {1f, 0f, 0f, 1f};
+    private final float[] FORWARD_VECTOR = {0f, 0f, -1f, 1f};
 
     private float eyeX;
     private float eyeY;
     private float eyeZ;
+
+    private float lookX;
+    private float lookY;
+    private float lookZ;
+
+    private float viewDistance;
 
     private float yaw;
     private float pitch;
@@ -29,6 +40,8 @@ public class Camera {
     private float[] viewMatrix;
     private float[] projectionMatrix;
     private float[] translationMatrix;
+
+    private int cameraMode;
 
     private boolean projectionDirty;
 
@@ -45,12 +58,23 @@ public class Camera {
         translationMatrix = new float[16];
 
         projectionDirty = false;
+
+        // Default has to be free camera as we don't know what to focus on
+        cameraMode = FREE_CAMERA;
+    }
+
+    public void setMode(int cameraMode) {
+        this.cameraMode = cameraMode;
     }
 
     public void setPosition(float x, float y, float z) {
         eyeX = x;
         eyeY = y;
         eyeZ = z;
+    }
+
+    public void setPosition(float[] coords) {
+        setPosition(coords[0], coords[1], coords[2]);
     }
 
     public void setProjection(int width, int height, float fov, float near, float far) {
@@ -63,16 +87,26 @@ public class Camera {
         projectionDirty = true;
     }
 
-    public float getYaw() {
-        return yaw;
-    }
-
-    public float getPitch() {
-        return pitch;
-    }
-
     public float[] getPosition() {
         return new float[] {eyeX, eyeY, eyeZ, 1f};
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Methods for third person camera
+    ///////////////////////////////////////////////////////////////////////////
+
+    public void setLookAt(float x, float y, float z) {
+        lookX = x;
+        lookY = y;
+        lookZ = z;
+    }
+
+    public void setLookAt(float[] lookAt) {
+        setLookAt(lookAt[0], lookAt[1], lookAt[2]);
+    }
+
+    public void setViewDistance(float distance) {
+        viewDistance = distance;
     }
 
     /**
@@ -99,7 +133,7 @@ public class Camera {
      * @return Rotation matrix as float array
      */
 
-    private float[] getOrientation() {
+    public float[] getOrientation() {
         float[] rotationMatrix = new float[16];
         Matrix.setIdentityM(rotationMatrix, 0);
         Matrix.rotateM(rotationMatrix, 0, pitch, 1f, 0f, 0f);
@@ -117,7 +151,7 @@ public class Camera {
         float[] invertedRotation = new float[16];
         float[] up = new float[4];
         Matrix.invertM(invertedRotation, 0, getOrientation(), 0);
-        Matrix.multiplyMV(up, 0, invertedRotation, 0, upVector, 0);
+        Matrix.multiplyMV(up, 0, invertedRotation, 0, UP_VECTOR, 0);
         return up;
     }
 
@@ -131,7 +165,7 @@ public class Camera {
         float[] invertedRotation = new float[16];
         float[] forward = new float[4];
         Matrix.invertM(invertedRotation, 0, getOrientation(), 0);
-        Matrix.multiplyMV(forward, 0, invertedRotation, 0, forwardVector, 0);
+        Matrix.multiplyMV(forward, 0, invertedRotation, 0, FORWARD_VECTOR, 0);
         return forward;
     }
 
@@ -145,56 +179,127 @@ public class Camera {
         float[] invertedRotation = new float[16];
         float[] right = new float[4];
         Matrix.invertM(invertedRotation, 0, getOrientation(), 0);
-        Matrix.multiplyMV(right, 0, invertedRotation, 0, rightVector, 0);
+        Matrix.multiplyMV(right, 0, invertedRotation, 0, RIGHT_VECTOR, 0);
         return right;
     }
 
     /**
-     * Calculates view matrix using camera position and orientation.
+     * Calculates view matrix using camera position and view distance.
      *
      * @return View matrix as float array
      */
 
-    public float[] getView() {
+    public float[] getViewMatrix() {
         Matrix.setIdentityM(viewMatrix, 0);
 
-        Matrix.setIdentityM(translationMatrix, 0);
-        // Remember to negate position when translating
-        Matrix.translateM(translationMatrix, 0, -eyeX, -eyeY, -eyeZ);
+        switch (cameraMode) {
+            case FREE_CAMERA:
+            case FIRST_PERSON:
+                Matrix.setIdentityM(translationMatrix, 0);
 
-        Matrix.multiplyMM(viewMatrix, 0, getOrientation(), 0, translationMatrix, 0);
+                Matrix.translateM(translationMatrix, 0, -eyeX, -eyeY, -eyeZ);
+                Matrix.multiplyMM(viewMatrix, 0, getOrientation(), 0, translationMatrix, 0);
+                break;
+
+            case THIRD_PERSON:
+                setThirdPersonCameraPos();
+
+                Matrix.setLookAtM(viewMatrix, 0,
+                        eyeX, eyeY, eyeZ,
+                        lookX, lookY, lookZ,
+                        UP_VECTOR[0], UP_VECTOR[1], UP_VECTOR[2]);
+
+                break;
+
+            default:
+                Log.e(LOG_TAG, "Camera mode not in range");
+        }
+
+        return viewMatrix;
+    }
+
+    public float[] getViewMatrix(float[] position) {
+        return getViewMatrix(position[0], position[1], position[2]);
+    }
+
+    /**
+     * Returns view matrix for camera translated to given position, but maintaining same
+     * orientation.
+     */
+
+    public float[] getViewMatrix(float eyeX, float eyeY, float eyeZ) {
+        Matrix.setIdentityM(viewMatrix, 0);
+
+        switch (cameraMode) {
+            case FREE_CAMERA:
+            case FIRST_PERSON:
+                Matrix.setIdentityM(translationMatrix, 0);
+
+                Matrix.translateM(translationMatrix, 0, -eyeX, -eyeY, -eyeZ);
+                Matrix.multiplyMM(viewMatrix, 0, getOrientation(), 0, translationMatrix, 0);
+                break;
+
+            case THIRD_PERSON:
+                float[] lookAt = getThirdPersonLookAt(eyeX, eyeY, eyeZ);
+
+                Matrix.setLookAtM(viewMatrix, 0,
+                        eyeX, eyeY, eyeZ,
+                        lookAt[0], lookAt[1], lookAt[2],
+                        UP_VECTOR[0], UP_VECTOR[1], UP_VECTOR[2]);
+
+                break;
+        }
+
 
         return viewMatrix;
     }
 
     /**
-     * Calculates view matrix using given position and camera orientation.
-     *
-     * @param position Camera position
-     *
-     * @return View matrix as float array
+     * Sets position of camera based on pitch/yaw and view distance.
+     * Note that this will overwrite whatever the previous values were.
      */
 
-    public float[] getView(float[] position) {
-        Matrix.setIdentityM(viewMatrix, 0);
+    private void setThirdPersonCameraPos() {
+        float cameraHeight = viewDistance * (float) Math.sin(Math.toRadians(pitch));
+        float cameraLength = viewDistance * (float) Math.cos(Math.toRadians(pitch));
 
-        Matrix.setIdentityM(translationMatrix, 0);
-        Matrix.translateM(translationMatrix, 0, -position[0], -position[1], -position[2]);
+        float offsetX = cameraLength * (float) Math.sin(Math.toRadians(yaw));
+        float offsetZ = cameraLength * (float) Math.cos(Math.toRadians(yaw));
 
-        float[] rotationMatrix = getOrientation();
-
-        Matrix.multiplyMM(viewMatrix, 0, rotationMatrix, 0, translationMatrix, 0);
-
-        return viewMatrix;
+        eyeX = lookX - offsetX;
+        eyeY = lookY + cameraHeight;
+        eyeZ = lookZ - offsetZ;
     }
 
     /**
-     * Calculates projection matrix using internal parameters (set with setProjection() method)
+     * Returns lookAt position for given eye position, using camera's stored values for
+     * pitch/yaw/view distance. Helpful when we want to translate the camera position but
+     * maintain the same orientation (eg. for skybox rendering)
      *
-     * @return Projection matrix as float array
+     * @param eyeX
+     * @param eyeY
+     * @param eyeZ
+     * @return lookAt values in float array {x, y, z}
      */
 
-    public float[] getProjection() {
+    private float[] getThirdPersonLookAt(float eyeX, float eyeY, float eyeZ) {
+        float cameraHeight = viewDistance * (float) Math.sin(Math.toRadians(pitch));
+        float cameraLength = viewDistance * (float) Math.cos(Math.toRadians(pitch));
+
+        float offsetX = cameraLength * (float) Math.sin(Math.toRadians(yaw));
+        float offsetZ = cameraLength * (float) Math.cos(Math.toRadians(yaw));
+
+        // Switch around calculations from setThirdPersonCameraPos() to get lookX/lookY/lookZ for eye pos
+        return new float[] {eyeX + offsetX, eyeY - cameraHeight, eyeZ + offsetZ};
+    }
+
+    /**
+     * Calculates projection matrix (or returns pre-calculated matrix, if no changes were made)
+     *
+     * @return Proj matrix as float array
+     */
+
+    public float[] getProjectionMatrix() {
         if (projectionDirty) {
             Matrix.setIdentityM(projectionMatrix, 0);
             Matrix.perspectiveM(projectionMatrix, 0, fov, screenRatio, near, far);
@@ -211,10 +316,27 @@ public class Camera {
      */
 
     public void moveForwards(float amount) {
-        float[] forwardVector = getForwardVector();
+        switch (cameraMode) {
+            case FREE_CAMERA:
+                float[] forwardVector = getForwardVector();
 
-        eyeX += forwardVector[0] * amount;
-        eyeY += forwardVector[1] * amount;
-        eyeZ += forwardVector[2] * amount;
+                eyeX += forwardVector[0] * amount;
+                eyeY += forwardVector[1] * amount;
+                eyeZ += forwardVector[2] * amount;
+                break;
+
+            case THIRD_PERSON:
+                viewDistance += amount;
+                break;
+
+            case FIRST_PERSON:
+                // Position for 1st person camera shouldn't be modified directly like this
+                break;
+        }
+    }
+
+    public void pan(float x, float y) {
+        eyeX += x;
+        eyeY += y;
     }
 }
